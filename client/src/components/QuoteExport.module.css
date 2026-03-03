@@ -1,0 +1,115 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The export target is rendered off-screen but in the DOM for html2canvas */
+.exportTarget {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 900px;
+  background: #ffffff;
+  padding: 32px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.exportHeader {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #1a8fc1;
+}
+
+.exportTitle {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+}
+
+.exportMeta {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  color: #637080;
+  margin-bottom: 8px;
+}
+
+.exportNotes {
+  font-size: 13px;
+  color: #637080;
+  margin-top: 8px;
+}
+
+.exportGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.exportItem {
+  border: 1px solid #dce8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.exportImgWrapper {
+  width: 100%;
+  padding-top: 70%;
+  position: relative;
+  background: #f4f8fb;
+}
+
+.exportImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.exportImgPlaceholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: #ccc;
+}
+
+.exportItemBody {
+  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+.exportItemTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a2e;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.exportQty {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a8fc1;
+  white-space: nowrap;
+}
+
+.exportFooter {
+  text-align: right;
+  font-size: 11px;
+  color: #aaa;
+  border-top: 1px solid #eee;
+  padding-top: 12px;
+}

@@ -1,0 +1,41 @@
+.page { display: flex; flex-direction: column; gap: 20px; }
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.topActions { display: flex; gap: 8px; }
+
+.quoteHeader { display: flex; flex-direction: column; gap: 8px; }
+.title { font-size: 24px; font-weight: 700; }
+.meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.metaTag {
+  font-size: 12px;
+  padding: 3px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+}
+.notes { font-size: 13px; color: var(--color-text-muted); line-height: 1.5; }
+
+.editCard { padding: 20px; }
+.form { display: flex; flex-direction: column; gap: 12px; }
+.formRow { display: flex; gap: 12px; flex-wrap: wrap; }
+.formActions { display: flex; justify-content: flex-end; }
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .columns { grid-template-columns: 1fr; }
+}
+
+.builderCol { display: flex; flex-direction: column; gap: 16px; }
+.exportCard { padding: 20px; }
+.exportTitle { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 14px; }

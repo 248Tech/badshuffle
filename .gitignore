@@ -1,0 +1,9 @@
+node_modules/
+server/node_modules/
+client/node_modules/
+.env
+server/badshuffle.db
+server/badshuffle.db-shm
+server/badshuffle.db-wal
+dist/
+client/dist/

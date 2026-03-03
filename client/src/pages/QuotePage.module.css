@@ -1,0 +1,15 @@
+.page { display: flex; flex-direction: column; gap: 20px; }
+.header { display: flex; justify-content: space-between; align-items: flex-start; }
+.title { font-size: 22px; font-weight: 700; }
+.sub { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
+.formCard { padding: 20px; }
+.formTitle { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+.form { display: flex; flex-direction: column; gap: 12px; }
+.formRow { display: flex; gap: 12px; flex-wrap: wrap; }
+.formRow .form-group { min-width: 120px; }
+.formActions { display: flex; gap: 8px; justify-content: flex-end; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}

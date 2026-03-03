@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "BadShuffle Sync",
+  "version": "1.0.0",
+  "description": "Syncs Goodshuffle catalog items to your local BadShuffle inventory",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": [
+    "https://*.goodshuffle.com/*",
+    "https://*.goodshuffle.pro/*",
+    "http://localhost:3001/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.goodshuffle.com/*",
+        "https://*.goodshuffle.pro/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

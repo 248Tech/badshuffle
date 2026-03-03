@@ -1,0 +1,39 @@
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import styles from './Sidebar.module.css';
+
+const NAV = [
+  { to: '/inventory', label: 'Inventory', icon: '📦' },
+  { to: '/import',    label: 'Import',    icon: '⬇️' },
+  { to: '/quotes',    label: 'Quotes',    icon: '📋' },
+  { to: '/stats',     label: 'Stats',     icon: '📊' },
+];
+
+export default function Sidebar() {
+  return (
+    <nav className={styles.sidebar}>
+      <div className={styles.logo}>
+        <span className={styles.logoIcon}>🔀</span>
+        <span className={styles.logoText}>BadShuffle</span>
+      </div>
+      <ul className={styles.nav}>
+        {NAV.map(item => (
+          <li key={item.to}>
+            <NavLink
+              to={item.to}
+              className={({ isActive }) =>
+                `${styles.link} ${isActive ? styles.active : ''}`
+              }
+            >
+              <span className={styles.icon}>{item.icon}</span>
+              {item.label}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+      <div className={styles.footer}>
+        <span className={styles.footerText}>Goodshuffle Assistant</span>
+      </div>
+    </nav>
+  );
+}

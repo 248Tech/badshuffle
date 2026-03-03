@@ -1,0 +1,17 @@
+{
+  "name": "badshuffle",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "build:client": "npm run build --prefix client",
+    "package:server": "pkg server/index.js --target node14-win-x64 --output dist/badshuffle-server.exe",
+    "package:client": "pkg client/serve.js --target node14-win-x64 --output dist/badshuffle-client.exe",
+    "package": "npm run build:client && npm run package:server && npm run package:client && node scripts/postpackage.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "pkg": "^5.8.1"
+  }
+}

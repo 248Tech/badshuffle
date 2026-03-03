@@ -1,0 +1,161 @@
+const express = require('express');
+
+module.exports = function makeRouter(db) {
+  const router = express.Router();
+
+  // GET /api/quotes
+  router.get('/', (req, res) => {
+    const quotes = db.prepare('SELECT * FROM quotes ORDER BY created_at DESC').all();
+    res.json({ quotes });
+  });
+
+  // GET /api/quotes/:id
+  router.get('/:id', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+
+    const items = db.prepare(`
+      SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order,
+             i.id, i.title, i.photo_url, i.source, i.hidden
+      FROM quote_items qi
+      JOIN items i ON i.id = qi.item_id
+      WHERE qi.quote_id = ?
+      ORDER BY qi.sort_order ASC, qi.id ASC
+    `).all(req.params.id);
+
+    res.json({ ...quote, items });
+  });
+
+  // POST /api/quotes
+  router.post('/', (req, res) => {
+    const { name, guest_count = 0, event_date, notes } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+
+    const result = db.prepare(
+      'INSERT INTO quotes (name, guest_count, event_date, notes) VALUES (?, ?, ?, ?)'
+    ).run(name, guest_count, event_date || null, notes || null);
+
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json({ quote });
+  });
+
+  // PUT /api/quotes/:id
+  router.put('/:id', (req, res) => {
+    const { name, guest_count, event_date, notes } = req.body;
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+
+    db.prepare(`
+      UPDATE quotes SET
+        name        = COALESCE(?, name),
+        guest_count = COALESCE(?, guest_count),
+        event_date  = COALESCE(?, event_date),
+        notes       = COALESCE(?, notes),
+        updated_at  = datetime('now')
+      WHERE id = ?
+    `).run(
+      name || null,
+      guest_count !== undefined ? guest_count : null,
+      event_date !== undefined ? event_date : null,
+      notes !== undefined ? notes : null,
+      req.params.id
+    );
+
+    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    res.json({ quote: updated });
+  });
+
+  // DELETE /api/quotes/:id
+  router.delete('/:id', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+
+    db.prepare('DELETE FROM quotes WHERE id = ?').run(req.params.id);
+    res.json({ deleted: true });
+  });
+
+  // POST /api/quotes/:id/items
+  router.post('/:id/items', (req, res) => {
+    const { item_id, quantity = 1, label, sort_order = 0 } = req.body;
+    if (!item_id) return res.status(400).json({ error: 'item_id required' });
+
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Quote not found' });
+
+    const item = db.prepare('SELECT * FROM items WHERE id = ?').get(item_id);
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+
+    const result = db.prepare(
+      'INSERT INTO quote_items (quote_id, item_id, quantity, label, sort_order) VALUES (?, ?, ?, ?, ?)'
+    ).run(req.params.id, item_id, quantity, label || null, sort_order);
+
+    // Upsert item_stats
+    const guestCount = quote.guest_count || 0;
+    const existing = db.prepare('SELECT id, times_quoted, total_guests FROM item_stats WHERE item_id = ?').get(item_id);
+    if (existing) {
+      db.prepare(`
+        UPDATE item_stats SET
+          times_quoted = times_quoted + 1,
+          total_guests = total_guests + ?,
+          last_used_at = datetime('now')
+        WHERE item_id = ?
+      `).run(guestCount, item_id);
+    } else {
+      db.prepare(
+        "INSERT INTO item_stats (item_id, times_quoted, total_guests, last_used_at) VALUES (?, 1, ?, datetime('now'))"
+      ).run(item_id, guestCount);
+    }
+
+    // Update usage_brackets
+    if (guestCount > 0) {
+      const bMin = Math.floor(guestCount / 25) * 25;
+      const bMax = bMin + 24;
+      const existingBracket = db.prepare(
+        'SELECT id FROM usage_brackets WHERE item_id = ? AND bracket_min = ?'
+      ).get(item_id, bMin);
+
+      if (existingBracket) {
+        db.prepare('UPDATE usage_brackets SET times_used = times_used + 1 WHERE id = ?')
+          .run(existingBracket.id);
+      } else {
+        db.prepare(
+          'INSERT INTO usage_brackets (item_id, bracket_min, bracket_max, times_used) VALUES (?, ?, ?, 1)'
+        ).run(item_id, bMin, bMax);
+      }
+    }
+
+    const qitem = db.prepare('SELECT * FROM quote_items WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json({ qitem });
+  });
+
+  // PUT /api/quotes/:id/items/:qitem_id
+  router.put('/:id/items/:qitem_id', (req, res) => {
+    const { quantity, label, sort_order } = req.body;
+
+    db.prepare(`
+      UPDATE quote_items SET
+        quantity   = COALESCE(?, quantity),
+        label      = COALESCE(?, label),
+        sort_order = COALESCE(?, sort_order)
+      WHERE id = ? AND quote_id = ?
+    `).run(
+      quantity !== undefined ? quantity : null,
+      label !== undefined ? label : null,
+      sort_order !== undefined ? sort_order : null,
+      req.params.qitem_id,
+      req.params.id
+    );
+
+    const qitem = db.prepare('SELECT * FROM quote_items WHERE id = ?').get(req.params.qitem_id);
+    res.json({ qitem });
+  });
+
+  // DELETE /api/quotes/:id/items/:qitem_id
+  router.delete('/:id/items/:qitem_id', (req, res) => {
+    db.prepare('DELETE FROM quote_items WHERE id = ? AND quote_id = ?')
+      .run(req.params.qitem_id, req.params.id);
+    res.json({ deleted: true });
+  });
+
+  return router;
+};

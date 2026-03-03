@@ -1,0 +1,88 @@
+.page { display: flex; flex-direction: column; gap: 20px; }
+.header { display: flex; flex-direction: column; gap: 4px; }
+.title { font-size: 22px; font-weight: 700; }
+.sub { font-size: 13px; color: var(--color-text-muted); }
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+}
+.stepActive { color: var(--color-primary); }
+.stepNum {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.stepActive .stepNum { background: var(--color-primary); color: #fff; }
+.stepLabel { font-size: 13px; font-weight: 500; white-space: nowrap; }
+.stepLine { flex: 1; height: 2px; background: var(--color-border); min-width: 24px; margin: 0 4px; }
+
+.card { padding: 24px; }
+.form { display: flex; flex-direction: column; gap: 16px; }
+
+.tip {
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-primary);
+  padding: 10px 14px;
+  font-size: 13px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  line-height: 1.5;
+}
+
+.info { font-size: 13px; color: var(--color-text-muted); }
+
+.previewWrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.previewTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.previewTable th, .previewTable td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  text-align: left;
+}
+.previewTable th { background: var(--color-surface); font-weight: 600; position: sticky; top: 0; }
+.highlightCol { background: #edf8f0 !important; }
+
+.formActions { display: flex; gap: 8px; }
+
+.resultPane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+}
+.resultIcon { font-size: 48px; }
+.resultTitle { font-size: 20px; font-weight: 700; }
+.resultStats { display: flex; gap: 24px; }
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.stat span { font-size: 28px; font-weight: 700; color: var(--color-primary); }
+.stat { font-size: 12px; color: var(--color-text-muted); }
