@@ -1,0 +1,101 @@
+.page { display: flex; flex-direction: column; gap: 20px; }
+.header { display: flex; flex-direction: column; gap: 4px; }
+.title  { font-size: 22px; font-weight: 700; }
+.sub    { font-size: 13px; color: var(--color-text-muted); }
+
+/* Download bar */
+.downloadBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.downloadInfo { display: flex; align-items: center; gap: 14px; }
+.extIcon      { font-size: 36px; }
+.downloadTitle { font-size: 15px; font-weight: 700; }
+.downloadMeta  { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
+.downloadBtn   { white-space: nowrap; }
+
+/* Cards */
+.card { padding: 24px; }
+.sectionTitle { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+
+/* Steps */
+.stepList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stepItem {
+  display: flex;
+  gap: 16px;
+  position: relative;
+}
+.stepItem:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 32px;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-border);
+}
+.stepItem { padding-bottom: 20px; }
+.stepItem:last-child { padding-bottom: 0; }
+
+.stepCircle {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  position: relative;
+  z-index: 1;
+}
+.stepBody  { display: flex; flex-direction: column; gap: 4px; padding-top: 5px; }
+.stepTitle { font-size: 14px; font-weight: 600; }
+.stepDesc  { font-size: 13px; color: var(--color-text-muted); line-height: 1.5; }
+
+/* Inline code */
+.copyCode {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-family: monospace;
+  user-select: all;
+  cursor: text;
+}
+
+/* Feature list */
+.featureList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.featureItem {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  align-items: flex-start;
+}
+.featureBullet {
+  color: var(--color-primary);
+  font-weight: 700;
+  flex-shrink: 0;
+}

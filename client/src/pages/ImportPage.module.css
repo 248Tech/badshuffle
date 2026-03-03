@@ -86,3 +86,58 @@
 }
 .stat span { font-size: 28px; font-weight: 700; color: var(--color-primary); }
 .stat { font-size: 12px; color: var(--color-text-muted); }
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  border-bottom: 2px solid var(--color-border);
+  gap: 0;
+}
+.tab {
+  padding: 8px 18px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  transition: color 0.15s;
+}
+.tab:hover { color: var(--color-text); }
+.tabActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.tabContent { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Drop zone ── */
+.dropZone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 24px;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+}
+.dropZone:hover { border-color: var(--color-primary); background: var(--color-surface); }
+.dropZoneActive { border-color: var(--color-primary); background: var(--color-surface); }
+.dropIcon { font-size: 36px; }
+.dropText { font-size: 14px; color: var(--color-text); }
+.dropSub  { font-size: 12px; color: var(--color-text-muted); }
+.fileInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}

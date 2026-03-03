@@ -30,6 +30,8 @@ export const api = {
   // Sheets
   previewSheet: (url) => request('/sheets/preview', { method: 'POST', body: { url } }),
   importSheet: (body) => request('/sheets/import', { method: 'POST', body }),
+  uploadSheet: (body) => request('/sheets/upload', { method: 'POST', body }),
+  importSheetData: (body) => request('/sheets/import-data', { method: 'POST', body }),
 
   // Quotes
   getQuotes: () => request('/quotes'),

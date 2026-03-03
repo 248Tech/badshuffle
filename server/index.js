@@ -30,7 +30,7 @@ async function start() {
     credentials: true
   }));
 
-  app.use(express.json());
+  app.use(express.json({ limit: '20mb' }));
 
   app.use('/api/items',  require('./routes/items')(db));
   app.use('/api/sheets', require('./routes/sheets')(db));
@@ -38,6 +38,7 @@ async function start() {
   app.use('/api/stats',  require('./routes/stats')(db));
   app.use('/api/ai',     require('./routes/ai')(db));
   app.use('/api/proxy-image', require('./lib/imageProxy'));
+  app.use('/api/extension',  require('./routes/extension'));
 
   app.get('/api/health', (req, res) => res.json({ ok: true }));
 

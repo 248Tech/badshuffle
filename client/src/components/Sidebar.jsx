@@ -7,6 +7,7 @@ const NAV = [
   { to: '/import',    label: 'Import',    icon: '⬇️' },
   { to: '/quotes',    label: 'Quotes',    icon: '📋' },
   { to: '/stats',     label: 'Stats',     icon: '📊' },
+  { to: '/extension', label: 'Extension', icon: '🧩' },
 ];
 
 export default function Sidebar() {

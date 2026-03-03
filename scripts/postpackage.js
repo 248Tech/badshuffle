@@ -1,12 +1,15 @@
 'use strict';
 /**
- * postpackage.js — run after `pkg` produces both exes.
+ * postpackage.js — run after `pkg` produces all exes.
  * 1. Copies client/dist/ → dist/www/
  * 2. Copies .env.example → dist/.env.example
  * 3. Writes dist/START.bat
+ * 4. Creates dist/www.zip          (for updater downloads)
+ * 5. Creates dist/badshuffle-extension.zip  (for extension install page)
  */
-const fs = require('fs');
-const path = require('path');
+const fs           = require('fs');
+const path         = require('path');
+const { execSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
@@ -55,10 +58,41 @@ start "" "%~dp0badshuffle-server.exe"
 timeout /t 2 /nobreak >nul
 echo Starting BadShuffle client...
 start "" "%~dp0badshuffle-client.exe"
+echo.
+echo To check for updates, run badshuffle-updater.exe
 `;
 
 fs.writeFileSync(path.join(DIST, 'START.bat'), bat);
 console.log('Wrote dist/START.bat');
+
+// ── 4. Create www.zip (for updater downloads) ────────────────────────────────
+
+const wwwZip      = path.join(DIST, 'www.zip');
+const wwwContents = www + '\\*';
+console.log('Creating dist/www.zip …');
+execSync(`powershell -Command "Compress-Archive -Path '${wwwContents}' -DestinationPath '${wwwZip}' -Force"`);
+console.log('Created dist/www.zip');
+
+// ── 5. Create badshuffle-extension.zip (for extension install page) ──────────
+
+const extensionSrc = path.join(ROOT, 'extension');
+const extZip       = path.join(DIST, 'badshuffle-extension.zip');
+
+if (fs.existsSync(extensionSrc)) {
+  const extContents = extensionSrc + '\\*';
+  console.log('Creating dist/badshuffle-extension.zip …');
+  // Use a temp dir so files end up under badshuffle-extension/ inside the zip
+  const tmpExt = path.join(DIST, '_ext_tmp', 'badshuffle-extension');
+  fs.mkdirSync(tmpExt, { recursive: true });
+  copyDirSync(extensionSrc, tmpExt);
+  const tmpFolder = path.join(DIST, '_ext_tmp', 'badshuffle-extension');
+  execSync(`powershell -Command "Compress-Archive -Path '${tmpFolder}' -DestinationPath '${extZip}' -Force"`);
+  // Clean up temp dir
+  fs.rmSync(path.join(DIST, '_ext_tmp'), { recursive: true, force: true });
+  console.log('Created dist/badshuffle-extension.zip');
+} else {
+  console.warn('WARNING: extension/ folder not found — skipping badshuffle-extension.zip');
+}
 
 console.log('\nDone! dist/ contents:');
 for (const f of fs.readdirSync(DIST)) {
