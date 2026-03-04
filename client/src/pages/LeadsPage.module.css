@@ -1,0 +1,68 @@
+.page { display: flex; flex-direction: column; gap: 20px; }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.title { font-size: 22px; font-weight: 700; }
+.sub { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
+
+.toolbar { display: flex; gap: 10px; }
+
+.search {
+  flex: 1;
+  max-width: 400px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.tableCard { padding: 0; overflow: hidden; }
+
+.tableWrapper { overflow-x: auto; }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th, .table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table th {
+  background: var(--color-surface);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  position: sticky;
+  top: 0;
+}
+
+.table tbody tr:hover { background: var(--color-surface); }
+.table tbody tr:last-child td { border-bottom: none; }
+
+.emailLink { color: var(--color-primary); text-decoration: none; }
+.emailLink:hover { text-decoration: underline; }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.pageInfo { font-size: 13px; color: var(--color-text-muted); }

@@ -1,0 +1,37 @@
+.page { display: flex; flex-direction: column; gap: 20px; }
+.header { display: flex; flex-direction: column; gap: 4px; }
+.title { font-size: 22px; font-weight: 700; }
+.sub { font-size: 13px; color: var(--color-text-muted); }
+
+.card { padding: 24px; }
+
+.section {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin-bottom: 14px;
+  margin-top: 4px;
+}
+
+.row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.row > * { flex: 1; min-width: 200px; }
+
+.hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.form { display: flex; flex-direction: column; }
+
+.actions { display: flex; justify-content: flex-end; }
+
+.link { color: var(--color-primary); text-decoration: none; }
+.link:hover { text-decoration: underline; }

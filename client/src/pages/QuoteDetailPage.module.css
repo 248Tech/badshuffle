@@ -36,6 +36,23 @@
   .columns { grid-template-columns: 1fr; }
 }
 
+.totalsBar {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.total {
+  color: var(--color-primary);
+  font-size: 14px;
+}
+
 .builderCol { display: flex; flex-direction: column; gap: 16px; }
 .exportCard { padding: 20px; }
 .exportTitle { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 14px; }

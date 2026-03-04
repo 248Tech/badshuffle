@@ -41,7 +41,7 @@ export const api = {
 
   // Items
   getItems: (params = {}) => {
-    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined));
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''));
     return request(`/items?${qs}`);
   },
   getItem: (id) => request(`/items/${id}`),
@@ -49,6 +49,7 @@ export const api = {
   upsertItem: (body) => request('/items/upsert', { method: 'POST', body }),
   updateItem: (id, body) => request(`/items/${id}`, { method: 'PUT', body }),
   deleteItem: (id) => request(`/items/${id}`, { method: 'DELETE' }),
+  getCategories: () => request('/items/categories'),
   getAssociations: (id) => request(`/items/${id}/associations`),
   addAssociation: (id, child_id) => request(`/items/${id}/associations`, { method: 'POST', body: { child_id } }),
   removeAssociation: (id, child_id) => request(`/items/${id}/associations/${child_id}`, { method: 'DELETE' }),
@@ -58,6 +59,21 @@ export const api = {
   importSheet: (body) => request('/sheets/import', { method: 'POST', body }),
   uploadSheet: (body) => request('/sheets/upload', { method: 'POST', body }),
   importSheetData: (body) => request('/sheets/import-data', { method: 'POST', body }),
+  uploadPdf: (file) => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('file', file);
+    return fetch(`${BASE}/sheets/upload-pdf`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    }).then(async r => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      return data;
+    });
+  },
+  importPdfQuote: (text) => request('/sheets/import-pdf-quote', { method: 'POST', body: { text } }),
 
   // Quotes
   getQuotes: () => request('/quotes'),
@@ -68,6 +84,18 @@ export const api = {
   addQuoteItem: (quoteId, body) => request(`/quotes/${quoteId}/items`, { method: 'POST', body }),
   updateQuoteItem: (quoteId, qitemId, body) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'PUT', body }),
   removeQuoteItem: (quoteId, qitemId) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'DELETE' }),
+
+  // Settings
+  getSettings: () => request('/settings'),
+  updateSettings: (body) => request('/settings', { method: 'PUT', body }),
+
+  // Leads
+  getLeads: (params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''));
+    return request(`/leads?${qs}`);
+  },
+  createLead: (body) => request('/leads', { method: 'POST', body }),
+  deleteLead: (id) => request(`/leads/${id}`, { method: 'DELETE' }),
 
   // Stats
   getStats: () => request('/stats'),

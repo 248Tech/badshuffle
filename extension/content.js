@@ -60,7 +60,6 @@ function getItemContainer(imgEl) {
 }
 
 function isHiddenItem(container) {
-  // Hidden/associated items are often nested under a sub-list or have CSS classes
   const hiddenClues = [
     '.sub-items',
     '.accessories',
@@ -77,6 +76,75 @@ function isHiddenItem(container) {
   return false;
 }
 
+function extractPrice(container) {
+  // Try data attribute first
+  const withData = container.querySelector('[data-price]');
+  if (withData) {
+    const p = parseFloat(withData.getAttribute('data-price'));
+    if (!isNaN(p)) return p;
+  }
+  // Try price class
+  const priceEl = container.querySelector('.price, .item-price, .unit-price');
+  if (priceEl) {
+    const m = priceEl.textContent.match(/\$?([\d,]+\.?\d*)/);
+    if (m) return parseFloat(m[1].replace(/,/g, ''));
+  }
+  // Scan text nodes for $xx.xx pattern
+  const text = container.textContent;
+  const m = text.match(/\$\s*([\d,]+\.?\d{2})/);
+  if (m) return parseFloat(m[1].replace(/,/g, ''));
+  return null;
+}
+
+function extractCategory(container) {
+  const withData = container.querySelector('[data-category]');
+  if (withData) return withData.getAttribute('data-category').trim() || null;
+  // Try breadcrumb
+  const breadcrumb = document.querySelector('.breadcrumb li:nth-last-child(2), .category-name');
+  if (breadcrumb) return breadcrumb.textContent.trim() || null;
+  return null;
+}
+
+function extractQuantity(container) {
+  const withData = container.querySelector('[data-quantity]');
+  if (withData) {
+    const q = parseInt(withData.getAttribute('data-quantity'), 10);
+    if (!isNaN(q)) return q;
+  }
+  const qInput = container.querySelector('input#quantity, input[name="quantity"], input.quantity');
+  if (qInput) {
+    const q = parseInt(qInput.value, 10);
+    if (!isNaN(q)) return q;
+  }
+  return null;
+}
+
+function extractDescription(container) {
+  const descEl = container.querySelector('.item-description, .product-description');
+  if (descEl) return descEl.textContent.trim().slice(0, 500) || null;
+  const detailsEl = container.querySelector('.item-details p, .product-details p');
+  if (detailsEl) return detailsEl.textContent.trim().slice(0, 500) || null;
+  return null;
+}
+
+function extractLeadInfo() {
+  // Try to extract contact info from a Goodshuffle quote detail page
+  const getText = (sel) => {
+    const el = document.querySelector(sel);
+    return el ? el.textContent.trim() : null;
+  };
+
+  const name = getText('.client-name, .contact-name, [ng-bind*="client.name"], [ng-bind*="contact.name"]');
+  const email = getText('.client-email, .contact-email, [ng-bind*="client.email"]');
+  const phone = getText('.client-phone, .contact-phone, [ng-bind*="client.phone"]');
+  const event_date = getText('.event-date, [ng-bind*="event.date"]');
+  const event_type = getText('.event-type, [ng-bind*="event.type"]');
+
+  if (!name && !email && !phone) return null;
+
+  return { name, email, phone, event_date, event_type, source_url: window.location.href };
+}
+
 function extractItems() {
   const imgs = Array.from(document.querySelectorAll('img'));
   const cfImgs = imgs.filter(img => {
@@ -86,7 +154,7 @@ function extractItems() {
 
   const seen = new Map(); // title -> item
   const items = [];
-  const parentChildPairs = []; // [{parent_title, child_title}]
+  const parentChildPairs = [];
 
   for (const img of cfImgs) {
     const container = getItemContainer(img);
@@ -95,14 +163,16 @@ function extractItems() {
 
     const photo_url = img.src || img.getAttribute('ng-src') || null;
     const hidden = isHiddenItem(container);
+    const unit_price = extractPrice(container);
+    const category = extractCategory(container);
+    const quantity_in_stock = extractQuantity(container);
+    const description = extractDescription(container);
 
     if (!seen.has(title)) {
-      seen.set(title, { title, photo_url, hidden });
-      items.push({ title, photo_url, hidden });
+      seen.set(title, { title, photo_url, hidden, unit_price, category, quantity_in_stock, description });
+      items.push({ title, photo_url, hidden, unit_price, category, quantity_in_stock, description });
 
-      // Try to detect parent-child relationship
       if (hidden) {
-        // Walk up to find parent container
         let parentEl = container.parentElement;
         for (let i = 0; i < 5; i++) {
           if (!parentEl || parentEl === document.body) break;
@@ -117,7 +187,8 @@ function extractItems() {
     }
   }
 
-  return { items, parentChildPairs };
+  const lead = extractLeadInfo();
+  return { items, parentChildPairs, lead };
 }
 
 function sendToBackground(data) {
@@ -125,10 +196,10 @@ function sendToBackground(data) {
 }
 
 // Initial scrape
-const { items, parentChildPairs } = extractItems();
+const { items, parentChildPairs, lead } = extractItems();
 if (items.length > 0) {
   console.log(`[BadShuffle] Found ${items.length} items on page`);
-  sendToBackground({ items, parentChildPairs });
+  sendToBackground({ items, parentChildPairs, lead });
 }
 
 // Watch for AngularJS lazy-loaded content
@@ -136,9 +207,9 @@ let debounceTimer = null;
 const observer = new MutationObserver(() => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    const { items: newItems, parentChildPairs: newPairs } = extractItems();
+    const { items: newItems, parentChildPairs: newPairs, lead: newLead } = extractItems();
     if (newItems.length > 0) {
-      sendToBackground({ items: newItems, parentChildPairs: newPairs });
+      sendToBackground({ items: newItems, parentChildPairs: newPairs, lead: newLead });
     }
   }, 500);
 });

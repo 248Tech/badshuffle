@@ -26,14 +26,32 @@ async function upsertItem(item, extToken) {
       title: item.title,
       photo_url: item.photo_url || null,
       source: 'extension',
-      hidden: item.hidden ? 1 : 0
+      hidden: item.hidden ? 1 : 0,
+      unit_price: item.unit_price != null ? item.unit_price : undefined,
+      category: item.category || undefined,
+      quantity_in_stock: item.quantity_in_stock != null ? item.quantity_in_stock : undefined,
+      description: item.description || undefined,
+      taxable: 1
     })
   });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
 }
 
-async function syncItems(items, parentChildPairs) {
+async function saveLead(lead, extToken) {
+  if (!lead) return;
+  try {
+    await fetch(`${API_BASE}/leads`, {
+      method: 'POST',
+      headers: authHeaders(extToken),
+      body: JSON.stringify(lead)
+    });
+  } catch (e) {
+    console.error('[BadShuffle] lead save failed:', e.message);
+  }
+}
+
+async function syncItems(items, parentChildPairs, lead) {
   const extToken = await getExtToken();
   const results = { created: 0, updated: 0, errors: 0 };
   const titleToId = {};
@@ -68,15 +86,20 @@ async function syncItems(items, parentChildPairs) {
     }
   }
 
+  // Save lead contact info if found
+  if (lead) {
+    await saveLead(lead, extToken);
+  }
+
   return results;
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type !== 'SYNC_ITEMS') return;
 
-  const { items = [], parentChildPairs = [] } = message;
+  const { items = [], parentChildPairs = [], lead = null } = message;
 
-  syncItems(items, parentChildPairs)
+  syncItems(items, parentChildPairs, lead)
     .then(results => {
       const summary = `Synced ${items.length} items: ${results.created} new, ${results.updated} updated, ${results.errors} errors`;
       console.log('[BadShuffle]', summary);

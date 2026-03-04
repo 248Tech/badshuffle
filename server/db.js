@@ -195,7 +195,41 @@ async function initDb() {
       id    INTEGER PRIMARY KEY AUTOINCREMENT,
       token TEXT NOT NULL UNIQUE
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key   TEXT PRIMARY KEY,
+      value TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS leads (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT,
+      email       TEXT,
+      phone       TEXT,
+      event_date  TEXT,
+      event_type  TEXT,
+      source_url  TEXT,
+      notes       TEXT,
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
   `);
+
+  // Add new columns to items (safe — ignore if already exist)
+  for (const col of [
+    'ALTER TABLE items ADD COLUMN quantity_in_stock INTEGER DEFAULT 0',
+    'ALTER TABLE items ADD COLUMN unit_price REAL DEFAULT 0',
+    'ALTER TABLE items ADD COLUMN category TEXT',
+    'ALTER TABLE items ADD COLUMN description TEXT',
+    'ALTER TABLE items ADD COLUMN taxable INTEGER DEFAULT 1',
+  ]) {
+    try { db.exec(col); } catch {}
+  }
+
+  // Seed default settings
+  const defaults = { tax_rate: '0', currency: 'USD', company_name: '', company_email: '' };
+  for (const [k, v] of Object.entries(defaults)) {
+    db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
+  }
 
   return db;
 }

@@ -3,29 +3,101 @@ const express = require('express');
 module.exports = function makeRouter(db) {
   const router = express.Router();
 
+  // GET /api/items/categories — must come before /:id
+  router.get('/categories', (req, res) => {
+    const rows = db.prepare(
+      "SELECT DISTINCT category FROM items WHERE category IS NOT NULL AND category != '' ORDER BY category"
+    ).all();
+    res.json({ categories: rows.map(r => r.category) });
+  });
+
   // GET /api/items
   router.get('/', (req, res) => {
-    const { search, hidden } = req.query;
-    let query = 'SELECT * FROM items WHERE 1=1';
+    const { search, hidden, category } = req.query;
+    let query = `
+      SELECT items.*,
+        (SELECT COALESCE(SUM(qi.quantity),0) FROM quote_items qi
+         WHERE qi.item_id = items.id) AS quantity_going_out
+      FROM items WHERE 1=1
+    `;
     const params = [];
 
     if (search) {
-      query += ' AND title LIKE ?';
+      query += ' AND items.title LIKE ?';
       params.push(`%${search}%`);
     }
     if (hidden !== undefined) {
-      query += ' AND hidden = ?';
+      query += ' AND items.hidden = ?';
       params.push(hidden === '1' ? 1 : 0);
     }
-    query += ' ORDER BY title ASC';
+    if (category) {
+      query += ' AND items.category = ?';
+      params.push(category);
+    }
+    query += ' ORDER BY items.title ASC';
 
     const items = db.prepare(query).all(...params);
     res.json({ items, total: items.length });
   });
 
+  // POST /api/items/upsert — must come BEFORE /:id route
+  router.post('/upsert', (req, res) => {
+    const {
+      title, photo_url, source = 'manual', hidden = 0,
+      quantity_in_stock, unit_price, category, description, taxable
+    } = req.body;
+    if (!title) return res.status(400).json({ error: 'title required' });
+
+    const existing = db.prepare('SELECT * FROM items WHERE title = ? COLLATE NOCASE').get(title);
+
+    if (existing) {
+      db.prepare(`
+        UPDATE items SET
+          photo_url         = COALESCE(?, photo_url),
+          source            = ?,
+          hidden            = ?,
+          quantity_in_stock = COALESCE(?, quantity_in_stock),
+          unit_price        = COALESCE(?, unit_price),
+          category          = COALESCE(?, category),
+          description       = COALESCE(?, description),
+          taxable           = COALESCE(?, taxable),
+          updated_at        = datetime('now')
+        WHERE id = ?
+      `).run(
+        photo_url || null, source, hidden ? 1 : 0,
+        quantity_in_stock != null ? quantity_in_stock : null,
+        unit_price != null ? unit_price : null,
+        category || null,
+        description || null,
+        taxable != null ? (taxable ? 1 : 0) : null,
+        existing.id
+      );
+      const updated = db.prepare('SELECT * FROM items WHERE id = ?').get(existing.id);
+      return res.json({ item: updated, created: false });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, taxable)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      title, photo_url || null, source, hidden ? 1 : 0,
+      quantity_in_stock != null ? quantity_in_stock : 0,
+      unit_price != null ? unit_price : 0,
+      category || null, description || null,
+      taxable != null ? (taxable ? 1 : 0) : 1
+    );
+    const item = db.prepare('SELECT * FROM items WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json({ item, created: true });
+  });
+
   // GET /api/items/:id
   router.get('/:id', (req, res) => {
-    const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
+    const item = db.prepare(`
+      SELECT items.*,
+        (SELECT COALESCE(SUM(qi.quantity),0) FROM quote_items qi
+         WHERE qi.item_id = items.id) AS quantity_going_out
+      FROM items WHERE items.id = ?
+    `).get(req.params.id);
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     const associations = db.prepare(`
@@ -35,19 +107,32 @@ module.exports = function makeRouter(db) {
       ORDER BY i.title ASC
     `).all(item.id);
 
-    res.json({ ...item, associations });
+    const quote_history = db.prepare(`
+      SELECT q.id, q.name, q.event_date, qi.quantity, qi.label
+      FROM quotes q JOIN quote_items qi ON qi.quote_id = q.id
+      WHERE qi.item_id = ?
+      ORDER BY q.created_at DESC LIMIT 20
+    `).all(item.id);
+
+    res.json({ ...item, associations, quote_history });
   });
 
   // POST /api/items
   router.post('/', (req, res) => {
-    const { title, photo_url, source = 'manual', hidden = 0 } = req.body;
+    const {
+      title, photo_url, source = 'manual', hidden = 0,
+      quantity_in_stock = 0, unit_price = 0, category, description, taxable = 1
+    } = req.body;
     if (!title) return res.status(400).json({ error: 'title required' });
 
     try {
-      const result = db.prepare(
-        'INSERT INTO items (title, photo_url, source, hidden) VALUES (?, ?, ?, ?)'
-      ).run(title, photo_url || null, source, hidden ? 1 : 0);
-
+      const result = db.prepare(`
+        INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, taxable)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        title, photo_url || null, source, hidden ? 1 : 0,
+        quantity_in_stock, unit_price, category || null, description || null, taxable ? 1 : 0
+      );
       const item = db.prepare('SELECT * FROM items WHERE id = ?').get(result.lastInsertRowid);
       res.status(201).json({ item });
     } catch (e) {
@@ -56,54 +141,38 @@ module.exports = function makeRouter(db) {
     }
   });
 
-  // POST /api/items/upsert — must come BEFORE /:id route
-  router.post('/upsert', (req, res) => {
-    const { title, photo_url, source = 'manual', hidden = 0 } = req.body;
-    if (!title) return res.status(400).json({ error: 'title required' });
-
-    const existing = db.prepare('SELECT * FROM items WHERE title = ? COLLATE NOCASE').get(title);
-
-    if (existing) {
-      db.prepare(`
-        UPDATE items SET
-          photo_url  = COALESCE(?, photo_url),
-          source     = ?,
-          hidden     = ?,
-          updated_at = datetime('now')
-        WHERE id = ?
-      `).run(photo_url || null, source, hidden ? 1 : 0, existing.id);
-
-      const updated = db.prepare('SELECT * FROM items WHERE id = ?').get(existing.id);
-      return res.json({ item: updated, created: false });
-    }
-
-    const result = db.prepare(
-      'INSERT INTO items (title, photo_url, source, hidden) VALUES (?, ?, ?, ?)'
-    ).run(title, photo_url || null, source, hidden ? 1 : 0);
-
-    const item = db.prepare('SELECT * FROM items WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json({ item, created: true });
-  });
-
   // PUT /api/items/:id
   router.put('/:id', (req, res) => {
-    const { title, photo_url, source, hidden } = req.body;
+    const {
+      title, photo_url, source, hidden,
+      quantity_in_stock, unit_price, category, description, taxable
+    } = req.body;
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     db.prepare(`
       UPDATE items SET
-        title      = COALESCE(?, title),
-        photo_url  = COALESCE(?, photo_url),
-        source     = COALESCE(?, source),
-        hidden     = COALESCE(?, hidden),
-        updated_at = datetime('now')
+        title             = COALESCE(?, title),
+        photo_url         = COALESCE(?, photo_url),
+        source            = COALESCE(?, source),
+        hidden            = COALESCE(?, hidden),
+        quantity_in_stock = COALESCE(?, quantity_in_stock),
+        unit_price        = COALESCE(?, unit_price),
+        category          = COALESCE(?, category),
+        description       = COALESCE(?, description),
+        taxable           = COALESCE(?, taxable),
+        updated_at        = datetime('now')
       WHERE id = ?
     `).run(
       title || null,
       photo_url !== undefined ? photo_url : null,
       source || null,
       hidden !== undefined ? (hidden ? 1 : 0) : null,
+      quantity_in_stock != null ? quantity_in_stock : null,
+      unit_price != null ? unit_price : null,
+      category !== undefined ? (category || null) : null,
+      description !== undefined ? (description || null) : null,
+      taxable != null ? (taxable ? 1 : 0) : null,
       req.params.id
     );
 
@@ -115,7 +184,6 @@ module.exports = function makeRouter(db) {
   router.delete('/:id', (req, res) => {
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
     if (!item) return res.status(404).json({ error: 'Not found' });
-
     db.prepare('DELETE FROM items WHERE id = ?').run(req.params.id);
     res.json({ deleted: true });
   });
@@ -135,7 +203,6 @@ module.exports = function makeRouter(db) {
   router.post('/:id/associations', (req, res) => {
     const { child_id } = req.body;
     if (!child_id) return res.status(400).json({ error: 'child_id required' });
-
     try {
       db.prepare(
         'INSERT OR IGNORE INTO item_associations (parent_id, child_id) VALUES (?, ?)'

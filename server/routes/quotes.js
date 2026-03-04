@@ -16,7 +16,8 @@ module.exports = function makeRouter(db) {
 
     const items = db.prepare(`
       SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order,
-             i.id, i.title, i.photo_url, i.source, i.hidden
+             i.id, i.title, i.photo_url, i.source, i.hidden,
+             i.unit_price, i.taxable
       FROM quote_items qi
       JOIN items i ON i.id = qi.item_id
       WHERE qi.quote_id = ?

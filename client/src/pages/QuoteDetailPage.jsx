@@ -7,12 +7,27 @@ import AISuggestModal from '../components/AISuggestModal.jsx';
 import { useToast } from '../components/Toast.jsx';
 import styles from './QuoteDetailPage.module.css';
 
+function computeTotals(items, taxRate) {
+  const subtotal = (items || []).reduce((sum, it) => {
+    const price = (it.unit_price || 0) * (it.quantity || 1);
+    return sum + price;
+  }, 0);
+  const taxableSubtotal = (items || []).reduce((sum, it) => {
+    if (it.taxable === 0) return sum;
+    return sum + (it.unit_price || 0) * (it.quantity || 1);
+  }, 0);
+  const rate = parseFloat(taxRate) || 0;
+  const tax = taxableSubtotal * (rate / 100);
+  return { subtotal, tax, total: subtotal + tax, rate };
+}
+
 export default function QuoteDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
 
   const [quote, setQuote] = useState(null);
+  const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
@@ -35,6 +50,9 @@ export default function QuoteDetailPage() {
   }, [id, navigate]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    api.getSettings().then(s => setSettings(s)).catch(() => {});
+  }, []);
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
@@ -72,6 +90,8 @@ export default function QuoteDetailPage() {
   const date = quote.event_date
     ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString()
     : null;
+
+  const totals = computeTotals(quote.items, settings.tax_rate);
 
   return (
     <div className={styles.page}>
@@ -136,6 +156,14 @@ export default function QuoteDetailPage() {
             </span>
           </div>
           {quote.notes && <p className={styles.notes}>{quote.notes}</p>}
+
+          {totals.subtotal > 0 && (
+            <div className={styles.totalsBar}>
+              <span>Subtotal: <strong>${totals.subtotal.toFixed(2)}</strong></span>
+              {totals.rate > 0 && <span>Tax ({totals.rate}%): <strong>${totals.tax.toFixed(2)}</strong></span>}
+              {totals.rate > 0 && <span className={styles.total}>Total: <strong>${totals.total.toFixed(2)}</strong></span>}
+            </div>
+          )}
         </div>
       )}
 
@@ -150,7 +178,7 @@ export default function QuoteDetailPage() {
         <div className={styles.exportCol}>
           <div className={`card ${styles.exportCard}`}>
             <h3 className={styles.exportTitle}>Export</h3>
-            <QuoteExport quote={quote} />
+            <QuoteExport quote={quote} settings={settings} totals={totals} />
           </div>
         </div>
       </div>

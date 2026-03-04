@@ -1,0 +1,133 @@
+.page { display: flex; flex-direction: column; gap: 20px; }
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 700px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+.imageCol {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.imgWrapper {
+  width: 100%;
+  padding-top: 75%;
+  position: relative;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imgPlaceholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56px;
+  color: #ccc;
+}
+
+.catBadge {
+  align-self: flex-start;
+}
+
+.infoCol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.metaGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.metaLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.metaValue {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sectionTitle {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.form { display: flex; flex-direction: column; gap: 12px; }
+.formRow { display: flex; gap: 12px; flex-wrap: wrap; }
+.formRow > * { flex: 1; min-width: 120px; }
+.checkboxRow { display: flex; gap: 20px; }
+.check { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.formActions { display: flex; justify-content: flex-end; }
+
+.historyCard { padding: 20px; }
+.historyTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.historyTable th, .historyTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+.historyTable th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+}
+
+.quoteLink { color: var(--color-primary); text-decoration: none; }
+.quoteLink:hover { text-decoration: underline; }

@@ -7,6 +7,9 @@ import QuotePage from './pages/QuotePage.jsx';
 import QuoteDetailPage from './pages/QuoteDetailPage.jsx';
 import StatsPage from './pages/StatsPage.jsx';
 import ExtensionPage from './pages/ExtensionPage.jsx';
+import ItemDetailPage from './pages/ItemDetailPage.jsx';
+import SettingsPage from './pages/SettingsPage.jsx';
+import LeadsPage from './pages/LeadsPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import SetupPage from './pages/SetupPage.jsx';
 import ForgotPage from './pages/ForgotPage.jsx';
@@ -52,11 +55,14 @@ export default function App() {
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Navigate to="/inventory" replace />} />
               <Route path="inventory" element={<InventoryPage />} />
+              <Route path="inventory/:id" element={<ItemDetailPage />} />
               <Route path="import" element={<ImportPage />} />
               <Route path="quotes" element={<QuotePage />} />
               <Route path="quotes/:id" element={<QuoteDetailPage />} />
               <Route path="stats" element={<StatsPage />} />
               <Route path="extension" element={<ExtensionPage />} />
+              <Route path="leads" element={<LeadsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Routes>
         </AuthGate>

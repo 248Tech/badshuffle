@@ -47,6 +47,8 @@ async function start() {
   app.use('/api/ai',          auth, require('./routes/ai')(db));
   app.use('/api/proxy-image', auth, require('./lib/imageProxy'));
   app.use('/api/extension',   auth, require('./routes/extension'));
+  app.use('/api/settings',    auth, require('./routes/settings')(db));
+  app.use('/api/leads',       auth, require('./routes/leads')(db));
 
   app.listen(PORT, () => {
     console.log(`BadShuffle server running on http://localhost:${PORT}`);

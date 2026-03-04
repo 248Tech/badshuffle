@@ -1,6 +1,9 @@
 const express = require('express');
 const Papa = require('papaparse');
+const multer = require('multer');
 const { fetchCsv } = require('../lib/sheetsParser');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 module.exports = function makeRouter(db) {
   const router = express.Router();
@@ -146,6 +149,50 @@ module.exports = function makeRouter(db) {
     } catch (e) {
       res.status(400).json({ error: e.message });
     }
+  });
+
+  // POST /api/sheets/upload-pdf — multipart file upload, returns extracted text
+  router.post('/upload-pdf', upload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'file required' });
+    try {
+      const pdfParse = require('pdf-parse');
+      const data = await pdfParse(req.file.buffer);
+      res.json({ text: data.text });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  // POST /api/sheets/import-pdf-quote — parse text into quote line items
+  router.post('/import-pdf-quote', (req, res) => {
+    const { text } = req.body || {};
+    if (!text) return res.status(400).json({ error: 'text required' });
+
+    const items = [];
+    const lines = text.split('\n');
+    // Match patterns like: "2  Folding Chair  $3.50"  or "2 x Chair $3.50"
+    const lineRe = /^\s*(\d+)\s*[xX]?\s+(.+?)\s+\$?([\d,]+\.?\d*)\s*$/;
+    // Also try simpler: qty then name (no price)
+    const simpleRe = /^\s*(\d+)\s+([A-Za-z].{2,80})\s*$/;
+
+    for (const line of lines) {
+      const m = lineRe.exec(line);
+      if (m) {
+        const quantity = parseInt(m[1], 10);
+        const name = m[2].trim();
+        const unit_price = parseFloat(m[3].replace(/,/g, ''));
+        if (name && quantity > 0) items.push({ name, quantity, unit_price });
+        continue;
+      }
+      const ms = simpleRe.exec(line);
+      if (ms) {
+        const quantity = parseInt(ms[1], 10);
+        const name = ms[2].trim();
+        if (name && quantity > 0) items.push({ name, quantity, unit_price: 0 });
+      }
+    }
+
+    res.json({ items });
   });
 
   return router;

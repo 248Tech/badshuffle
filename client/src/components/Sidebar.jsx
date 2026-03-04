@@ -7,8 +7,10 @@ const NAV = [
   { to: '/inventory', label: 'Inventory', icon: '📦' },
   { to: '/import',    label: 'Import',    icon: '⬇️' },
   { to: '/quotes',    label: 'Quotes',    icon: '📋' },
+  { to: '/leads',     label: 'Leads',     icon: '👤' },
   { to: '/stats',     label: 'Stats',     icon: '📊' },
   { to: '/extension', label: 'Extension', icon: '🧩' },
+  { to: '/settings',  label: 'Settings',  icon: '⚙️' },
 ];
 
 export default function Sidebar() {

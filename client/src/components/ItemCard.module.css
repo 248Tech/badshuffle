@@ -58,6 +58,46 @@
   -webkit-box-orient: vertical;
 }
 
+.categoryBadge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.price {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.stock {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
 .actions {
   display: flex;
   gap: 4px;
