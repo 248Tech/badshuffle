@@ -64,6 +64,7 @@
     .stat-lbl { font-size: 10px; opacity: .7; text-align: center; }
 
     .error { color: #fc8181; font-size: 12px; }
+    .success { color: #68d391; font-size: 12px; }
 
     .open-btn {
       display: block;
@@ -87,6 +88,68 @@
       line-height: 1.5;
       text-align: center;
     }
+
+    /* Connect section */
+    .connect-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .connect-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      opacity: .6;
+    }
+    .connect-desc { font-size: 12px; opacity: .7; line-height: 1.4; }
+    .token-input {
+      width: 100%;
+      padding: 7px 9px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 5px;
+      color: #fff;
+      font-size: 12px;
+      font-family: monospace;
+    }
+    .token-input::placeholder { opacity: .4; }
+    .token-input:focus { outline: none; border-color: #1a8fc1; }
+    .save-btn {
+      padding: 7px 12px;
+      background: #16b2a5;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .save-btn:hover { background: #11998e; }
+    .connected-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .connected-badge {
+      font-size: 12px;
+      color: #68d391;
+      font-weight: 600;
+    }
+    .disconnect-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 4px;
+      color: rgba(255,255,255,0.5);
+      font-size: 11px;
+      padding: 3px 8px;
+      cursor: pointer;
+    }
+    .disconnect-btn:hover { color: #fc8181; border-color: #fc8181; }
   </style>
 </head>
 <body>
@@ -99,6 +162,23 @@
   </div>
 
   <div class="body">
+    <!-- Token connect section -->
+    <div class="connect-card" id="connectCard">
+      <div class="connect-title">API Token</div>
+      <div id="connectForm">
+        <div class="connect-desc">Paste your extension token from the BadShuffle Extension page.</div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input class="token-input" id="tokenInput" type="text" placeholder="Paste token here…" />
+          <button class="save-btn" id="saveBtn">Save</button>
+        </div>
+        <div id="connectMsg" style="margin-top:6px"></div>
+      </div>
+      <div id="connectedRow" class="connected-row" style="display:none">
+        <span class="connected-badge">✓ Connected</span>
+        <button class="disconnect-btn" id="disconnectBtn">Disconnect</button>
+      </div>
+    </div>
+
     <div class="status-card" id="statusCard">
       <div class="status-label">Last Sync</div>
       <div class="status-value" id="statusValue">Checking…</div>

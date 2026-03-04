@@ -1,18 +1,44 @@
 const BASE = (import.meta.env.VITE_API_BASE || '') + '/api';
 
+function getToken() { return localStorage.getItem('bs_token'); }
+function setToken(t) { localStorage.setItem('bs_token', t); }
+function clearToken() { localStorage.removeItem('bs_token'); }
+
 async function request(path, options = {}) {
+  const token = getToken();
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const resp = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers,
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined
   });
+
+  if (resp.status === 401) {
+    clearToken();
+    window.location.href = '/login';
+    throw new Error('Unauthorized');
+  }
 
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
   return data;
 }
 
+export { getToken, setToken, clearToken };
+
 export const api = {
+  // Auth
+  auth: {
+    status: () => request('/auth/status'),
+    setup: (body) => request('/auth/setup', { method: 'POST', body }),
+    login: (body) => request('/auth/login', { method: 'POST', body }),
+    forgot: (body) => request('/auth/forgot', { method: 'POST', body }),
+    reset: (body) => request('/auth/reset', { method: 'POST', body }),
+    extensionToken: () => request('/auth/extension-token')
+  },
+
   // Items
   getItems: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined));

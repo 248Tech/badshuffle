@@ -6,10 +6,22 @@
 
 const API_BASE = 'http://localhost:3001/api';
 
-async function upsertItem(item) {
+async function getExtToken() {
+  return new Promise(resolve => {
+    chrome.storage.local.get(['extToken'], r => resolve(r.extToken || null));
+  });
+}
+
+function authHeaders(extToken) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (extToken) headers['X-Extension-Token'] = extToken;
+  return headers;
+}
+
+async function upsertItem(item, extToken) {
   const resp = await fetch(`${API_BASE}/items/upsert`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(extToken),
     body: JSON.stringify({
       title: item.title,
       photo_url: item.photo_url || null,
@@ -22,13 +34,14 @@ async function upsertItem(item) {
 }
 
 async function syncItems(items, parentChildPairs) {
+  const extToken = await getExtToken();
   const results = { created: 0, updated: 0, errors: 0 };
   const titleToId = {};
 
   // Upsert all items first
   for (const item of items) {
     try {
-      const data = await upsertItem(item);
+      const data = await upsertItem(item, extToken);
       titleToId[item.title] = data.item.id;
       if (data.created) results.created++;
       else results.updated++;
@@ -47,7 +60,7 @@ async function syncItems(items, parentChildPairs) {
     try {
       await fetch(`${API_BASE}/items/${parentId}/associations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(extToken),
         body: JSON.stringify({ child_id: childId })
       });
     } catch (e) {
@@ -68,7 +81,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const summary = `Synced ${items.length} items: ${results.created} new, ${results.updated} updated, ${results.errors} errors`;
       console.log('[BadShuffle]', summary);
 
-      // Save last sync info
       chrome.storage.local.set({
         lastSync: {
           timestamp: new Date().toISOString(),

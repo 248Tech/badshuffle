@@ -6,6 +6,8 @@ require('dotenv').config({ path: dotenvPath });
 const express = require('express');
 const cors = require('cors');
 const initDb = require('./db');
+const requireAuth = require('./lib/authMiddleware');
+const authRouter = require('./routes/auth');
 
 const PORT = process.env.PORT || 3001;
 
@@ -32,15 +34,19 @@ async function start() {
 
   app.use(express.json({ limit: '20mb' }));
 
-  app.use('/api/items',  require('./routes/items')(db));
-  app.use('/api/sheets', require('./routes/sheets')(db));
-  app.use('/api/quotes', require('./routes/quotes')(db));
-  app.use('/api/stats',  require('./routes/stats')(db));
-  app.use('/api/ai',     require('./routes/ai')(db));
-  app.use('/api/proxy-image', require('./lib/imageProxy'));
-  app.use('/api/extension',  require('./routes/extension'));
-
+  // Public routes — no auth
+  app.use('/api/auth', authRouter(db));
   app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+  // Protected routes
+  const auth = requireAuth(db);
+  app.use('/api/items',       auth, require('./routes/items')(db));
+  app.use('/api/sheets',      auth, require('./routes/sheets')(db));
+  app.use('/api/quotes',      auth, require('./routes/quotes')(db));
+  app.use('/api/stats',       auth, require('./routes/stats')(db));
+  app.use('/api/ai',          auth, require('./routes/ai')(db));
+  app.use('/api/proxy-image', auth, require('./lib/imageProxy'));
+  app.use('/api/extension',   auth, require('./routes/extension'));
 
   app.listen(PORT, () => {
     console.log(`BadShuffle server running on http://localhost:${PORT}`);

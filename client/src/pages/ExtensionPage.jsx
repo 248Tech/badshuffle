@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../api';
 import styles from './ExtensionPage.module.css';
 
 const STEPS = [
@@ -71,6 +72,21 @@ const FEATURES = [
 ];
 
 export default function ExtensionPage() {
+  const [extToken, setExtToken] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    api.auth.extensionToken().then(d => setExtToken(d.token)).catch(() => {});
+  }, []);
+
+  function handleCopy() {
+    if (!extToken) return;
+    navigator.clipboard.writeText(extToken).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -111,6 +127,20 @@ export default function ExtensionPage() {
             </li>
           ))}
         </ol>
+      </div>
+
+      {/* Extension API Token */}
+      <div className={`card ${styles.card}`}>
+        <h2 className={styles.sectionTitle}>Extension API token</h2>
+        <p className={styles.tokenDesc}>
+          Paste this token into the extension popup to authorise it to sync items.
+        </p>
+        <div className={styles.tokenRow}>
+          <code className={styles.tokenCode}>{extToken || '…'}</code>
+          <button className={`btn btn-ghost ${styles.copyBtn}`} onClick={handleCopy} disabled={!extToken}>
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
       </div>
 
       {/* What the extension does */}

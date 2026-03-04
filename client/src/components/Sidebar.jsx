@@ -1,6 +1,7 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import styles from './Sidebar.module.css';
+import { clearToken } from '../api';
 
 const NAV = [
   { to: '/inventory', label: 'Inventory', icon: '📦' },
@@ -11,6 +12,13 @@ const NAV = [
 ];
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    clearToken();
+    navigate('/login', { replace: true });
+  }
+
   return (
     <nav className={styles.sidebar}>
       <div className={styles.logo}>
@@ -34,6 +42,7 @@ export default function Sidebar() {
       </ul>
       <div className={styles.footer}>
         <span className={styles.footerText}>Goodshuffle Assistant</span>
+        <button className={styles.logoutBtn} onClick={handleLogout}>Sign out</button>
       </div>
     </nav>
   );

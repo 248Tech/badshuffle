@@ -168,6 +168,33 @@ async function initDb() {
       times_used  INTEGER DEFAULT 0,
       UNIQUE(item_id, bracket_min)
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      email         TEXT    NOT NULL UNIQUE,
+      password_hash TEXT    NOT NULL,
+      created_at    TEXT    DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      ip           TEXT    NOT NULL,
+      attempted_at TEXT    DEFAULT (datetime('now')),
+      success      INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS reset_tokens (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token      TEXT    NOT NULL UNIQUE,
+      expires_at TEXT    NOT NULL,
+      used       INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS extension_tokens (
+      id    INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT NOT NULL UNIQUE
+    );
   `);
 
   return db;

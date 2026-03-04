@@ -79,6 +79,27 @@
   cursor: text;
 }
 
+/* Token */
+.tokenDesc { font-size: 13px; color: var(--color-text-muted); margin-bottom: 12px; }
+.tokenRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+.tokenCode {
+  flex: 1;
+  font-family: monospace;
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--color-text);
+  user-select: all;
+}
+.copyBtn { white-space: nowrap; flex-shrink: 0; }
+
 /* Feature list */
 .featureList {
   display: flex;
