@@ -10,8 +10,9 @@ const NAV = [
   { to: '/leads',     label: 'Leads',     icon: '👤' },
   { to: '/stats',     label: 'Stats',     icon: '📊' },
   { to: '/extension', label: 'Extension', icon: '🧩' },
-  { to: '/admin',     label: 'Admin',     icon: '👥' },
-  { to: '/settings',  label: 'Settings',  icon: '⚙️' },
+  { to: '/admin',     label: 'Admin',     icon: '👥', role: 'admin' },
+  { to: '/templates', label: 'Templates',  icon: '✉️', role: 'operator' },
+  { to: '/settings',  label: 'Settings',  icon: '⚙️', role: 'operator' },
 ];
 
 export default function Sidebar({ role = '' }) {
@@ -29,7 +30,11 @@ export default function Sidebar({ role = '' }) {
     navigate('/login', { replace: true });
   }
 
-  const navItems = role === 'admin' ? NAV : NAV.filter(item => item.to !== '/admin');
+  const navItems = NAV.filter(item => {
+    if (item.role === 'admin') return role === 'admin';
+    if (item.role === 'operator') return role === 'admin' || role === 'operator';
+    return true;
+  });
 
   return (
     <nav className={styles.sidebar}>
@@ -48,7 +53,7 @@ export default function Sidebar({ role = '' }) {
             >
               <span className={styles.icon}>{item.icon}</span>
               {item.label}
-              {item.to === '/admin' && pendingCount > 0 && (
+              {(item.to === '/admin' && pendingCount > 0) && (
                 <span className={styles.pendingBadge}>{pendingCount}</span>
               )}
             </NavLink>

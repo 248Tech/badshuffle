@@ -34,10 +34,55 @@
 .formSection { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--color-border); }
 .formSectionTitle { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
 
-.venueBlock { padding: 12px 0; border-top: 1px solid var(--color-border); }
+.clientVenueRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border);
+}
+@media (max-width: 700px) {
+  .clientVenueRow { grid-template-columns: 1fr; }
+}
+.clientBlock, .venueBlock {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.venueClickable {
+  cursor: pointer;
+  min-height: 60px;
+}
+.venueClickable:hover { border-color: var(--color-primary); }
+.venueForm { display: flex; flex-direction: column; gap: 10px; }
 .venueTitle { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 8px; }
 .venueGrid { display: flex; flex-wrap: wrap; gap: 12px 20px; font-size: 13px; }
 .venueGrid span { white-space: pre-wrap; }
+.emptyHint { font-size: 13px; color: var(--color-text-muted); font-style: italic; margin: 0; }
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  max-width: 480px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+.modalTitle { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+.sendForm { display: flex; flex-direction: column; gap: 12px; }
+.sendForm .formActions { margin-top: 8px; }
 
 .logisticsBlock { padding: 12px 0; border-top: 1px solid var(--color-border); }
 .logisticsTitle { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 8px; }

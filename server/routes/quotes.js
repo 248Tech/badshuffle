@@ -30,16 +30,19 @@ module.exports = function makeRouter(db) {
 
   // POST /api/quotes
   router.post('/', (req, res) => {
-    const { name, guest_count = 0, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate } = req.body;
+    const body = req.body || {};
+    const { name, guest_count = 0, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate } = body;
+    const { client_first_name, client_last_name, client_email, client_phone, client_address } = body;
     if (!name) return res.status(400).json({ error: 'name required' });
 
     const result = db.prepare(
-      `INSERT INTO quotes (name, guest_count, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO quotes (name, guest_count, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate, client_first_name, client_last_name, client_email, client_phone, client_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       name, guest_count, event_date || null, notes || null,
       venue_name || null, venue_email || null, venue_phone || null, venue_address || null, venue_contact || null, venue_notes || null, quote_notes || null,
-      tax_rate != null ? Number(tax_rate) : null
+      tax_rate != null ? Number(tax_rate) : null,
+      client_first_name || null, client_last_name || null, client_email || null, client_phone || null, client_address || null
     );
 
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(result.lastInsertRowid);
@@ -50,6 +53,7 @@ module.exports = function makeRouter(db) {
   router.put('/:id', (req, res) => {
     const body = req.body || {};
     const { name, guest_count, event_date, notes, lead_id, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate } = body;
+    const { client_first_name, client_last_name, client_email, client_phone, client_address } = body;
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     if (!quote) return res.status(404).json({ error: 'Not found' });
 
@@ -68,6 +72,11 @@ module.exports = function makeRouter(db) {
         venue_notes  = COALESCE(?, venue_notes),
         quote_notes  = COALESCE(?, quote_notes),
         tax_rate     = ?,
+        client_first_name = COALESCE(?, client_first_name),
+        client_last_name  = COALESCE(?, client_last_name),
+        client_email      = COALESCE(?, client_email),
+        client_phone      = COALESCE(?, client_phone),
+        client_address    = COALESCE(?, client_address),
         updated_at   = datetime('now')
       WHERE id = ?
     `).run(
@@ -84,6 +93,11 @@ module.exports = function makeRouter(db) {
       venue_notes ?? null,
       quote_notes !== undefined ? quote_notes : null,
       tax_rate !== undefined ? (tax_rate === null ? null : Number(tax_rate)) : quote.tax_rate,
+      client_first_name !== undefined ? client_first_name : null,
+      client_last_name !== undefined ? client_last_name : null,
+      client_email !== undefined ? client_email : null,
+      client_phone !== undefined ? client_phone : null,
+      client_address !== undefined ? client_address : null,
       req.params.id
     );
 
@@ -91,17 +105,21 @@ module.exports = function makeRouter(db) {
     res.json({ quote: updated });
   });
 
-  // POST /api/quotes/:id/send — set status to 'sent', generate public_token
+  // POST /api/quotes/:id/send — optional email; set status to 'sent', generate public_token
   router.post('/:id/send', (req, res) => {
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     if (!quote) return res.status(404).json({ error: 'Not found' });
+
+    const { templateId, subject, bodyHtml, bodyText, toEmail } = req.body || {};
+    // Stub: if SMTP configured we could send here; for now just record and return preview
+    const emailPreview = toEmail ? { to: toEmail, subject: subject || '(No subject)', body: bodyText || bodyHtml || '' } : null;
 
     const token = quote.public_token || crypto.randomBytes(24).toString('hex');
     db.prepare("UPDATE quotes SET status = 'sent', public_token = ?, updated_at = datetime('now') WHERE id = ?")
       .run(token, req.params.id);
 
     const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    res.json({ quote: updated });
+    res.json({ quote: updated, emailPreview });
   });
 
   // POST /api/quotes/:id/approve — set status to 'approved'

@@ -94,7 +94,7 @@ export const api = {
   createQuote: (body) => request('/quotes', { method: 'POST', body }),
   updateQuote: (id, body) => request(`/quotes/${id}`, { method: 'PUT', body }),
   deleteQuote: (id) => request(`/quotes/${id}`, { method: 'DELETE' }),
-  sendQuote: (id) => request(`/quotes/${id}/send`, { method: 'POST' }),
+  sendQuote: (id, body) => request(`/quotes/${id}/send`, { method: 'POST', body: body || {} }),
   approveQuote: (id) => request(`/quotes/${id}/approve`, { method: 'POST' }),
   revertQuote: (id) => request(`/quotes/${id}/revert`, { method: 'POST' }),
   getPublicQuote: (token) => request(`/quotes/public/${token}`),
@@ -105,6 +105,13 @@ export const api = {
   // Settings
   getSettings: () => request('/settings'),
   updateSettings: (body) => request('/settings', { method: 'PUT', body }),
+
+  // Email templates (admin/operator)
+  getTemplates: () => request('/templates'),
+  getTemplate: (id) => request(`/templates/${id}`),
+  createTemplate: (body) => request('/templates', { method: 'POST', body }),
+  updateTemplate: (id, body) => request(`/templates/${id}`, { method: 'PUT', body }),
+  deleteTemplate: (id) => request(`/templates/${id}`, { method: 'DELETE' }),
 
   // Leads
   getLeads: (params = {}) => {

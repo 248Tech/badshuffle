@@ -35,6 +35,8 @@ export default function QuoteDetailPage() {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [showAI, setShowAI] = useState(false);
+  const [venueEditing, setVenueEditing] = useState(false);
+  const [showSendModal, setShowSendModal] = useState(false);
 
   const load = useCallback(() => {
     api.getQuote(id)
@@ -52,7 +54,12 @@ export default function QuoteDetailPage() {
           venue_contact: data.venue_contact || '',
           venue_notes: data.venue_notes || '',
           quote_notes: data.quote_notes || '',
-          tax_rate: data.tax_rate != null ? data.tax_rate : ''
+          tax_rate: data.tax_rate != null ? data.tax_rate : '',
+          client_first_name: data.client_first_name || '',
+          client_last_name: data.client_last_name || '',
+          client_email: data.client_email || '',
+          client_phone: data.client_phone || '',
+          client_address: data.client_address || ''
         });
       })
       .catch(() => navigate('/quotes'))
@@ -80,7 +87,12 @@ export default function QuoteDetailPage() {
         venue_contact: form.venue_contact || null,
         venue_notes: form.venue_notes || null,
         quote_notes: form.quote_notes || null,
-        tax_rate: form.tax_rate === '' ? null : parseFloat(form.tax_rate)
+        tax_rate: form.tax_rate === '' ? null : parseFloat(form.tax_rate),
+        client_first_name: form.client_first_name || null,
+        client_last_name: form.client_last_name || null,
+        client_email: form.client_email || null,
+        client_phone: form.client_phone || null,
+        client_address: form.client_address || null
       });
       toast.success('Quote updated');
       setEditing(false);
@@ -102,13 +114,27 @@ export default function QuoteDetailPage() {
     }
   };
 
-  const handleSend = async () => {
+  const handleSendClick = () => setShowSendModal(true);
+
+  const handleVenueSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
     try {
-      await api.sendQuote(id);
-      toast.success('Quote sent; client link ready.');
+      await api.updateQuote(id, {
+        venue_name: form.venue_name || null,
+        venue_email: form.venue_email || null,
+        venue_phone: form.venue_phone || null,
+        venue_address: form.venue_address || null,
+        venue_contact: form.venue_contact || null,
+        venue_notes: form.venue_notes || null
+      });
+      toast.success('Venue updated');
+      setVenueEditing(false);
       load();
     } catch (e) {
       toast.error(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -167,6 +193,18 @@ export default function QuoteDetailPage() {
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
             <div className={styles.formSection}>
+              <h4 className={styles.formSectionTitle}>Client information</h4>
+              <div className={styles.formRow}>
+                <div className="form-group"><label>First name</label><input value={form.client_first_name || ''} onChange={e => setForm(f => ({ ...f, client_first_name: e.target.value }))} /></div>
+                <div className="form-group"><label>Last name</label><input value={form.client_last_name || ''} onChange={e => setForm(f => ({ ...f, client_last_name: e.target.value }))} /></div>
+              </div>
+              <div className={styles.formRow}>
+                <div className="form-group"><label>Email</label><input type="email" value={form.client_email || ''} onChange={e => setForm(f => ({ ...f, client_email: e.target.value }))} /></div>
+                <div className="form-group"><label>Phone</label><input value={form.client_phone || ''} onChange={e => setForm(f => ({ ...f, client_phone: e.target.value }))} /></div>
+              </div>
+              <div className="form-group"><label>Address</label><input value={form.client_address || ''} onChange={e => setForm(f => ({ ...f, client_address: e.target.value }))} /></div>
+            </div>
+            <div className={styles.formSection}>
               <h4 className={styles.formSectionTitle}>Venue information</h4>
               <div className={styles.formRow}>
                 <div className="form-group"><label>Name</label><input value={form.venue_name || ''} onChange={e => setForm(f => ({ ...f, venue_name: e.target.value }))} /></div>
@@ -204,7 +242,7 @@ export default function QuoteDetailPage() {
           </div>
           <div className={styles.quoteActions}>
             {quote.status === 'draft' && (
-              <button type="button" onClick={handleSend} className={`btn btn-primary btn-sm ${styles.btnSend}`}>
+              <button type="button" onClick={handleSendClick} className={`btn btn-primary btn-sm ${styles.btnSend}`}>
                 Send to Client
               </button>
             )}
@@ -233,19 +271,56 @@ export default function QuoteDetailPage() {
           </div>
           {quote.notes && <p className={styles.notes}>{quote.notes}</p>}
 
-          {(quote.venue_name || quote.venue_email || quote.venue_phone || quote.venue_address || quote.venue_contact || quote.venue_notes) && (
-            <div className={styles.venueBlock}>
-              <h4 className={styles.venueTitle}>Venue information</h4>
-              <div className={styles.venueGrid}>
-                {quote.venue_name && <span><strong>Name:</strong> {quote.venue_name}</span>}
-                {quote.venue_email && <span><strong>Email:</strong> {quote.venue_email}</span>}
-                {quote.venue_phone && <span><strong>Phone:</strong> {quote.venue_phone}</span>}
-                {quote.venue_address && <span><strong>Address:</strong> {quote.venue_address}</span>}
-                {quote.venue_contact && <span><strong>Contact:</strong> {quote.venue_contact}</span>}
-                {quote.venue_notes && <span><strong>Notes:</strong> {quote.venue_notes}</span>}
-              </div>
+          <div className={styles.clientVenueRow}>
+            <div className={styles.clientBlock}>
+              <h4 className={styles.venueTitle}>Client information</h4>
+              {(quote.client_first_name || quote.client_last_name || quote.client_email || quote.client_phone || quote.client_address) ? (
+                <div className={styles.venueGrid}>
+                  {(quote.client_first_name || quote.client_last_name) && <span><strong>Name:</strong> {[quote.client_first_name, quote.client_last_name].filter(Boolean).join(' ')}</span>}
+                  {quote.client_email && <span><strong>Email:</strong> {quote.client_email}</span>}
+                  {quote.client_phone && <span><strong>Phone:</strong> {quote.client_phone}</span>}
+                  {quote.client_address && <span><strong>Address:</strong> {quote.client_address}</span>}
+                </div>
+              ) : (
+                <p className={styles.emptyHint}>No client info. Click Edit to add.</p>
+              )}
             </div>
-          )}
+            <div className={styles.venueBlock}>
+              {venueEditing ? (
+                <form onSubmit={handleVenueSave} className={styles.venueForm}>
+                  <h4 className={styles.venueTitle}>Venue information</h4>
+                  <div className={styles.formRow}>
+                    <div className="form-group"><label>Name</label><input value={form.venue_name || ''} onChange={e => setForm(f => ({ ...f, venue_name: e.target.value }))} /></div>
+                    <div className="form-group"><label>Email</label><input type="email" value={form.venue_email || ''} onChange={e => setForm(f => ({ ...f, venue_email: e.target.value }))} /></div>
+                  </div>
+                  <div className="form-group"><label>Phone</label><input value={form.venue_phone || ''} onChange={e => setForm(f => ({ ...f, venue_phone: e.target.value }))} /></div>
+                  <div className="form-group"><label>Address</label><input value={form.venue_address || ''} onChange={e => setForm(f => ({ ...f, venue_address: e.target.value }))} /></div>
+                  <div className="form-group"><label>Contact</label><input value={form.venue_contact || ''} onChange={e => setForm(f => ({ ...f, venue_contact: e.target.value }))} /></div>
+                  <div className="form-group"><label>Notes</label><textarea rows={2} value={form.venue_notes || ''} onChange={e => setForm(f => ({ ...f, venue_notes: e.target.value }))} /></div>
+                  <div className={styles.formActions}>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setVenueEditing(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+                  </div>
+                </form>
+              ) : (
+                <div role="button" tabIndex={0} className={styles.venueClickable} onClick={() => setVenueEditing(true)} onKeyDown={e => e.key === 'Enter' && setVenueEditing(true)}>
+                  <h4 className={styles.venueTitle}>Venue information</h4>
+                  {(quote.venue_name || quote.venue_email || quote.venue_phone || quote.venue_address || quote.venue_contact || quote.venue_notes) ? (
+                    <div className={styles.venueGrid}>
+                      {quote.venue_name && <span><strong>Name:</strong> {quote.venue_name}</span>}
+                      {quote.venue_email && <span><strong>Email:</strong> {quote.venue_email}</span>}
+                      {quote.venue_phone && <span><strong>Phone:</strong> {quote.venue_phone}</span>}
+                      {quote.venue_address && <span><strong>Address:</strong> {quote.venue_address}</span>}
+                      {quote.venue_contact && <span><strong>Contact:</strong> {quote.venue_contact}</span>}
+                      {quote.venue_notes && <span><strong>Notes:</strong> {quote.venue_notes}</span>}
+                    </div>
+                  ) : (
+                    <p className={styles.emptyHint}>Click to add venue</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
           {quote.quote_notes && <p className={styles.notes}><strong>Quote notes:</strong> {quote.quote_notes}</p>}
 
           {logisticsItems.length > 0 && (
@@ -295,6 +370,97 @@ export default function QuoteDetailPage() {
           onClose={() => setShowAI(false)}
         />
       )}
+
+      {showSendModal && (
+        <QuoteSendModal
+          quote={quote}
+          onClose={() => setShowSendModal(false)}
+          onSent={() => { setShowSendModal(false); load(); toast.success('Quote sent; client link ready.'); }}
+          onError={e => toast.error(e.message)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Email send modal: To, template, subject, body, Send
+function QuoteSendModal({ quote, onClose, onSent, onError }) {
+  const [templates, setTemplates] = useState([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [toEmail, setToEmail] = useState(quote?.client_email || '');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    api.getTemplates().then(d => {
+      const list = d.templates || [];
+      setTemplates(list);
+      const defaultT = list.find(t => t.is_default);
+      if (defaultT) {
+        setSelectedId(String(defaultT.id));
+        api.getTemplate(defaultT.id).then(t => {
+          setSubject(t.subject || '');
+          setBody(t.body_text || t.body_html || '');
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  }, []);
+  useEffect(() => {
+    setToEmail(quote?.client_email || '');
+  }, [quote?.client_email]);
+
+  const loadTemplate = (id) => {
+    if (!id) return;
+    api.getTemplate(id).then(t => {
+      setSubject(t.subject || '');
+      setBody(t.body_text || t.body_html || '');
+    }).catch(() => {});
+  };
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    setSending(true);
+    try {
+      await api.sendQuote(quote.id, { templateId: selectedId || undefined, subject, bodyText: body, bodyHtml: body, toEmail: toEmail || undefined });
+      onSent();
+    } catch (e) {
+      onError(e);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+        <h3 className={styles.modalTitle}>Send quote to client</h3>
+        <form onSubmit={handleSend} className={styles.sendForm}>
+          <div className="form-group">
+            <label>To</label>
+            <input type="email" value={toEmail} onChange={e => setToEmail(e.target.value)} placeholder="client@example.com" />
+          </div>
+          <div className="form-group">
+            <label>Template</label>
+            <select value={selectedId} onChange={e => { setSelectedId(e.target.value); loadTemplate(e.target.value); }}>
+              <option value="">— None —</option>
+              {templates.map(t => <option key={t.id} value={t.id}>{t.name}{t.is_default ? ' (default)' : ''}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Subject</label>
+            <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Quote from..." />
+          </div>
+          <div className="form-group">
+            <label>Body</label>
+            <textarea rows={6} value={body} onChange={e => setBody(e.target.value)} placeholder="Email body..." />
+          </div>
+          <div className={styles.formActions}>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={sending}>{sending ? 'Sending…' : 'Send'}</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

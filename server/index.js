@@ -60,7 +60,7 @@ async function start() {
     if (!quote) return res.status(404).json({ error: 'Not found' });
     const items = db.prepare(`
       SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order,
-             i.id, i.title, i.photo_url, i.unit_price, i.taxable
+             i.id, i.title, i.photo_url, i.unit_price, i.taxable, i.category
       FROM quote_items qi
       JOIN items i ON i.id = qi.item_id
       WHERE qi.quote_id = ?
@@ -77,6 +77,7 @@ async function start() {
   app.use('/api/stats',       auth, require('./routes/stats')(db));
   app.use('/api/ai',          auth, require('./routes/ai')(db));
   app.use('/api/settings',    auth, requireOperator(db), require('./routes/settings')(db));
+  app.use('/api/templates',   auth, requireOperator(db), require('./routes/templates')(db));
   app.use('/api/leads',       auth, require('./routes/leads')(db));
   app.use('/api/admin',       requireAdmin(db), require('./routes/admin')(db));
 

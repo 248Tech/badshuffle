@@ -1,0 +1,27 @@
+.page { display: flex; flex-direction: column; gap: 20px; }
+.header { display: flex; flex-direction: column; gap: 8px; }
+.title { font-size: 22px; font-weight: 700; }
+.sub { font-size: 13px; color: var(--color-text-muted); }
+.card { padding: 20px; }
+.empty { font-size: 13px; color: var(--color-text-muted); font-style: italic; }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+.name { font-weight: 600; min-width: 140px; }
+.subject { flex: 1; font-size: 13px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge { font-size: 11px; padding: 2px 8px; background: var(--color-primary); color: #fff; border-radius: 999px; }
+.actions { display: flex; gap: 8px; }
+
+.form { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 12px; }
+.formTitle { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.checkRow { font-size: 13px; }
+.checkRow label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.formActions { display: flex; gap: 8px; }

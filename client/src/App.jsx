@@ -16,6 +16,7 @@ import SetupPage from './pages/SetupPage.jsx';
 import ForgotPage from './pages/ForgotPage.jsx';
 import ResetPage from './pages/ResetPage.jsx';
 import PublicQuotePage from './pages/PublicQuotePage.jsx';
+import TemplatesPage from './pages/TemplatesPage.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import { api, getToken } from './api';
 
@@ -106,6 +107,7 @@ export default function App() {
               <Route path="extension" element={<ExtensionPage />} />
               <Route path="leads" element={<LeadsPage />} />
               <Route path="admin" element={<AdminPage />} />
+              <Route path="templates" element={<TemplatesPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Routes>

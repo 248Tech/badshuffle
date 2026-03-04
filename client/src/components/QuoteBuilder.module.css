@@ -96,6 +96,30 @@
 }
 .qtyControl button:hover { background: var(--color-border); }
 
+.qtyInput {
+  width: 48px;
+  padding: 4px 6px;
+  font-size: 13px;
+  text-align: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+.qtyInput:focus { outline: none; border-color: var(--color-primary); }
+
+.unitPrice, .lineTotal {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.lineTotal { font-weight: 600; color: var(--color-text); }
+.taxDot {
+  font-size: 10px;
+  color: var(--color-accent);
+  font-weight: 700;
+  padding: 0 4px;
+}
+
 .removeBtn {
   background: none;
   border: none;

@@ -256,6 +256,32 @@ async function initDb() {
   for (const sql of quoteCols2) {
     try { db.exec(sql); } catch (e) {}
   }
+  // Quote client info
+  const quoteClientCols = [
+    'ALTER TABLE quotes ADD COLUMN client_first_name TEXT',
+    'ALTER TABLE quotes ADD COLUMN client_last_name TEXT',
+    'ALTER TABLE quotes ADD COLUMN client_email TEXT',
+    'ALTER TABLE quotes ADD COLUMN client_phone TEXT',
+    'ALTER TABLE quotes ADD COLUMN client_address TEXT'
+  ];
+  for (const sql of quoteClientCols) {
+    try { db.exec(sql); } catch (e) {}
+  }
+  // Email templates (admin/operator)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS email_templates (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT NOT NULL,
+        subject     TEXT NOT NULL DEFAULT '',
+        body_html   TEXT,
+        body_text   TEXT,
+        is_default  INTEGER DEFAULT 0,
+        created_at  TEXT DEFAULT (datetime('now')),
+        updated_at  TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
   // leads — back-reference to quote
   try { db.exec("ALTER TABLE leads ADD COLUMN quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL"); } catch (e) {}
   try {

@@ -1,7 +1,48 @@
 # STATUS
 
 ## Current Task
-Completed: CLI admin utilities (create-admin, reset-password, reset-auth, wipe-database); previously: auth fix, lead import, quotes.
+Completed: Quote Client Info + Send Flow + Layout; previously: CLI admin, auth fix, lead import, quotes.
+
+## Quote Client Info + Send Flow + Layout
+
+### A) Quote client info (persist + UI)
+- **DB:** `quotes` table: added `client_first_name`, `client_last_name`, `client_email`, `client_phone`, `client_address` (migrations in `server/db.js`).
+- **Server:** POST/PUT quotes accept and return these fields. GET quote (and public quote) return them.
+- **Client:** Quote detail page: "Client Information" section in edit form; in view mode a two-column row shows Client (left) and Venue (right). Client block shows name, email, phone, address when set.
+
+### B) Quote items: pricing + qty input
+- **QuoteBuilder:** Line items show unit price, numeric qty input (primary), line total, and optional "T" (taxable). +/- buttons kept. Qty updates are debounced (400 ms) so typing "12" does not send two requests.
+
+### C) Venue placement + click-to-edit
+- Venue Information is in a box to the right of Client Information. Clicking the venue box toggles inline edit mode (form with Save/Cancel). Saving updates quote venue fields via existing API.
+
+### D) Send-to-client: email editor + templates
+- **Server:** New table `email_templates` (id, name, subject, body_html, body_text, is_default). Routes: GET/POST /api/templates, GET/PUT/DELETE /api/templates/:id (auth + operator middleware). POST /api/quotes/:id/send accepts body `{ templateId, subject, bodyHtml, bodyText, toEmail }`; still sets status to 'sent' and generates public_token; returns `emailPreview` (stub; no SMTP send yet).
+- **Client:** "Send to Client" opens Email Editor modal: To (defaults to quote.client_email), template dropdown, subject, body textarea, Send button. Default template is auto-selected when modal opens. New **Templates** page (sidebar, admin/operator only): CRUD templates, "Set default" per template.
+
+### E) Public quote view layout
+- **PublicQuotePage:** Read-only quote layout: title and event date/guests, notes, then two-column Client + Venue summary (if present), then itemized table (equipment then Delivery/Pickup section), then **totals section** (subtotal, delivery, tax, grand total) near the end, then quote_notes. Print / Save PDF button.
+
+### Files changed
+- `server/db.js` — client_* columns, email_templates table
+- `server/routes/quotes.js` — client_* in POST/PUT, send body + emailPreview
+- `server/routes/templates.js` — new (CRUD templates)
+- `server/index.js` — public quote items include category; mount /api/templates
+- `client/src/api.js` — sendQuote(id, body), templates CRUD
+- `client/src/pages/QuoteDetailPage.jsx` — client form + display, client/venue row, venue click-to-edit, QuoteSendModal
+- `client/src/pages/QuoteDetailPage.module.css` — clientVenueRow, modal, etc.
+- `client/src/components/QuoteBuilder.jsx` — unit price, qty input, line total, tax indicator, debounced qty
+- `client/src/components/QuoteBuilder.module.css` — qtyInput, unitPrice, lineTotal, taxDot
+- `client/src/pages/PublicQuotePage.jsx` — full layout with client/venue, totals at end
+- `client/src/pages/TemplatesPage.jsx` + `.module.css` — new
+- `client/src/App.jsx` — route /templates
+- `client/src/components/Sidebar.jsx` — Templates link (admin/operator)
+
+### What’s left
+- Optional: wire POST /quotes/:id/send to real SMTP when settings configured (currently stub).
+- Optional: preview pane in send modal (render body or link to public quote).
+
+---
 
 ## CLI admin utilities
 
