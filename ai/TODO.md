@@ -4,35 +4,35 @@
 
 ### Fix 1 — Extension download endpoint (server/index.js)
 
-- [ ] Move `app.use('/api/extension', ...)` from the protected block to the public block
+- [x] Move `app.use('/api/extension', ...)` from the protected block to the public block
       (alongside `/api/auth` and `/api/health`)
-- [ ] Remove the `auth` middleware argument from that line
+- [x] Remove the `auth` middleware argument from that line
 - [ ] Verify: `curl http://localhost:3001/api/extension/download -o test.zip` succeeds
       without an Authorization header
 
 ### Fix 2 — Google Sheets 400 error (server/lib/sheetsParser.js)
 
-- [ ] In `fetchCsv`, extend the access-error condition on line 24 to include status 400:
+- [x] In `fetchCsv`, extend the access-error condition on line 24 to include status 400:
       change `resp.status === 401 || resp.status === 403`
       to     `resp.status === 400 || resp.status === 401 || resp.status === 403`
-- [ ] Do NOT modify `sheetUrlToCsvUrl` — URL conversion is correct
+- [x] Do NOT modify `sheetUrlToCsvUrl` — URL conversion is correct
 - [ ] Verify: a private (non-published) Google Sheet URL now returns the
       "Sheet is not publicly accessible" message instead of "400 Bad Request"
 
 ### Fix 3 — Leads counter wording (client/src/pages/ImportPage.jsx)
 
-- [ ] In `LeadsPreview`, change the label from
+- [x] In `LeadsPreview`, change the label from
       `{total} leads scraped from Goodshuffle`
       to `{total} leads in database`
-- [ ] Update the empty-state paragraph text: remove "Browse Goodshuffle quote pages"
+- [x] Update the empty-state paragraph text: remove "Browse Goodshuffle quote pages"
       and replace with something accurate (e.g. "Import a sheet or use the extension to capture contacts.")
-- [ ] Do NOT change the `api.getLeads` call or `total` binding — the count logic is correct
+- [x] Do NOT change the `api.getLeads` call or `total` binding — the count logic is correct
 
 ### Coordination (required at end of session)
 
-- [ ] Update `ai/STATUS.md` with completed tasks, files changed, and verification notes
-- [ ] `git diff HEAD > ai/LAST.patch`
-- [ ] `git status --porcelain > ai/LAST.status`
+- [x] Update `ai/STATUS.md` with completed tasks, files changed, and verification notes
+- [x] `git diff HEAD > ai/LAST.patch`
+- [x] `git status --porcelain > ai/LAST.status`
 
 ---
 

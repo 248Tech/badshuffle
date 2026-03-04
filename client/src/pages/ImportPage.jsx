@@ -309,13 +309,13 @@ function LeadsPreview() {
   return (
     <div className={`card ${styles.card}`}>
       <div className={styles.leadsHeader}>
-        <span className={styles.info}>{total} leads scraped from Goodshuffle</span>
+        <span className={styles.info}>{total} leads in database</span>
         <Link to="/leads" className="btn btn-primary btn-sm">View all leads →</Link>
       </div>
       {loading ? (
         <div className="empty-state"><div className="spinner" /></div>
       ) : leads.length === 0 ? (
-        <p className={styles.info}>No leads yet. Browse Goodshuffle quote pages with the extension to capture contacts.</p>
+        <p className={styles.info}>No leads yet. Import a sheet on the Inventory Sheet tab or use the extension to capture contacts.</p>
       ) : (
         <div className={styles.previewWrapper}>
           <table className={styles.previewTable}>

@@ -21,7 +21,7 @@ async function fetchCsv(url) {
 
   if (!resp.ok) {
     const text = await resp.text();
-    if (resp.status === 401 || resp.status === 403) {
+    if (resp.status === 400 || resp.status === 401 || resp.status === 403) {
       throw new Error('Sheet is not publicly accessible. Make sure it is published to the web (File → Share → Publish to web).');
     }
     throw new Error(`Failed to fetch sheet: ${resp.status} ${resp.statusText}`);

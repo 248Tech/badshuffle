@@ -51,6 +51,7 @@ async function start() {
   // Public routes — no auth
   app.use('/api/auth', authRouter(db));
   app.get('/api/health', (req, res) => res.json({ ok: true }));
+  app.use('/api/extension', require('./routes/extension'));
 
   // Protected routes
   const auth = requireAuth(db);
@@ -60,7 +61,6 @@ async function start() {
   app.use('/api/stats',       auth, require('./routes/stats')(db));
   app.use('/api/ai',          auth, require('./routes/ai')(db));
   app.use('/api/proxy-image', auth, require('./lib/imageProxy'));
-  app.use('/api/extension',   auth, require('./routes/extension'));
   app.use('/api/settings',    auth, require('./routes/settings')(db));
   app.use('/api/leads',       auth, require('./routes/leads')(db));
   app.use('/api/admin',       requireAdmin(db), require('./routes/admin')(db));
