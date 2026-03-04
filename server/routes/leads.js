@@ -1,4 +1,43 @@
 const express = require('express');
+const Papa = require('papaparse');
+const XLSX = require('xlsx');
+const { fetchCsv } = require('../lib/sheetsParser');
+const { suggestMapping, rowToLeadWithMapping, TARGET_FIELDS } = require('../lib/leadImportMap');
+
+function parseRowsFromBody(body) {
+  if (body.url) return null;
+  if (body.filename && body.data != null) {
+    const ext = (body.filename.split('.').pop() || '').toLowerCase();
+    const buf = Buffer.from(body.data, 'base64');
+    if (ext === 'csv') {
+      const result = Papa.parse(buf.toString('utf8'), { header: true, skipEmptyLines: true });
+      return result.data || [];
+    }
+    if (ext === 'xlsx' || ext === 'xls') {
+      const wb = XLSX.read(buf, { type: 'buffer' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      return XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    }
+  }
+  return null;
+}
+
+function rowToLeadFallback(row) {
+  const key = (k) => {
+    const lower = (s) => (s || '').toLowerCase().trim();
+    const found = Object.keys(row).find(kk => lower(kk) === lower(k));
+    return found != null ? (row[found] != null ? String(row[found]).trim() : null) : null;
+  };
+  return {
+    name: key('name') || null,
+    email: key('email') || null,
+    phone: key('phone') || null,
+    event_date: key('event_date') || key('event date') || null,
+    event_type: key('event_type') || key('event type') || null,
+    source_url: key('source_url') || key('source url') || null,
+    notes: key('notes') || null
+  };
+}
 
 module.exports = function makeRouter(db) {
   const router = express.Router();
@@ -52,6 +91,63 @@ module.exports = function makeRouter(db) {
     );
     const updated = db.prepare('SELECT * FROM leads WHERE id = ?').get(req.params.id);
     res.json({ lead: updated });
+  });
+
+  // POST /api/leads/preview — body: { url } or { filename, data }. Returns columns, suggestedMapping, preview rows.
+  router.post('/preview', async (req, res) => {
+    const body = req.body || {};
+    let rows = [];
+    try {
+      if (body.url) {
+        const result = await fetchCsv(body.url);
+        rows = result.data || [];
+      } else {
+        rows = parseRowsFromBody(body);
+        if (rows === null) return res.status(400).json({ error: 'Provide url or filename+data' });
+      }
+      if (rows.length === 0) return res.status(400).json({ error: 'No rows found' });
+      const columns = Object.keys(rows[0]);
+      const suggestedMapping = suggestMapping(columns);
+      res.json({ columns, suggestedMapping, preview: rows.slice(0, 10), totalRows: rows.length });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  // POST /api/leads/import — body: { url } or { filename, data }, optional columnMapping: { name: 'Full Name', ... }
+  router.post('/import', async (req, res) => {
+    const body = req.body || {};
+    let rows = [];
+    try {
+      if (body.url) {
+        const result = await fetchCsv(body.url);
+        rows = result.data || [];
+      } else {
+        rows = parseRowsFromBody(body);
+        if (rows === null) return res.status(400).json({ error: 'Provide url or filename+data' });
+      }
+      if (rows.length === 0) return res.status(400).json({ error: 'No rows to import' });
+
+      const columnMapping = body.columnMapping || null;
+      const insert = db.prepare(`
+        INSERT INTO leads (name, email, phone, event_date, event_type, source_url, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      let imported = 0;
+      for (const row of rows) {
+        const lead = columnMapping
+          ? rowToLeadWithMapping(row, columnMapping)
+          : rowToLeadFallback(row);
+        if (lead.name || lead.email || lead.phone) {
+          insert.run(lead.name, lead.email, lead.phone, lead.event_date, lead.event_type, lead.source_url, lead.notes);
+          imported++;
+        }
+      }
+      const totalRow = db.prepare('SELECT COUNT(*) AS n FROM leads').get();
+      res.json({ imported, total: totalRow.n });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
   });
 
   // DELETE /api/leads/:id

@@ -4,6 +4,12 @@
   gap: 16px;
 }
 
+.exportActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* The export target is rendered off-screen but in the DOM for html2canvas */
 .exportTarget {
   position: absolute;
@@ -40,6 +46,51 @@
   font-size: 13px;
   color: #637080;
   margin-top: 8px;
+}
+
+.exportVenue {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e8eef2;
+}
+.exportVenueTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #637080;
+  margin-bottom: 6px;
+}
+.exportVenueGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 13px;
+  color: #1a1a2e;
+}
+
+.exportLogistics {
+  margin-bottom: 16px;
+  padding: 12px 0;
+  border-top: 1px solid #e8eef2;
+}
+.exportLogisticsTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #637080;
+  margin-bottom: 8px;
+}
+.exportLogisticsList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.exportLogisticsItem {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
 }
 
 .exportGrid {

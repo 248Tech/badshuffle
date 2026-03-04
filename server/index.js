@@ -53,6 +53,7 @@ async function start() {
   app.use('/api/auth', authRouter(db));
   app.get('/api/health', (req, res) => res.json({ ok: true }));
   app.use('/api/extension', require('./routes/extension'));
+  app.use('/api/proxy-image', require('./lib/imageProxy'));
   // Public quote view (no auth)
   app.get('/api/quotes/public/:token', (req, res) => {
     const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
@@ -75,7 +76,6 @@ async function start() {
   app.use('/api/quotes',      auth, require('./routes/quotes')(db));
   app.use('/api/stats',       auth, require('./routes/stats')(db));
   app.use('/api/ai',          auth, require('./routes/ai')(db));
-  app.use('/api/proxy-image', auth, require('./lib/imageProxy'));
   app.use('/api/settings',    auth, requireOperator(db), require('./routes/settings')(db));
   app.use('/api/leads',       auth, require('./routes/leads')(db));
   app.use('/api/admin',       requireAdmin(db), require('./routes/admin')(db));

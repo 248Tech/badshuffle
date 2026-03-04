@@ -49,7 +49,7 @@ export default function LeadsPage() {
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Leads</h1>
-          <p className={styles.sub}>{total} leads captured from Goodshuffle</p>
+          <p className={styles.sub}>{total} leads in database</p>
         </div>
       </div>
 
@@ -66,7 +66,7 @@ export default function LeadsPage() {
         <div className="empty-state"><div className="spinner" /></div>
       ) : leads.length === 0 ? (
         <div className="empty-state">
-          <p>No leads yet. Browse Goodshuffle quote pages with the extension to capture contacts.</p>
+          <p>No leads yet. Import a sheet on the Import page or use the extension to capture contacts.</p>
         </div>
       ) : (
         <div className={`card ${styles.tableCard}`}>
@@ -80,7 +80,7 @@ export default function LeadsPage() {
                   <th>Event Date</th>
                   <th>Event Type</th>
                   <th>Source</th>
-                  <th>Captured</th>
+                  <th>Added</th>
                   <th></th>
                 </tr>
               </thead>

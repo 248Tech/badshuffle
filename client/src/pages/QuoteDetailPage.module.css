@@ -31,6 +31,17 @@
 .form { display: flex; flex-direction: column; gap: 12px; }
 .formRow { display: flex; gap: 12px; flex-wrap: wrap; }
 .formActions { display: flex; justify-content: flex-end; }
+.formSection { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+.formSectionTitle { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+
+.venueBlock { padding: 12px 0; border-top: 1px solid var(--color-border); }
+.venueTitle { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 8px; }
+.venueGrid { display: flex; flex-wrap: wrap; gap: 12px 20px; font-size: 13px; }
+.venueGrid span { white-space: pre-wrap; }
+
+.logisticsBlock { padding: 12px 0; border-top: 1px solid var(--color-border); }
+.logisticsTitle { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 8px; }
+.logisticsList { margin: 0; padding-left: 20px; font-size: 13px; }
 
 .columns {
   display: grid;

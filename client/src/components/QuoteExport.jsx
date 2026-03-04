@@ -35,20 +35,33 @@ export default function QuoteExport({ quote, settings = {}, totals = null }) {
 
   const companyName = settings.company_name || '';
   const companyEmail = settings.company_email || '';
-  const showTotals = totals && totals.subtotal > 0;
+  const hasVenue = quote.venue_name || quote.venue_email || quote.venue_phone || quote.venue_address || quote.venue_contact || quote.venue_notes;
+  const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
+  const equipmentItems = (quote.items || []).filter(it => !isLogistics(it));
+  const logisticsItems = (quote.items || []).filter(it => isLogistics(it));
+  const showTotals = totals && (totals.subtotal > 0 || totals.deliveryTotal > 0);
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   return (
     <div className={styles.wrapper}>
-      <button
-        className="btn btn-primary"
-        onClick={handleExport}
-        disabled={exporting}
-      >
-        {exporting ? <><span className="spinner" /> Exporting…</> : '📷 Export as PNG'}
-      </button>
+      <div className={styles.exportActions}>
+        <button
+          className="btn btn-primary"
+          onClick={handleExport}
+          disabled={exporting}
+        >
+          {exporting ? <><span className="spinner" /> Exporting…</> : '📷 Export as PNG'}
+        </button>
+        <button type="button" className="btn btn-ghost" onClick={handlePrint}>
+          Print / Save as PDF
+        </button>
+      </div>
 
-      {/* Hidden render target */}
-      <div className={styles.exportTarget} ref={ref}>
+      {/* Hidden render target; shown when printing */}
+      <div className={`${styles.exportTarget} quote-print-area`} ref={ref}>
         <div className={styles.exportHeader}>
           {companyName && (
             <div className={styles.companyInfo}>
@@ -62,10 +75,24 @@ export default function QuoteExport({ quote, settings = {}, totals = null }) {
             {quote.guest_count > 0 && <span>👥 {quote.guest_count} guests</span>}
           </div>
           {quote.notes && <p className={styles.exportNotes}>{quote.notes}</p>}
+          {hasVenue && (
+            <div className={styles.exportVenue}>
+              <h4 className={styles.exportVenueTitle}>Venue information</h4>
+              <div className={styles.exportVenueGrid}>
+                {quote.venue_name && <span><strong>Name:</strong> {quote.venue_name}</span>}
+                {quote.venue_email && <span><strong>Email:</strong> {quote.venue_email}</span>}
+                {quote.venue_phone && <span><strong>Phone:</strong> {quote.venue_phone}</span>}
+                {quote.venue_address && <span><strong>Address:</strong> {quote.venue_address}</span>}
+                {quote.venue_contact && <span><strong>Contact:</strong> {quote.venue_contact}</span>}
+                {quote.venue_notes && <span><strong>Notes:</strong> {quote.venue_notes}</span>}
+              </div>
+            </div>
+          )}
+          {quote.quote_notes && <p className={styles.exportNotes}><strong>Quote notes:</strong> {quote.quote_notes}</p>}
         </div>
 
         <div className={styles.exportGrid}>
-          {(quote.items || []).map(item => (
+          {equipmentItems.map(item => (
             <div key={item.qitem_id} className={styles.exportItem}>
               <div className={styles.exportImgWrapper}>
                 {item.photo_url ? (
@@ -97,24 +124,44 @@ export default function QuoteExport({ quote, settings = {}, totals = null }) {
           ))}
         </div>
 
+        {logisticsItems.length > 0 && (
+          <div className={styles.exportLogistics}>
+            <h4 className={styles.exportLogisticsTitle}>Logistics (delivery / pickup)</h4>
+            <div className={styles.exportLogisticsList}>
+              {logisticsItems.map(item => (
+                <div key={item.qitem_id} className={styles.exportLogisticsItem}>
+                  <span>{item.label || item.title} ×{item.quantity || 1}</span>
+                  {item.unit_price > 0 && <span>${(item.unit_price * (item.quantity || 1)).toFixed(2)}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {showTotals && (
           <div className={styles.exportTotals}>
-            <div className={styles.exportTotalsRow}>
-              <span>Subtotal</span>
-              <span>${totals.subtotal.toFixed(2)}</span>
-            </div>
+            {totals.subtotal > 0 && (
+              <div className={styles.exportTotalsRow}>
+                <span>Subtotal</span>
+                <span>${totals.subtotal.toFixed(2)}</span>
+              </div>
+            )}
+            {totals.deliveryTotal > 0 && (
+              <div className={styles.exportTotalsRow}>
+                <span>Delivery total</span>
+                <span>${totals.deliveryTotal.toFixed(2)}</span>
+              </div>
+            )}
             {totals.rate > 0 && (
               <div className={styles.exportTotalsRow}>
                 <span>Tax ({totals.rate}%)</span>
                 <span>${totals.tax.toFixed(2)}</span>
               </div>
             )}
-            {totals.rate > 0 && (
-              <div className={`${styles.exportTotalsRow} ${styles.exportTotalsTotal}`}>
-                <span>Total</span>
-                <span>${totals.total.toFixed(2)}</span>
-              </div>
-            )}
+            <div className={`${styles.exportTotalsRow} ${styles.exportTotalsTotal}`}>
+              <span>Grand total</span>
+              <span>${totals.total.toFixed(2)}</span>
+            </div>
           </div>
         )}
 
@@ -122,6 +169,15 @@ export default function QuoteExport({ quote, settings = {}, totals = null }) {
           Generated by BadShuffle
         </div>
       </div>
+
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .quote-print-area, .quote-print-area * { visibility: visible; }
+          .quote-print-area { position: absolute; left: 0; top: 0; width: 100%; }
+          .exportActions, .exportActions * { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -113,6 +113,8 @@ export const api = {
     return request(`/leads?${qs}`);
   },
   createLead: (body) => request('/leads', { method: 'POST', body }),
+  previewLeadsImport: (body) => request('/leads/preview', { method: 'POST', body }),
+  importLeads: (body) => request('/leads/import', { method: 'POST', body }),
   updateLead: (id, body) => request(`/leads/${id}`, { method: 'PUT', body }),
   deleteLead: (id) => request(`/leads/${id}`, { method: 'DELETE' }),
 

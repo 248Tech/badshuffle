@@ -1,36 +1,58 @@
 # STATUS
 
 ## Current Task
-Implement HANDOFF: Stability Foundations + Sales Workflow. Phases A3 → B → C.
+Completed: lead import detection with mapping, leads wording, quotes venue/totals/PDF.
 
 ## Progress
-- Pulled latest (already up to date).
-- Read `ai/HANDOFF.md` and `ai/TODO.md` completely.
-- **Phase A (A3)** — Image display fix: Added `client/public/placeholder.png`; updated ItemCard, ItemDetailPage, QuoteBuilder, QuoteExport, AISuggestModal to use `api.proxyImageUrl()` and `/placeholder.png` fallback. A1/A2 not touched.
-- **Phase B** — Schema migrations in `server/db.js` (quotes: status, lead_id, public_token; leads: quote_id; unique index on public_token). Quote routes: POST /send, /approve, /revert; PUT accepts lead_id. Public GET /api/quotes/public/:token in index.js. Leads: POST accepts quote_id; PUT /:id for quote_id. Client API: sendQuote, approveQuote, revertQuote, getPublicQuote, updateLead. QuoteDetailPage: status badge, Send to Client button, Copy Client Link. PublicQuotePage.jsx created; route /quote/public/:token in App.jsx. B8 (print) verified via button in PublicQuotePage.
-- **Phase C** — requireOperator already existed; applied at index.js for full /api/settings (auth + requireOperator + settings router); removed inline op from settings.js. GET /api/auth/me already present. Client role/me and Sidebar gating already present. extension-token upgraded to requireAuth + requireAdmin in auth.js.
+
+### 1. Lead import (normalize + scoring + mapping)
+- **Server:** Added `server/lib/leadImportMap.js`: `normalizeHeader()` (lowercase, newlines→spaces, collapse whitespace, strip punctuation, trim); keyword/regex scoring to suggest mapping for name, email, phone, event_date, event_type, source_url, notes; `suggestMapping(rawHeaders)` and `rowToLeadWithMapping(row, columnMapping)`.
+- **Server:** `server/routes/leads.js`: New `POST /api/leads/preview` — body `{ url }` or `{ filename, data }` (base64); returns `{ columns, suggestedMapping, preview: first 10 rows, totalRows }`. `POST /api/leads/import` now accepts optional `columnMapping: { name: 'Full Name', ... }`; uses `rowToLeadWithMapping` when provided, else `rowToLeadFallback`. Extracted `parseRowsFromBody()` for CSV/XLSX from file.
+- **Client:** `api.previewLeadsImport(body)`. Import page Leads tab refactored to 3-step wizard: (0) Enter source (Google Sheet URL or upload CSV/XLSX), (1) Map columns — table with dropdown per target field (full name, email, phone, event date, event type, source URL, notes) and preview rows, (2) Result. Import sends `columnMapping` from chosen mapping.
+
+### 2. Leads page wording
+- No "captured from Goodshuffle" references were present in leads UI (LeadsPage already showed "X leads in database"; Import page empty state did not mention Goodshuffle). No change required.
+
+### 3. Quotes: venue, quote notes, logistics, totals, tax_rate, PDF
+- **DB:** `server/db.js` — migrations for quotes: `venue_name`, `venue_email`, `venue_phone`, `venue_address`, `venue_contact`, `venue_notes`, `quote_notes`, `tax_rate` (REAL).
+- **API:** `server/routes/quotes.js` — GET quote items include `category`; POST/PUT quote accept and persist venue_*, quote_notes, tax_rate.
+- **Client QuoteDetailPage:** Edit form: Venue section (Name, Email, Phone, Address, Contact, Notes), Quote notes textarea, Tax rate (%) with fallback to settings. Display: Venue block, Quote notes, Logistics section (items where `category` contains "logistics"), Totals bar: Subtotal (equipment), Delivery total (logistics), Tax, Grand total. `computeTotals()` splits items by logistics; uses `quote.tax_rate` when set else `settings.tax_rate`.
+- **QuoteExport:** Venue information block, Quote notes, equipment grid (non-logistics), Logistics section (delivery/pickup items), Totals: Subtotal, Delivery total, Tax, Grand total. PDF: "Print / Save as PDF" (window.print) kept alongside PNG export.
 
 ## Files Changed
-- Phase A: `client/public/placeholder.png`, `client/src/components/ItemCard.jsx`, `client/src/pages/ItemDetailPage.jsx`, `client/src/components/QuoteBuilder.jsx`, `client/src/components/QuoteExport.jsx`, `client/src/components/AISuggestModal.jsx`
-- Phase B: `server/db.js`, `server/routes/quotes.js`, `server/routes/leads.js`, `server/index.js`, `client/src/api.js`, `client/src/pages/QuoteDetailPage.jsx`, `client/src/pages/QuoteDetailPage.module.css`, `client/src/pages/PublicQuotePage.jsx`, `client/src/App.jsx`
-- Phase C: `server/index.js`, `server/routes/settings.js`, `server/routes/auth.js`
+- `server/lib/leadImportMap.js` — new (normalize, scoring, suggestMapping, rowToLeadWithMapping)
+- `server/routes/leads.js` — preview endpoint, import with columnMapping, parseRowsFromBody, rowToLeadFallback
+- `client/src/api.js` — previewLeadsImport
+- `client/src/pages/ImportPage.jsx` — Leads 3-step wizard with column mapping UI and preview
+- `client/src/pages/ImportPage.module.css` — selectSmall, mapLabel for mapping dropdowns
+- `server/db.js` — quote columns: venue_*, quote_notes, tax_rate
+- `server/routes/quotes.js` — GET items with category; POST/PUT with venue_*, quote_notes, tax_rate
+- `client/src/pages/QuoteDetailPage.jsx` — venue form/display, quote_notes, logistics, totals (subtotal, delivery, tax, grand), tax_rate
+- `client/src/pages/QuoteDetailPage.module.css` — formSection, venueBlock, logisticsBlock styles
+- `client/src/components/QuoteExport.jsx` — venue, quote_notes, logistics section, full totals
+- `client/src/components/QuoteExport.module.css` — exportVenue, exportLogistics styles
 - `ai/STATUS.md`
 
-## Commands Used
-- `git pull`
-- Lint check on modified files
+## How to test
+
+1. **Lead import**
+   - Import → Leads. Step 1: Enter a Google Sheets URL (or upload CSV/XLSX). Click Preview or choose file.
+   - Step 2: Confirm suggested column mapping (dropdowns per field); change mappings if needed; check preview table. Click "Import N rows".
+   - Step 3: See imported count; "View leads" or "Back to import". Verify leads list and that data matches mapped columns.
+
+2. **Leads wording**
+   - Leads page: header shows "X leads in database". No "Goodshuffle" in leads copy.
+
+3. **Quotes**
+   - Open a quote → Edit: fill Venue (name, email, phone, address, contact, notes), Quote notes, Tax rate %.
+   - Save. View: Venue block, Quote notes, and (if any items have category containing "logistics") Logistics section and Delivery total in totals bar.
+   - Export: PNG and "Print / Save as PDF". Printed/PDF view shows venue, quote notes, equipment grid, logistics section, and Subtotal / Delivery total / Tax / Grand total.
 
 ## Verification
-- **Lint:** No linter errors on modified server and client files.
-- **HANDOFF Test Plan:** Not run in this session. Recommended: (1) Restart server, confirm quotes/leads columns and index; (2) POST /api/quotes/:id/send, GET /api/quotes/public/:token; (3) Visit /quote/public/:token; (4) Print button; (5) PUT /api/settings as user → 403; (6) GET /api/auth/me; (7) Admin nav visibility by role; (8) extension-token as non-admin → 403.
+- Lint on modified files: no errors.
 
 ## Known Issues
-- None. Commit failed in environment with `error: unknown option 'trailer'`; user may run commits manually per phase.
-
-## Blockers / Decision Needed
 - None.
 
-## Next Steps for Claude
-1. Run HANDOFF acceptance and test plan.
-2. Commit per phase if desired: Phase A, Phase B, Phase C (messages in HANDOFF).
-3. Consider backlog (email on role change, role badge, contract sub-resource, lead timeline).
+## Next Steps
+- Optional: add more target fields to lead import (e.g. guest count, delivery address) if sheet columns expand.

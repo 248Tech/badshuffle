@@ -18,7 +18,7 @@ module.exports = function makeRouter(db) {
     const items = db.prepare(`
       SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order,
              i.id, i.title, i.photo_url, i.source, i.hidden,
-             i.unit_price, i.taxable
+             i.unit_price, i.taxable, i.category
       FROM quote_items qi
       JOIN items i ON i.id = qi.item_id
       WHERE qi.quote_id = ?
@@ -30,12 +30,17 @@ module.exports = function makeRouter(db) {
 
   // POST /api/quotes
   router.post('/', (req, res) => {
-    const { name, guest_count = 0, event_date, notes } = req.body;
+    const { name, guest_count = 0, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
 
     const result = db.prepare(
-      'INSERT INTO quotes (name, guest_count, event_date, notes) VALUES (?, ?, ?, ?)'
-    ).run(name, guest_count, event_date || null, notes || null);
+      `INSERT INTO quotes (name, guest_count, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      name, guest_count, event_date || null, notes || null,
+      venue_name || null, venue_email || null, venue_phone || null, venue_address || null, venue_contact || null, venue_notes || null, quote_notes || null,
+      tax_rate != null ? Number(tax_rate) : null
+    );
 
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json({ quote });
@@ -43,25 +48,42 @@ module.exports = function makeRouter(db) {
 
   // PUT /api/quotes/:id
   router.put('/:id', (req, res) => {
-    const { name, guest_count, event_date, notes, lead_id } = req.body;
+    const body = req.body || {};
+    const { name, guest_count, event_date, notes, lead_id, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate } = body;
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     if (!quote) return res.status(404).json({ error: 'Not found' });
 
     db.prepare(`
       UPDATE quotes SET
-        name        = COALESCE(?, name),
-        guest_count = COALESCE(?, guest_count),
-        event_date  = COALESCE(?, event_date),
-        notes       = COALESCE(?, notes),
-        lead_id     = COALESCE(?, lead_id),
-        updated_at  = datetime('now')
+        name         = COALESCE(?, name),
+        guest_count  = COALESCE(?, guest_count),
+        event_date   = COALESCE(?, event_date),
+        notes        = COALESCE(?, notes),
+        lead_id      = COALESCE(?, lead_id),
+        venue_name   = COALESCE(?, venue_name),
+        venue_email  = COALESCE(?, venue_email),
+        venue_phone  = COALESCE(?, venue_phone),
+        venue_address= COALESCE(?, venue_address),
+        venue_contact= COALESCE(?, venue_contact),
+        venue_notes  = COALESCE(?, venue_notes),
+        quote_notes  = COALESCE(?, quote_notes),
+        tax_rate     = ?,
+        updated_at   = datetime('now')
       WHERE id = ?
     `).run(
-      name || null,
+      name ?? null,
       guest_count !== undefined ? guest_count : null,
-      event_date !== undefined ? event_date : null,
+      event_date ?? null,
       notes !== undefined ? notes : null,
       lead_id !== undefined ? lead_id : null,
+      venue_name ?? null,
+      venue_email ?? null,
+      venue_phone ?? null,
+      venue_address ?? null,
+      venue_contact ?? null,
+      venue_notes ?? null,
+      quote_notes !== undefined ? quote_notes : null,
+      tax_rate !== undefined ? (tax_rate === null ? null : Number(tax_rate)) : quote.tax_rate,
       req.params.id
     );
 

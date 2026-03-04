@@ -242,6 +242,20 @@ async function initDb() {
   for (const sql of quoteCols) {
     try { db.exec(sql); } catch (e) {}
   }
+  // Venue, quote notes, tax_rate
+  const quoteCols2 = [
+    'ALTER TABLE quotes ADD COLUMN venue_name TEXT',
+    'ALTER TABLE quotes ADD COLUMN venue_email TEXT',
+    'ALTER TABLE quotes ADD COLUMN venue_phone TEXT',
+    'ALTER TABLE quotes ADD COLUMN venue_address TEXT',
+    'ALTER TABLE quotes ADD COLUMN venue_contact TEXT',
+    'ALTER TABLE quotes ADD COLUMN venue_notes TEXT',
+    'ALTER TABLE quotes ADD COLUMN quote_notes TEXT',
+    'ALTER TABLE quotes ADD COLUMN tax_rate REAL'
+  ];
+  for (const sql of quoteCols2) {
+    try { db.exec(sql); } catch (e) {}
+  }
   // leads — back-reference to quote
   try { db.exec("ALTER TABLE leads ADD COLUMN quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL"); } catch (e) {}
   try {

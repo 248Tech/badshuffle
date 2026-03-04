@@ -292,34 +292,252 @@ function PdfQuoteImport() {
   );
 }
 
-// ── Leads preview ───────────────────────────────────────────────────────────
+// ── Leads import + preview ───────────────────────────────────────────────────
 
-function LeadsPreview() {
+const LEADS_STEPS = ['Enter Source', 'Map Columns', 'Import'];
+const LEAD_TARGET_FIELDS = [
+  { key: 'name', label: 'Full name' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'event_date', label: 'Event date' },
+  { key: 'event_type', label: 'Event type' },
+  { key: 'source_url', label: 'Source URL' },
+  { key: 'notes', label: 'Notes' }
+];
+
+function LeadsImport() {
+  const toast = useToast();
+  const fileInputRef = useRef(null);
   const [leads, setLeads] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState(0);
+  const [activeTab, setActiveTab] = useState('url');
+  const [sheetUrl, setSheetUrl] = useState('');
+  const [importPayload, setImportPayload] = useState(null); // { url } or { filename, data }
+  const [previewData, setPreviewData] = useState(null);    // { columns, suggestedMapping, preview, totalRows }
+  const [mapping, setMapping] = useState({});             // { name: 'Full Name', ... }
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importedCount, setImportedCount] = useState(null);
 
-  useEffect(() => {
-    api.getLeads({ limit: 10 })
+  const load = () => {
+    setLoading(true);
+    api.getLeads({ limit: 50 })
       .then(d => { setLeads(d.leads || []); setTotal(d.total || 0); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handlePreview = async (e) => {
+    e?.preventDefault();
+    const url = sheetUrl.trim();
+    if (activeTab === 'url' && !url) return;
+    setImportError('');
+    setImporting(true);
+    try {
+      let body;
+      if (activeTab === 'url') {
+        body = { url };
+        setImportPayload({ url });
+      } else {
+        const file = fileInputRef.current?.files?.[0];
+        if (!file) { setImporting(false); return; }
+        const base64 = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(btoa(new Uint8Array(r.result).reduce((acc, b) => acc + String.fromCharCode(b), '')));
+          r.onerror = rej;
+          r.readAsArrayBuffer(file);
+        });
+        body = { filename: file.name, data: base64 };
+        setImportPayload(body);
+      }
+      const data = await api.previewLeadsImport(body);
+      setPreviewData(data);
+      const initial = { ...data.suggestedMapping };
+      Object.keys(initial).forEach(k => { if (initial[k] == null) delete initial[k]; });
+      setMapping(initial);
+      setStep(1);
+    } catch (e) {
+      setImportError(e.message);
+      toast.error(e.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (ext !== 'csv' && ext !== 'xlsx' && ext !== 'xls') {
+      toast.error('File must be CSV or XLSX');
+      return;
+    }
+    setImportError('');
+    setImporting(true);
+    try {
+      const base64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(btoa(new Uint8Array(r.result).reduce((acc, b) => acc + String.fromCharCode(b), '')));
+        r.onerror = rej;
+        r.readAsArrayBuffer(file);
+      });
+      const body = { filename: file.name, data: base64 };
+      setImportPayload(body);
+      const data = await api.previewLeadsImport(body);
+      setPreviewData(data);
+      const initial = { ...data.suggestedMapping };
+      Object.keys(initial).forEach(k => { if (initial[k] == null) delete initial[k]; });
+      setMapping(initial);
+      setStep(1);
+    } catch (err) {
+      setImportError(err.message);
+      toast.error(err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImport = async (e) => {
+    e.preventDefault();
+    if (!importPayload) return;
+    setImportError('');
+    setImporting(true);
+    try {
+      const columnMapping = {};
+      LEAD_TARGET_FIELDS.forEach(({ key }) => { if (mapping[key]) columnMapping[key] = mapping[key]; });
+      const result = await api.importLeads({ ...importPayload, columnMapping: Object.keys(columnMapping).length ? columnMapping : undefined });
+      setImportedCount(result.imported);
+      setStep(2);
+      toast.success(`Imported ${result.imported} leads`);
+      load();
+    } catch (e) {
+      setImportError(e.message);
+      toast.error(e.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const resetLeadsWizard = () => {
+    setStep(0);
+    setImportPayload(null);
+    setPreviewData(null);
+    setMapping({});
+    setImportedCount(null);
+    setImportError('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   return (
     <div className={`card ${styles.card}`}>
+      <div className={styles.stepper}>
+        {LEADS_STEPS.map((label, i) => (
+          <React.Fragment key={i}>
+            <div className={`${styles.step} ${i <= step ? styles.stepActive : ''}`}>
+              <span className={styles.stepNum}>{i + 1}</span>
+              <span className={styles.stepLabel}>{label}</span>
+            </div>
+            {i < LEADS_STEPS.length - 1 && <div className={styles.stepLine} />}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {step === 0 && (
+        <div className={styles.form}>
+          <h3 className={styles.leadsImportTitle}>Import leads</h3>
+          <div className={styles.tabs}>
+            <button type="button" className={`${styles.tab} ${activeTab === 'url' ? styles.tabActive : ''}`} onClick={() => setActiveTab('url')}>Google Sheet URL</button>
+            <button type="button" className={`${styles.tab} ${activeTab === 'file' ? styles.tabActive : ''}`} onClick={() => setActiveTab('file')}>Upload file</button>
+          </div>
+          {activeTab === 'url' && (
+            <form onSubmit={handlePreview} className={styles.tabContent}>
+              <div className="form-group">
+                <input type="url" placeholder="Google Sheets URL…" value={sheetUrl} onChange={e => { setSheetUrl(e.target.value); setImportError(''); }} className={styles.input} />
+              </div>
+              <button type="submit" className="btn btn-primary" disabled={loading}>{importing ? <><span className="spinner" /> Fetching…</> : 'Preview →'}</button>
+            </form>
+          )}
+          {activeTab === 'file' && (
+            <div className={styles.tabContent}>
+              <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className={styles.fileInput} onChange={handleFileSelect} style={{ display: 'none' }} />
+              <button type="button" className="btn btn-primary" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+                {importing ? <><span className="spinner" /> Reading…</> : 'Choose CSV or XLSX →'}
+              </button>
+            </div>
+          )}
+          {importError && <p className={styles.importError}>{importError}</p>}
+        </div>
+      )}
+
+      {step === 1 && previewData && (
+        <form onSubmit={handleImport} className={styles.form}>
+          <p className={styles.info}>Found <strong>{previewData.totalRows}</strong> rows. Map columns to lead fields (optional).</p>
+          <div className={styles.previewWrapper}>
+            <table className={styles.previewTable}>
+              <thead>
+                <tr>
+                  {LEAD_TARGET_FIELDS.map(({ key, label }) => (
+                    <th key={key}>
+                      <select
+                        value={mapping[key] ?? ''}
+                        onChange={e => setMapping(prev => ({ ...prev, [key]: e.target.value || null }))}
+                        className={styles.selectSmall}
+                      >
+                        <option value="">—</option>
+                        {previewData.columns.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <span className={styles.mapLabel}>{label}</span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {previewData.preview.map((row, i) => (
+                  <tr key={i}>
+                    {LEAD_TARGET_FIELDS.map(({ key }) => (
+                      <td key={key}>{String(row[mapping[key]] ?? '').slice(0, 40)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className={styles.formActions}>
+            <button type="button" className="btn btn-ghost" onClick={() => { setStep(0); setPreviewData(null); }}>← Back</button>
+            <button type="submit" className="btn btn-primary" disabled={importing}>{importing ? <><span className="spinner" /> Importing…</> : `Import ${previewData.totalRows} rows →`}</button>
+          </div>
+          {importError && <p className={styles.importError}>{importError}</p>}
+        </form>
+      )}
+
+      {step === 2 && (
+        <div className={styles.resultPane}>
+          <div className={styles.resultIcon}>✅</div>
+          <h2 className={styles.resultTitle}>Import complete</h2>
+          <p className={styles.importSuccess}>Imported {importedCount} leads.</p>
+          <div className={styles.formActions}>
+            <button type="button" className="btn btn-ghost" onClick={resetLeadsWizard}>← Back to import</button>
+            <Link to="/leads" className="btn btn-primary">View leads →</Link>
+          </div>
+        </div>
+      )}
+
       <div className={styles.leadsHeader}>
         <span className={styles.info}>{total} leads in database</span>
         <Link to="/leads" className="btn btn-primary btn-sm">View all leads →</Link>
       </div>
       {loading ? (
         <div className="empty-state"><div className="spinner" /></div>
-      ) : leads.length === 0 ? (
-        <p className={styles.info}>No leads yet. Import a sheet on the Inventory Sheet tab or use the extension to capture contacts.</p>
+      ) : total === 0 ? (
+        <p className={styles.info}>No leads yet. Import a sheet or file above, or use the extension to capture contacts.</p>
       ) : (
         <div className={styles.previewWrapper}>
           <table className={styles.previewTable}>
-            <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Event Date</th><th>Created</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Event Date</th><th>Added</th></tr></thead>
             <tbody>
               {leads.map(l => (
                 <tr key={l.id}>
@@ -368,7 +586,7 @@ export default function ImportPage() {
 
       {topTab === 'inventory' && <InventoryImport />}
       {topTab === 'pdf'       && <PdfQuoteImport />}
-      {topTab === 'leads'     && <LeadsPreview />}
+      {topTab === 'leads'     && <LeadsImport />}
     </div>
   );
 }
