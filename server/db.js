@@ -243,6 +243,18 @@ async function initDb() {
     db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
   }
 
+  // Seed system/startup settings
+  const systemDefaults = {
+    autokill_enabled:      '1',
+    update_check_enabled:  '1',
+    update_check_last:     '',
+    update_check_latest:   '',
+    update_available:      '0',
+  };
+  for (const [k, v] of Object.entries(systemDefaults)) {
+    db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
+  }
+
   // Seed SMTP settings
   const smtpDefaults = {
     smtp_host: '', smtp_port: '587', smtp_secure: 'false',

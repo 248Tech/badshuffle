@@ -42,11 +42,14 @@ export const api = {
 
   // Admin
   admin: {
-    getUsers:    ()     => request('/admin/users'),
-    createUser:  (body) => request('/admin/users', { method: 'POST', body }),
-    approveUser: (id)   => request(`/admin/users/${id}/approve`, { method: 'PUT' }),
-    rejectUser:  (id)   => request(`/admin/users/${id}/reject`, { method: 'PUT' }),
-    deleteUser:  (id)   => request(`/admin/users/${id}`, { method: 'DELETE' }),
+    getUsers:           ()           => request('/admin/users'),
+    createUser:         (body)       => request('/admin/users', { method: 'POST', body }),
+    approveUser:        (id)         => request(`/admin/users/${id}/approve`, { method: 'PUT' }),
+    rejectUser:         (id)         => request(`/admin/users/${id}/reject`, { method: 'PUT' }),
+    deleteUser:         (id)         => request(`/admin/users/${id}`, { method: 'DELETE' }),
+    changeRole:         (id, role)   => request(`/admin/users/${id}/role`, { method: 'PUT', body: { role } }),
+    getSystemSettings:  ()           => request('/admin/system'),
+    updateSystemSettings: (body)     => request('/admin/system', { method: 'PUT', body }),
   },
 
   // Items

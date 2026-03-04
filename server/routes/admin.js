@@ -36,6 +36,12 @@ async function sendNotification(db, to, text) {
   }
 }
 
+const SYSTEM_WRITEABLE_KEYS = ['autokill_enabled', 'update_check_enabled'];
+const SYSTEM_READ_KEYS = [
+  'autokill_enabled', 'update_check_enabled',
+  'update_check_last', 'update_check_latest', 'update_available',
+];
+
 module.exports = function adminRouter(db) {
   const router = express.Router();
 
@@ -107,6 +113,56 @@ module.exports = function adminRouter(db) {
       console.error('[admin/reject]', e);
       res.status(500).json({ error: 'Server error' });
     }
+  });
+
+  // PUT /api/admin/users/:id/role  — change a user's role
+  router.put('/users/:id/role', (req, res) => {
+    try {
+      const id = +req.params.id;
+      const { role } = req.body || {};
+      const valid = ['admin', 'operator', 'user'];
+      if (!valid.includes(role)) return res.status(400).json({ error: 'Role must be admin, operator, or user' });
+
+      // Guard: can't demote yourself off admin if you're the only one
+      if (id === req.user.sub && role !== 'admin') {
+        const cnt = db.prepare("SELECT COUNT(*) as cnt FROM users WHERE role = 'admin'").get();
+        if (cnt && cnt.cnt <= 1) return res.status(400).json({ error: 'Cannot demote the only admin' });
+      }
+
+      const result = db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id);
+      if (result.changes === 0) return res.status(404).json({ error: 'User not found' });
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('[admin/changeRole]', e);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // GET /api/admin/system  — read system/startup settings + update status
+  router.get('/system', (req, res) => {
+    const placeholders = SYSTEM_READ_KEYS.map(function() { return '?'; }).join(',');
+    const rows = db.prepare('SELECT key, value FROM settings WHERE key IN (' + placeholders + ')').all(...SYSTEM_READ_KEYS);
+    const settings = {};
+    for (const r of rows) settings[r.key] = r.value;
+
+    var version = '0.0.0';
+    try { version = require('../../package.json').version; } catch {}
+    settings.current_version = version;
+
+    res.json(settings);
+  });
+
+  // PUT /api/admin/system  — update toggle settings (admin only)
+  router.put('/system', (req, res) => {
+    const body = req.body || {};
+    const keys = Object.keys(body).filter(function(k) { return SYSTEM_WRITEABLE_KEYS.includes(k); });
+    if (keys.length === 0) return res.status(400).json({ error: 'No valid keys' });
+
+    const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+    for (const k of keys) {
+      stmt.run(k, String(body[k] != null ? body[k] : ''));
+    }
+    res.json({ ok: true });
   });
 
   // DELETE /api/admin/users/:id

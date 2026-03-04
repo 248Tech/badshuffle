@@ -9,12 +9,25 @@ const initDb = require('./db');
 const requireAuth = require('./lib/authMiddleware');
 const requireAdmin = require('./lib/adminMiddleware');
 const authRouter = require('./routes/auth');
+const singleInstance = require('./services/singleInstance');
+const updateCheck = require('./services/updateCheck');
 
 const PORT = process.env.PORT || 3001;
 
 async function start() {
   const db = await initDb();
   console.log('Database initialized');
+
+  // Single-instance guard — kill any prior Badshuffle server if autokill is enabled
+  const autokillRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('autokill_enabled');
+  const autokillEnabled = (autokillRow ? autokillRow.value : '1') !== '0';
+  await singleInstance.acquire(autokillEnabled);
+
+  // Ensure lock is released on exit
+  function releaseLock() { singleInstance.release(); }
+  process.on('exit',   releaseLock);
+  process.on('SIGTERM', function() { releaseLock(); process.exit(0); });
+  process.on('SIGINT',  function() { releaseLock(); process.exit(0); });
 
   const app = express();
 
@@ -54,6 +67,8 @@ async function start() {
 
   app.listen(PORT, () => {
     console.log(`BadShuffle server running on http://localhost:${PORT}`);
+    // Non-blocking startup update check
+    updateCheck.run(db).catch(function() {});
   });
 }
 

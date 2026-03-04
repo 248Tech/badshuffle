@@ -122,6 +122,88 @@
   font-size: 13px;
 }
 
+/* Role select */
+.roleSelect {
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.roleSelect:disabled { opacity: 0.6; cursor: default; }
+
+/* System tab */
+.systemPane { display: flex; flex-direction: column; gap: 16px; }
+.systemSection { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+.systemGrid { display: flex; flex-direction: column; gap: 8px; }
+.systemRow { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.systemLabel { color: var(--color-text-muted); }
+.systemValue { font-weight: 500; }
+
+.badgeUpdate {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+.badgeCurrent {
+  display: inline-block;
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+
+.toggleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 4px 0;
+}
+.toggleLabel { font-size: 13px; font-weight: 600; }
+.toggleDesc  { font-size: 12px; color: var(--color-text-muted); margin-top: 3px; max-width: 480px; line-height: 1.5; }
+
+.divider { height: 1px; background: var(--color-border); margin: 14px 0; }
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggleTrack {
+  width: 36px;
+  height: 20px;
+  background: var(--color-border);
+  border-radius: 999px;
+  transition: background 0.2s;
+  position: relative;
+}
+.toggle input:checked + .toggleTrack { background: var(--color-primary); }
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle input:checked + .toggleTrack .toggleThumb { transform: translateX(16px); }
+.toggleDisabled { opacity: 0.5; cursor: not-allowed; }
+
 /* Confirm dialog overlay */
 .overlay {
   position: fixed;
