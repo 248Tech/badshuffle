@@ -14,7 +14,7 @@ const NAV = [
   { to: '/settings',  label: 'Settings',  icon: '⚙️' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ role = '' }) {
   const navigate = useNavigate();
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -29,6 +29,8 @@ export default function Sidebar() {
     navigate('/login', { replace: true });
   }
 
+  const navItems = role === 'admin' ? NAV : NAV.filter(item => item.to !== '/admin');
+
   return (
     <nav className={styles.sidebar}>
       <div className={styles.logo}>
@@ -36,7 +38,7 @@ export default function Sidebar() {
         <span className={styles.logoText}>BadShuffle</span>
       </div>
       <ul className={styles.nav}>
-        {NAV.map(item => (
+        {navItems.map(item => (
           <li key={item.to}>
             <NavLink
               to={item.to}

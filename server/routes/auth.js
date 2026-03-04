@@ -188,6 +188,24 @@ module.exports = function authRouter(db) {
     }
   });
 
+  // GET /api/auth/me — requires JWT auth, returns current user id, email, role
+  router.get('/me', (req, res) => {
+    const header = req.headers.authorization || '';
+    const jwtToken = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (!jwtToken) return res.status(401).json({ error: 'Unauthorized' });
+
+    let decoded;
+    try {
+      decoded = jwt.verify(jwtToken, SECRET());
+    } catch {
+      return res.status(401).json({ error: 'Token invalid or expired' });
+    }
+
+    const row = db.prepare('SELECT id, email, role FROM users WHERE id = ?').get(decoded.sub);
+    if (!row) return res.status(404).json({ error: 'User not found' });
+    res.json({ id: row.id, email: row.email, role: row.role });
+  });
+
   // GET /api/auth/extension-token — requires JWT auth
   router.get('/extension-token', (req, res) => {
     const header = req.headers.authorization || '';

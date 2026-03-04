@@ -1,5 +1,6 @@
 const express = require('express');
 const { encrypt, decrypt } = require('../lib/crypto');
+const requireOperator = require('../lib/operatorMiddleware');
 
 const ALLOWED_KEYS = [
   'tax_rate', 'currency', 'company_name', 'company_email',
@@ -8,8 +9,9 @@ const ALLOWED_KEYS = [
 
 module.exports = function makeRouter(db) {
   const router = express.Router();
+  const op = requireOperator(db);
 
-  // GET /api/settings
+  // GET /api/settings — any authenticated user can read
   router.get('/', (req, res) => {
     const rows = db.prepare('SELECT key, value FROM settings').all();
     const settings = {};
@@ -23,8 +25,8 @@ module.exports = function makeRouter(db) {
     res.json(settings);
   });
 
-  // PUT /api/settings
-  router.put('/', (req, res) => {
+  // PUT /api/settings — operator or admin only
+  router.put('/', op, (req, res) => {
     const body = req.body || {};
     const keys = Object.keys(body).filter(k => ALLOWED_KEYS.includes(k));
     if (keys.length === 0) return res.status(400).json({ error: 'No valid keys provided' });

@@ -23,28 +23,34 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-function AuthGate({ children }) {
+function AuthGate({ children, setRole }) {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     api.auth.status()
       .then(({ setup }) => {
-        if (!setup) navigate('/setup', { replace: true });
+        if (!setup) {
+          navigate('/setup', { replace: true });
+          return;
+        }
+        api.auth.me().then(me => setRole(me.role)).catch(() => setRole(''));
       })
       .catch(() => {})
       .finally(() => setChecking(false));
-  }, [navigate]);
+  }, [navigate, setRole]);
 
   if (checking) return null;
   return children;
 }
 
 export default function App() {
+  const [role, setRole] = useState('');
+
   return (
     <ToastProvider>
       <BrowserRouter>
-        <AuthGate>
+        <AuthGate setRole={setRole}>
           <Routes>
             {/* Public auth routes */}
             <Route path="/login" element={<LoginPage />} />
@@ -53,7 +59,7 @@ export default function App() {
             <Route path="/reset" element={<ResetPage />} />
 
             {/* Protected app routes */}
-            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/" element={<ProtectedRoute><Layout role={role} /></ProtectedRoute>}>
               <Route index element={<Navigate to="/inventory" replace />} />
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="inventory/:id" element={<ItemDetailPage />} />

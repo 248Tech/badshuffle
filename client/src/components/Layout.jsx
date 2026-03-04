@@ -3,10 +3,10 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import styles from './Layout.module.css';
 
-export default function Layout() {
+export default function Layout({ role = '' }) {
   return (
     <div className={styles.layout}>
-      <Sidebar />
+      <Sidebar role={role} />
       <main className={styles.main}>
         <Outlet />
       </main>

@@ -32,6 +32,7 @@ export const api = {
   // Auth
   auth: {
     status: () => request('/auth/status'),
+    me: () => request('/auth/me'),
     setup: (body) => request('/auth/setup', { method: 'POST', body }),
     login: (body) => request('/auth/login', { method: 'POST', body }),
     forgot: (body) => request('/auth/forgot', { method: 'POST', body }),
