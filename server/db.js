@@ -299,3 +299,4 @@ async function initDb() {
 
 module.exports = initDb;
 module.exports.DB = DB;
+module.exports.DB_PATH = DB_PATH;

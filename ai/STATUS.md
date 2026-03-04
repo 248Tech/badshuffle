@@ -1,7 +1,60 @@
 # STATUS
 
 ## Current Task
-Completed: auth guard logout loop + incognito login; previously: lead import, quotes venue/totals/PDF.
+Completed: CLI admin utilities (create-admin, reset-password, reset-auth, wipe-database); previously: auth fix, lead import, quotes.
+
+## CLI admin utilities
+
+### Commands (run from repo root)
+
+| Command | Description |
+|--------|--------------|
+| `npm run create-admin -- --email <e> --password <p> [--role admin\|operator\|user]` | Create or update admin user (default role: admin). |
+| `npm run reset-password -- --email <e> --password <p>` | Set password for existing user. |
+| `npm run reset-auth` | Clear all auth data (users, login_attempts, reset_tokens, extension_tokens). Requires `--yes` (included in script). Preserves inventory, leads, quotes. |
+| `npm run wipe-database` | Remove DB file; with default `--backup`, copy to `./backups/badshuffle-YYYYMMDD-HHMMSS.db` first. Requires `--yes` (included). Use `--no-backup` to skip backup. |
+
+Direct CLI: `node server/cli.js <cmd> [options]` (e.g. `node server/cli.js create-admin --email a@b.com --password secret`).
+
+### Examples
+
+```bash
+# Create admin (PowerShell / Bash)
+npm run create-admin -- --email admin@local --password mysecret123
+npm run create-admin -- --email op@local --password op123 --role operator
+
+# Reset password
+npm run reset-password -- --email admin@local --password newpass
+
+# Clear auth only (no --yes needed when using npm script; it adds --yes)
+npm run reset-auth
+
+# Wipe DB with backup (default)
+npm run wipe-database
+
+# Wipe DB without backup
+node server/cli.js wipe-database --yes --no-backup
+```
+
+### Safety
+
+- **reset-auth** and **wipe-database** refuse to run unless `--yes` is provided. npm scripts include `--yes`.
+- Both print what will be deleted (e.g. row counts) before executing.
+- Plaintext passwords are never printed or logged.
+- **wipe-database**: Backup is on by default; use `--no-backup` to skip. Backup path: `./backups/badshuffle-YYYYMMDD-HHMMSS.db`.
+
+### Auth data scope
+
+- **reset-auth** deletes: `users`, `login_attempts`, `reset_tokens`, `extension_tokens`. Inventory, leads, quotes, settings remain.
+- **wipe-database** removes the DB file; next server start creates a fresh DB (like first install).
+
+### Files
+
+- `server/cli.js` — single CLI entrypoint; subcommands create-admin, reset-password, reset-auth, wipe-database.
+- `server/db.js` — export `DB_PATH` for wipe-database backup/path.
+- Root `package.json` — scripts: create-admin, reset-password, reset-auth, wipe-database.
+
+---
 
 ## Auth fix (logout loop + incognito)
 

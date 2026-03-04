@@ -4,6 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "create-admin": "node server/cli.js create-admin",
+    "reset-password": "node server/cli.js reset-password",
+    "reset-auth": "node server/cli.js reset-auth --yes",
+    "wipe-database": "node server/cli.js wipe-database --yes --backup",
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
     "build:client": "npm run build --prefix client",
     "package:server": "pkg server/index.js --target node14-win-x64 --output dist/badshuffle-server.exe",

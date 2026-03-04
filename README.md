@@ -92,6 +92,10 @@ Visit **http://localhost:5173** in your browser.
 3. Click **Load unpacked** → select the `extension/` folder
 4. Browse to your Goodshuffle Pro catalog — a "Sync to BadShuffle" button will appear
 
+**Locked out?** If you can’t log in or forgot the admin password, run:  
+`npm run create-admin -- --email your@email.com --password yournewpassword`  
+(from the repo root). See `ai/STATUS.md` for more CLI commands (reset-password, reset-auth, wipe-database).
+
 ---
 
 ## Building Standalone Executables
