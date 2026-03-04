@@ -129,6 +129,7 @@ function runWipeDatabase(opts) {
   const DB_PATH = initDb.DB_PATH || path.join(__dirname, 'badshuffle.db');
   const doBackup = opts.backup !== false;
 
+  console.log('DB path:', DB_PATH);
   if (!fs.existsSync(DB_PATH)) {
     console.log('No database file at', DB_PATH);
     return 0;
@@ -150,9 +151,21 @@ function runWipeDatabase(opts) {
     console.log('Backup written to:', backupPath);
   }
 
+  const lockSuffixes = ['-journal', '-wal', '-shm'];
   try {
     fs.unlinkSync(DB_PATH);
     console.log('Database removed:', DB_PATH);
+    for (const suf of lockSuffixes) {
+      const lockPath = DB_PATH + suf;
+      if (fs.existsSync(lockPath)) {
+        try {
+          fs.unlinkSync(lockPath);
+          console.log('Removed lock file:', lockPath);
+        } catch (e) {
+          console.warn('Could not remove', lockPath, e.message);
+        }
+      }
+    }
     console.log('On next server start, a fresh database will be created.');
   } catch (e) {
     console.error('Failed to delete database:', e.message);

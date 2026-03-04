@@ -16,25 +16,36 @@ Completed: CLI admin utilities (create-admin, reset-password, reset-auth, wipe-d
 
 Direct CLI: `node server/cli.js <cmd> [options]` (e.g. `node server/cli.js create-admin --email a@b.com --password secret`).
 
-### Examples
+### Tables and files touched
 
-```bash
-# Create admin (PowerShell / Bash)
-npm run create-admin -- --email admin@local --password mysecret123
-npm run create-admin -- --email op@local --password op123 --role operator
+| Command | Tables / files |
+|--------|-----------------|
+| **create-admin** | `users` (INSERT or UPDATE) |
+| **reset-password** | `users` (UPDATE password_hash for email) |
+| **reset-auth** | `login_attempts`, `extension_tokens`, `reset_tokens`, `users` (DELETE all rows). Does not touch items, quotes, quote_items, leads, settings. |
+| **wipe-database** | DB file at `server/badshuffle.db` (or pkg path); optional backup to `./backups/badshuffle-YYYYMMDD-HHMMSS.db`. Removes DB and any `-journal`, `-wal`, `-shm` lock files. |
+
+### Examples (PowerShell)
+
+```powershell
+# Create admin
+npm run create-admin -- --email admin@local --password "Test123!"
+npm run create-admin -- --email op@local --password "OpPass123" --role operator
 
 # Reset password
-npm run reset-password -- --email admin@local --password newpass
+npm run reset-password -- --email admin@local --password "NewPass456!"
 
-# Clear auth only (no --yes needed when using npm script; it adds --yes)
+# Clear auth only (npm script adds --yes)
 npm run reset-auth
 
 # Wipe DB with backup (default)
 npm run wipe-database
 
-# Wipe DB without backup
+# Wipe DB without backup (direct CLI)
 node server/cli.js wipe-database --yes --no-backup
 ```
+
+Help: `node server/cli.js --help`
 
 ### Safety
 
