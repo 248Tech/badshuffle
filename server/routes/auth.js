@@ -3,21 +3,34 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const { decrypt } = require('../lib/crypto');
 
 const SECRET = () => process.env.JWT_SECRET || 'change-me';
 const BRUTE_WINDOW_MIN = 15;
 const BRUTE_LIMIT = 5;
 
-function getMailer() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: +(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
-  });
+// Rate limit state for test-mail endpoint
+const testMailCounts = new Map();
+setInterval(() => testMailCounts.clear(), 60 * 1000);
+
+function getMailerFromDb(db) {
+  const rows = db.prepare('SELECT key, value FROM settings WHERE key LIKE ?').all('smtp_%');
+  const s = {};
+  for (const r of rows) s[r.key] = r.value;
+
+  const host   = s.smtp_host   || process.env.SMTP_HOST   || '';
+  const port   = +(s.smtp_port || process.env.SMTP_PORT   || 587);
+  const secure = (s.smtp_secure || process.env.SMTP_SECURE || 'false') === 'true';
+  const user   = s.smtp_user   || process.env.SMTP_USER   || '';
+  const pass   = decrypt(s.smtp_pass_enc || '') || process.env.SMTP_PASS || '';
+  const from   = s.smtp_from   || process.env.SMTP_FROM   || 'BadShuffle <noreply@localhost>';
+
+  const configured = !!host;
+  const transporter = configured
+    ? nodemailer.createTransport({ host, port, secure, auth: { user, pass } })
+    : null;
+
+  return { transporter, from, configured };
 }
 
 function signToken(user) {
@@ -56,7 +69,9 @@ module.exports = function authRouter(db) {
       if (existing.cnt > 0) return res.status(409).json({ error: 'Setup already complete' });
 
       const hash = await bcrypt.hash(password, 10);
-      const result = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(email, hash);
+      const result = db.prepare(
+        "INSERT INTO users (email, password_hash, role, approved) VALUES (?, ?, 'admin', 1)"
+      ).run(email, hash);
 
       // Generate extension token on first setup
       const extToken = crypto.randomBytes(32).toString('hex');
@@ -98,6 +113,8 @@ module.exports = function authRouter(db) {
 
       if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
+      if (!user.approved) return res.status(403).json({ error: 'Account pending admin approval' });
+
       res.json({ token: signToken(user) });
     } catch (e) {
       console.error('[auth/login]', e);
@@ -113,17 +130,17 @@ module.exports = function authRouter(db) {
 
       // Always return success to prevent user enumeration
       const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-      if (user) {
+      if (user && user.approved) {
         const token = crypto.randomBytes(32).toString('hex');
         const expiresAt = sqliteNow(60 * 60 * 1000);
         db.prepare('INSERT INTO reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)').run(user.id, token, expiresAt);
 
-        if (process.env.SMTP_HOST) {
+        const { transporter, from, configured } = getMailerFromDb(db);
+        if (configured) {
           try {
-            const mailer = getMailer();
             const appUrl = process.env.APP_URL || 'http://localhost:5173';
-            await mailer.sendMail({
-              from: process.env.SMTP_FROM || 'BadShuffle <noreply@localhost>',
+            await transporter.sendMail({
+              from,
               to: email,
               subject: 'BadShuffle — Password Reset',
               text: `Reset your password:\n\n${appUrl}/reset?token=${token}\n\nThis link expires in 1 hour.`,
@@ -190,6 +207,46 @@ module.exports = function authRouter(db) {
       row = { token };
     }
     res.json({ token: row.token });
+  });
+
+  // POST /api/auth/test-mail — public endpoint, rate-limited (5/min per IP)
+  router.post('/test-mail', async (req, res) => {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const count = (testMailCounts.get(ip) || 0) + 1;
+    testMailCounts.set(ip, count);
+    if (count > 5) return res.status(429).json({ error: 'Too many test email requests' });
+
+    try {
+      const body = req.body || {};
+      // Body fields take precedence; fall back to DB/env
+      const dbRows = db.prepare('SELECT key, value FROM settings WHERE key LIKE ?').all('smtp_%');
+      const dbSettings = {};
+      for (const r of dbRows) dbSettings[r.key] = r.value;
+
+      const host   = body.smtp_host   || dbSettings.smtp_host   || process.env.SMTP_HOST   || '';
+      const port   = +(body.smtp_port || dbSettings.smtp_port   || process.env.SMTP_PORT   || 587);
+      const secure = String(body.smtp_secure !== undefined ? body.smtp_secure : (dbSettings.smtp_secure || process.env.SMTP_SECURE || 'false')) === 'true';
+      const user   = body.smtp_user   || dbSettings.smtp_user   || process.env.SMTP_USER   || '';
+      // smtp_pass in body is raw plaintext; DB version is encrypted
+      const pass   = body.smtp_pass   || decrypt(dbSettings.smtp_pass_enc || '') || process.env.SMTP_PASS || '';
+      const from   = body.smtp_from   || dbSettings.smtp_from   || process.env.SMTP_FROM   || 'BadShuffle <noreply@localhost>';
+      const to     = body.to          || from;
+
+      if (!host) return res.status(400).json({ error: 'smtp_host is required' });
+
+      const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+      await transporter.sendMail({
+        from,
+        to,
+        subject: 'BadShuffle — Test Email',
+        text: 'This is a test email from BadShuffle. Your mail server is configured correctly.',
+      });
+
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('[auth/test-mail]', e.message);
+      res.status(500).json({ error: e.message });
+    }
   });
 
   return router;

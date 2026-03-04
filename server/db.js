@@ -225,9 +225,30 @@ async function initDb() {
     try { db.exec(col); } catch {}
   }
 
+  // Add role + approved to users (idempotent)
+  for (const col of [
+    "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'",
+    'ALTER TABLE users ADD COLUMN approved INTEGER DEFAULT 0',
+  ]) {
+    try { db.exec(col); } catch {}
+  }
+  // Promote first-ever user to admin/approved (safe to run every start)
+  db.prepare(
+    "UPDATE users SET role='admin', approved=1 WHERE id=(SELECT MIN(id) FROM users)"
+  ).run();
+
   // Seed default settings
   const defaults = { tax_rate: '0', currency: 'USD', company_name: '', company_email: '' };
   for (const [k, v] of Object.entries(defaults)) {
+    db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
+  }
+
+  // Seed SMTP settings
+  const smtpDefaults = {
+    smtp_host: '', smtp_port: '587', smtp_secure: 'false',
+    smtp_user: '', smtp_pass_enc: '', smtp_from: '',
+  };
+  for (const [k, v] of Object.entries(smtpDefaults)) {
     db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
   }
 
@@ -235,3 +256,4 @@ async function initDb() {
 }
 
 module.exports = initDb;
+module.exports.DB = DB;

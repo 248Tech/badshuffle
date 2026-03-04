@@ -36,7 +36,17 @@ export const api = {
     login: (body) => request('/auth/login', { method: 'POST', body }),
     forgot: (body) => request('/auth/forgot', { method: 'POST', body }),
     reset: (body) => request('/auth/reset', { method: 'POST', body }),
-    extensionToken: () => request('/auth/extension-token')
+    extensionToken: () => request('/auth/extension-token'),
+    testMail: (body) => request('/auth/test-mail', { method: 'POST', body }),
+  },
+
+  // Admin
+  admin: {
+    getUsers:    ()     => request('/admin/users'),
+    createUser:  (body) => request('/admin/users', { method: 'POST', body }),
+    approveUser: (id)   => request(`/admin/users/${id}/approve`, { method: 'PUT' }),
+    rejectUser:  (id)   => request(`/admin/users/${id}/reject`, { method: 'PUT' }),
+    deleteUser:  (id)   => request(`/admin/users/${id}`, { method: 'DELETE' }),
   },
 
   // Items

@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const initDb = require('./db');
 const requireAuth = require('./lib/authMiddleware');
+const requireAdmin = require('./lib/adminMiddleware');
 const authRouter = require('./routes/auth');
 
 const PORT = process.env.PORT || 3001;
@@ -49,6 +50,7 @@ async function start() {
   app.use('/api/extension',   auth, require('./routes/extension'));
   app.use('/api/settings',    auth, require('./routes/settings')(db));
   app.use('/api/leads',       auth, require('./routes/leads')(db));
+  app.use('/api/admin',       requireAdmin(db), require('./routes/admin')(db));
 
   app.listen(PORT, () => {
     console.log(`BadShuffle server running on http://localhost:${PORT}`);

@@ -86,3 +86,13 @@
   background: rgba(255,255,255,0.08);
   color: rgba(255,255,255,0.8);
 }
+
+.pendingBadge {
+  margin-left: auto;
+  background: var(--color-danger);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+}

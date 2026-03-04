@@ -10,6 +10,7 @@ import ExtensionPage from './pages/ExtensionPage.jsx';
 import ItemDetailPage from './pages/ItemDetailPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import LeadsPage from './pages/LeadsPage.jsx';
+import AdminPage from './pages/AdminPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import SetupPage from './pages/SetupPage.jsx';
 import ForgotPage from './pages/ForgotPage.jsx';
@@ -62,6 +63,7 @@ export default function App() {
               <Route path="stats" element={<StatsPage />} />
               <Route path="extension" element={<ExtensionPage />} />
               <Route path="leads" element={<LeadsPage />} />
+              <Route path="admin" element={<AdminPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Routes>

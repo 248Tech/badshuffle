@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import styles from './Sidebar.module.css';
-import { clearToken } from '../api';
+import { clearToken, api } from '../api';
 
 const NAV = [
   { to: '/inventory', label: 'Inventory', icon: '📦' },
@@ -10,11 +10,19 @@ const NAV = [
   { to: '/leads',     label: 'Leads',     icon: '👤' },
   { to: '/stats',     label: 'Stats',     icon: '📊' },
   { to: '/extension', label: 'Extension', icon: '🧩' },
+  { to: '/admin',     label: 'Admin',     icon: '👥' },
   { to: '/settings',  label: 'Settings',  icon: '⚙️' },
 ];
 
 export default function Sidebar() {
   const navigate = useNavigate();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    api.admin.getUsers()
+      .then(users => setPendingCount(users.filter(u => !u.approved).length))
+      .catch(() => {}); // 403 for non-admins — silent
+  }, []);
 
   function handleLogout() {
     clearToken();
@@ -38,6 +46,9 @@ export default function Sidebar() {
             >
               <span className={styles.icon}>{item.icon}</span>
               {item.label}
+              {item.to === '/admin' && pendingCount > 0 && (
+                <span className={styles.pendingBadge}>{pendingCount}</span>
+              )}
             </NavLink>
           </li>
         ))}
