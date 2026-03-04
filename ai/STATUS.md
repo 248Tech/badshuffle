@@ -1,9 +1,31 @@
 # STATUS
 
 ## Current Task
-Completed: lead import detection with mapping, leads wording, quotes venue/totals/PDF.
+Completed: auth guard logout loop + incognito login; previously: lead import, quotes venue/totals/PDF.
 
-## Progress
+## Auth fix (logout loop + incognito)
+
+### Root cause
+- **Logout loop:** On any 401, `api.js` did `clearToken()` then `window.location.href = '/login'`, causing a full page reload. After reload, AuthGate ran again, called `auth/me` (no token or invalid), got 401 again → redirect again → infinite loop.
+- **Incognito / 401:** Same redirect-on-401 caused reload; plus AuthGate always called `auth/me()` even when there was no token (e.g. on /login), so unauthenticated users triggered 401 and the global redirect.
+
+### Fix
+1. **api.js:** On 401, only `clearToken()` and throw. No `window.location` or reload. Callers handle the error; AuthGate handles unauthed state and navigates once via router.
+2. **App.jsx AuthGate:** Stable states: `loading` | `authed` | `unauthed`. If no token, do not call `auth/me()` — set `unauthed` and render children (login/setup/public routes show). If token present, call `auth/me()`; on success set `authed`, on 401 set `unauthed` and `navigate('/login', { replace: true })` only once (ref `hasRedirectedToLogin`). If already on `/login`, do not redirect. Reset the ref when pathname is `/login` so a later 401 can redirect again.
+3. **API/proxy:** JWT in `Authorization` header (no cookies). Vite proxy already routes `/api` → `http://localhost:3001`; no `credentials: 'include'` needed. Same origin in dev so `/api/auth/me`, login, logout all hit the same server.
+
+### Files changed (auth)
+- `client/src/api.js` — remove `window.location.href = '/login'` on 401.
+- `client/src/App.jsx` — AuthGate: useLocation, state machine, skip auth.me when no token, single navigate to /login with ref guard.
+
+### How to verify
+- Normal tab: login works; logout returns to /login without reload loop; no repeated 401 in console.
+- Incognito: login works; after login, auth/me succeeds (no 401 loop).
+- After logout, `/api/auth/me` returns 401 and UI stays on /login (no refresh).
+
+---
+
+## Progress (previous)
 
 ### 1. Lead import (normalize + scoring + mapping)
 - **Server:** Added `server/lib/leadImportMap.js`: `normalizeHeader()` (lowercase, newlines→spaces, collapse whitespace, strip punctuation, trim); keyword/regex scoring to suggest mapping for name, email, phone, event_date, event_type, source_url, notes; `suggestMapping(rawHeaders)` and `rowToLeadWithMapping(row, columnMapping)`.

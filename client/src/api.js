@@ -17,7 +17,6 @@ async function request(path, options = {}) {
 
   if (resp.status === 401) {
     clearToken();
-    window.location.href = '/login';
     throw new Error('Unauthorized');
   }
 

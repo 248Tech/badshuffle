@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import InventoryPage from './pages/InventoryPage.jsx';
 import ImportPage from './pages/ImportPage.jsx';
@@ -26,22 +26,56 @@ function ProtectedRoute({ children }) {
 
 function AuthGate({ children, setRole }) {
   const navigate = useNavigate();
-  const [checking, setChecking] = useState(true);
+  const location = useLocation();
+  const [state, setState] = useState('loading'); // 'loading' | 'authed' | 'unauthed'
+  const hasRedirectedToLogin = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     api.auth.status()
       .then(({ setup }) => {
+        if (cancelled) return;
         if (!setup) {
           navigate('/setup', { replace: true });
+          setState('unauthed');
           return;
         }
-        api.auth.me().then(me => setRole(me.role)).catch(() => setRole(''));
+        const token = getToken();
+        if (!token) {
+          setState('unauthed');
+          return;
+        }
+        return api.auth.me()
+          .then(me => {
+            if (cancelled) return;
+            setRole(me.role);
+            setState('authed');
+          })
+          .catch(() => {
+            if (cancelled) return;
+            setRole('');
+            setState('unauthed');
+            if (location.pathname !== '/login' && !hasRedirectedToLogin.current) {
+              hasRedirectedToLogin.current = true;
+              navigate('/login', { replace: true });
+            }
+          });
       })
-      .catch(() => {})
-      .finally(() => setChecking(false));
-  }, [navigate, setRole]);
+      .catch(() => {
+        if (cancelled) return;
+        setState('unauthed');
+      });
 
-  if (checking) return null;
+    return () => { cancelled = true; };
+  }, [navigate, setRole, location.pathname]);
+
+  // When pathname changes to /login (e.g. after logout), allow redirect again in future
+  useEffect(() => {
+    if (location.pathname === '/login') hasRedirectedToLogin.current = false;
+  }, [location.pathname]);
+
+  if (state === 'loading') return null;
   return children;
 }
 
