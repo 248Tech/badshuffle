@@ -24,8 +24,12 @@ function signToken(user) {
   return jwt.sign({ sub: user.id, email: user.email }, SECRET(), { expiresIn: '7d' });
 }
 
+function sqliteNow(offsetMs = 0) {
+  return new Date(Date.now() + offsetMs).toISOString().replace('T', ' ').slice(0, 19);
+}
+
 function checkBruteForce(db, ip) {
-  const since = new Date(Date.now() - BRUTE_WINDOW_MIN * 60 * 1000).toISOString();
+  const since = sqliteNow(-BRUTE_WINDOW_MIN * 60 * 1000);
   const row = db.prepare(
     "SELECT COUNT(*) as cnt FROM login_attempts WHERE ip = ? AND success = 0 AND attempted_at > ?"
   ).get(ip, since);
@@ -77,12 +81,12 @@ module.exports = function authRouter(db) {
       // Brute-force check
       const failCount = checkBruteForce(db, ip);
       if (failCount >= BRUTE_LIMIT) {
-        const since = new Date(Date.now() - BRUTE_WINDOW_MIN * 60 * 1000).toISOString();
+        const since = sqliteNow(-BRUTE_WINDOW_MIN * 60 * 1000);
         const oldest = db.prepare(
           "SELECT attempted_at FROM login_attempts WHERE ip = ? AND success = 0 AND attempted_at > ? ORDER BY attempted_at ASC LIMIT 1"
         ).get(ip, since);
         const retryAfter = oldest
-          ? Math.ceil((new Date(oldest.attempted_at).getTime() + BRUTE_WINDOW_MIN * 60 * 1000 - Date.now()) / 1000)
+          ? Math.ceil((new Date(oldest.attempted_at.replace(' ', 'T') + 'Z').getTime() + BRUTE_WINDOW_MIN * 60 * 1000 - Date.now()) / 1000)
           : BRUTE_WINDOW_MIN * 60;
         return res.status(429).json({ error: 'Too many attempts', retryAfter: Math.max(retryAfter, 1) });
       }
@@ -111,7 +115,7 @@ module.exports = function authRouter(db) {
       const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
       if (user) {
         const token = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        const expiresAt = sqliteNow(60 * 60 * 1000);
         db.prepare('INSERT INTO reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)').run(user.id, token, expiresAt);
 
         if (process.env.SMTP_HOST) {
@@ -149,7 +153,7 @@ module.exports = function authRouter(db) {
       if (!token || !password) return res.status(400).json({ error: 'Token and password required' });
       if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
-      const now = new Date().toISOString();
+      const now = sqliteNow();
       const row = db.prepare(
         "SELECT * FROM reset_tokens WHERE token = ? AND used = 0 AND expires_at > ?"
       ).get(token, now);
