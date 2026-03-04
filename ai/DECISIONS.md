@@ -90,3 +90,63 @@ on the user's next page reload (no live push). Admin-only routes (`/api/admin/*`
 protected by `requireAdmin` with no changes. Settings write route (`PUT /api/settings`)
 is upgraded from `requireAuth` to `requireOperator`. All other protected routes remain
 behind `requireAuth`.
+
+---
+
+## 2026-03-04 — Extension download endpoint made public
+
+Decision:
+Remove `requireAuth` from the `/api/extension` router registration in `server/index.js`.
+The endpoint is moved to the public block alongside `/api/auth` and `/api/health`.
+
+Reason:
+The download is triggered by a browser `<a href="..." download>` click. Browser-initiated
+navigation requests do not attach `Authorization: Bearer` headers, so any auth middleware
+will reject them with 401. The extension ZIP is not sensitive — it is a browser extension
+that any Badshuffle user needs to install, and it would be publicly distributed in a
+GitHub release. Query-token approaches (Option B) add complexity and a token-leakage
+surface without meaningful security gain. Option A (public) is the correct choice.
+
+Impact:
+Anyone who can reach port 3001 can download the extension ZIP without logging in. This is
+acceptable: port 3001 is a local-only server not exposed to the internet. No other
+endpoints are affected.
+
+---
+
+## 2026-03-04 — Google Sheets 400 treated as access error
+
+Decision:
+In `server/lib/sheetsParser.js`, extend the access-error condition to include HTTP 400
+alongside 401 and 403. The human-readable "Sheet is not publicly accessible. Make sure
+it is published to the web…" message is shown for all three status codes.
+
+Reason:
+Google's Sheets CSV export endpoint returns HTTP 400 (Bad Request) — not 401/403 — when
+the spreadsheet is private or the requesting IP has no access. This is undocumented
+behavior that differs from standard HTTP semantics. The existing `sheetUrlToCsvUrl`
+conversion from edit URLs to export URLs is correct and should not change; only the
+error-handling branch needs updating. Surfacing the accurate help message for 400
+eliminates the misleading "Failed to fetch sheet: 400 Bad Request" report.
+
+Impact:
+Users who paste a private Sheet URL now receive a clear, actionable error. Users who
+paste a valid public Sheet URL are unaffected. No change to URL conversion logic.
+
+---
+
+## 2026-03-04 — Lead counter label changed to "leads in database"
+
+Decision:
+Change the `LeadsPreview` component label in `ImportPage.jsx` from
+`"{total} leads scraped from Goodshuffle"` to `"{total} leads in database"`.
+Update the empty-state message to remove the reference to browsing Goodshuffle.
+
+Reason:
+Leads enter the database via two paths: Sheet import and the Chrome extension. Neither
+path is exclusively "scraping from Goodshuffle." The label was a placeholder that
+survived into production. "Leads in database" is source-agnostic and always accurate.
+The total count from `api.getLeads` is already correct and requires no change.
+
+Impact:
+UI copy change only. No API or data-model changes required.
