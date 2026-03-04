@@ -150,3 +150,68 @@ The total count from `api.getLeads` is already correct and requires no change.
 
 Impact:
 UI copy change only. No API or data-model changes required.
+
+---
+
+## 2026-03-04 — Quote status lifecycle: draft / sent / approved
+
+Decision:
+Add a `status TEXT DEFAULT 'draft'` column to the `quotes` table via ALTER TABLE ADD COLUMN. Three lifecycle states only: `draft`, `sent`, `approved`. Transitions: draft → sent (POST /send), sent → approved (POST /approve), any → draft (POST /revert). Status is never embedded in the JWT or cached on the client — always fetched from DB.
+
+Reason:
+Three states cover the full sales handoff: internal draft, client-visible sent quote, client approval. A `contracts` table (future) can be linked on the `approved` event. COALESCE-based PATCH updates already in place for quotes mean adding `lead_id` to the existing PUT is one line.
+
+Impact:
+New columns are additive via try/catch ALTER TABLE — safe on existing DBs with data. Three new POST sub-routes per quote (send, approve, revert). No breaking change to existing GET/PUT/DELETE endpoints.
+
+---
+
+## 2026-03-04 — Public quote sharing via opaque token
+
+Decision:
+Generate a 48-character hex token via `crypto.randomBytes(24).toString('hex')` when `POST /api/quotes/:id/send` is called. Store in `quotes.public_token` (UNIQUE, nullable). Serve at `GET /api/quotes/public/:token` in the public block of `server/index.js` (no auth middleware). Token is never rotated automatically — reuse persists across re-sends.
+
+Reason:
+48 hex chars = 192 bits of entropy — effectively unguessable. Using the Node.js built-in `crypto` module avoids a new package dependency. Registering the public endpoint directly in `index.js` (not via a router factory) keeps the pattern consistent with the `/api/health` route and avoids threading `db` through a separate factory just for one route. A unique index on `public_token WHERE public_token IS NOT NULL` keeps lookups O(log n) with no full-table scan.
+
+Impact:
+Unauthenticated users who know the token can view and print the quote. Port 3001 is local-only in the default deployment so exposure is bounded. The token is only generated on explicit "Send" — drafts are never publicly accessible.
+
+---
+
+## 2026-03-04 — Quote export via window.print() + @media print
+
+Decision:
+Implement quote export using `window.print()` in the browser. The PublicQuotePage renders a clean print layout and includes `@media print { button { display: none } }` inline. Users choose "Save as PDF" from the browser's print dialog.
+
+Reason:
+Zero new npm dependencies. Works in all modern browsers (Chrome, Edge, Firefox, Safari). Print-to-PDF quality matches the rendered HTML — no canvas rasterization artifacts. Avoids server-side Puppeteer (large package, needs Chromium binary, incompatible with pkg on Windows). Avoids client-side jsPDF/html2canvas (imprecise layout, adds ~200 KB to bundle). The public quote URL is a clean, shareable page that doubles as the print target.
+
+Impact:
+No PDF is stored on server. Each print is on-demand from the browser. If a stored PDF is needed in future (e.g. for contract archiving), Puppeteer can be added as a separate endpoint without changing this approach.
+
+---
+
+## 2026-03-04 — requireOperator middleware as separate file
+
+Decision:
+Create `server/lib/operatorMiddleware.js` mirroring the structure of `server/lib/adminMiddleware.js`. It exports a factory `function(db)` that returns Express middleware. Allows role `admin` or `operator`; returns 403 for `user`.
+
+Reason:
+Mirrors the existing pattern (`authMiddleware.js`, `adminMiddleware.js`) so Cursor can follow the same instantiation pattern in `index.js` without guessing. Keeping it in a separate file makes it independently testable and avoids modifying the existing admin middleware.
+
+Impact:
+Applied to `PUT /api/settings` to prevent regular users from changing app-wide settings. All other protected routes remain behind `requireAuth` only (no regression).
+
+---
+
+## 2026-03-04 — Role fetched via /api/auth/me, not embedded in JWT
+
+Decision:
+Add `GET /api/auth/me` (behind `requireAuth`) that returns `{ id, email, role }` from the DB. The client calls this once on app mount (in App.jsx) and passes `role` as a prop to Sidebar. Role is NOT in the JWT payload.
+
+Reason:
+Embedding role in JWT means a role change is invisible until the 7-day token expires (or a token invalidation mechanism is built). `/api/auth/me` is one lightweight SELECT per page load and gives the current role immediately after an admin changes it. The client already calls `api.auth.status()` on mount — adding `api.auth.me()` is one additional parallel call with negligible overhead.
+
+Impact:
+Admin nav link is hidden from non-admin users on each fresh page load. Role change takes effect on next page reload (no live WebSocket push required). The route is additive — no existing auth routes are modified.

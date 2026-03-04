@@ -1,38 +1,37 @@
 # TODO
 
-## Active: Extension download auth, Sheets 400 error, Leads wording
+## Active: Stability Foundations + Sales Workflow
 
-### Fix 1 — Extension download endpoint (server/index.js)
+### Phase A — Stability (Verification Only)
 
-- [x] Move `app.use('/api/extension', ...)` from the protected block to the public block
-      (alongside `/api/auth` and `/api/health`)
-- [x] Remove the `auth` middleware argument from that line
-- [ ] Verify: `curl http://localhost:3001/api/extension/download -o test.zip` succeeds
-      without an Authorization header
+- [x] A1 — Verify DB persistence: sql.js writes badshuffle.db after every mutation; path is pkg-aware (no changes needed)
+- [x] A2 — Verify audit fields: items.created_at, items.updated_at exist; PUT handler sets updated_at (no changes needed)
+- [ ] A3 — Image display fix: investigate photo_url rendering; ensure proxy route exists at /api/proxy-image; apply api.proxyImageUrl() in image components (see HANDOFF A3)
 
-### Fix 2 — Google Sheets 400 error (server/lib/sheetsParser.js)
+### Phase B — Sales Workflow
 
-- [x] In `fetchCsv`, extend the access-error condition on line 24 to include status 400:
-      change `resp.status === 401 || resp.status === 403`
-      to     `resp.status === 400 || resp.status === 401 || resp.status === 403`
-- [x] Do NOT modify `sheetUrlToCsvUrl` — URL conversion is correct
-- [ ] Verify: a private (non-published) Google Sheet URL now returns the
-      "Sheet is not publicly accessible" message instead of "400 Bad Request"
+- [ ] B1 — DB migrations: ALTER TABLE quotes ADD COLUMN status/lead_id/public_token; ALTER TABLE leads ADD COLUMN quote_id; create unique index on quotes.public_token (server/db.js)
+- [ ] B2 — Quote status routes: POST /api/quotes/:id/send, /approve, /revert; update PUT to accept lead_id (server/routes/quotes.js)
+- [ ] B3 — Public quote endpoint: GET /api/quotes/public/:token (unauthenticated, registered in server/index.js public block)
+- [ ] B4 — Lead PUT endpoint: accept quote_id linkage; accept quote_id on POST (server/routes/leads.js)
+- [ ] B5 — Client API: add sendQuote, approveQuote, revertQuote, getPublicQuote, updateLead (client/src/api.js)
+- [ ] B6 — QuotePage UI: status badge, Send to Client button, Copy Link button (client/src/pages/QuotePage.jsx + .module.css)
+- [ ] B7 — Public quote page: new PublicQuotePage.jsx with read-only view + print button; add /quote/public/:token public route to App.jsx
+- [ ] B8 — Verify print/export: window.print() in PublicQuotePage triggers browser print dialog; @media print hides buttons (no new packages)
 
-### Fix 3 — Leads counter wording (client/src/pages/ImportPage.jsx)
+### Phase C — Roles and Permissions
 
-- [x] In `LeadsPreview`, change the label from
-      `{total} leads scraped from Goodshuffle`
-      to `{total} leads in database`
-- [x] Update the empty-state paragraph text: remove "Browse Goodshuffle quote pages"
-      and replace with something accurate (e.g. "Import a sheet or use the extension to capture contacts.")
-- [x] Do NOT change the `api.getLeads` call or `total` binding — the count logic is correct
+- [ ] C1 — Create server/lib/operatorMiddleware.js (requireOperator: admin or operator role required)
+- [ ] C2 — Apply requireOperator to PUT /api/settings in server/index.js
+- [ ] C3 — Add GET /api/auth/me endpoint to server/routes/auth.js
+- [ ] C4 — Client role awareness: fetch api.auth.me() in App.jsx; pass role to Sidebar; hide Admin nav link for non-admin
+- [ ] C5 — Upgrade extension-token endpoint to admin/operator guard in server/routes/auth.js
 
 ### Coordination (required at end of session)
 
-- [x] Update `ai/STATUS.md` with completed tasks, files changed, and verification notes
-- [x] `git diff HEAD > ai/LAST.patch`
-- [x] `git status --porcelain > ai/LAST.status`
+- [ ] Update `ai/STATUS.md` with completed tasks, files changed, and verification notes
+- [ ] `git diff HEAD > ai/LAST.patch`
+- [ ] `git status --porcelain > ai/LAST.status`
 
 ---
 
@@ -48,12 +47,14 @@
 - [x] Add System tab + toggles to `AdminPage.jsx`
 - [x] Add role picker to AdminPage users table
 - [x] Add `api.auth.me()` to `client/src/api.js`
+- [x] Move `/api/extension` to public block (remove auth middleware)
+- [x] Extend sheetsParser.js 400 to access-error check
+- [x] Update LeadsPreview label to "leads in database"
+- [x] Update LeadsPreview empty-state text
 
 ## Backlog
 
-- [ ] Create `server/lib/operatorMiddleware.js` (`requireOperator`)
-- [ ] Apply operator guard to `PUT /api/settings`
-- [ ] Add `GET /api/auth/me` endpoint to `server/routes/auth.js`
-- [ ] Thread `role` prop through App → Layout → Sidebar; hide Admin link for non-admins
-- [ ] Role badge in top nav
 - [ ] Email notification on role change
+- [ ] Role badge in top nav
+- [ ] Contract sub-resource on quotes (contracts table, PDF contract generation)
+- [ ] Lead timeline / activity log
