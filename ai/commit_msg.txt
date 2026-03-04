@@ -1,0 +1,5 @@
+Leads import mapping, leads wording, quotes venue/totals/PDF
+
+- Lead import: normalize headers (lowercase, collapse whitespace, strip punctuation), keyword/regex scoring for column mapping; POST /api/leads/preview; import wizard with Map Columns step and manual mapping override; import accepts columnMapping.
+- Leads: remove Goodshuffle references from leads UI; show X leads in database.
+- Quotes: add Venue (name, email, phone, address, contact, notes), Quote notes, tax_rate; Logistics section from items with category=logistics; totals (subtotal, delivery total, tax, grand total); PDF export via Print / Save as PDF.
