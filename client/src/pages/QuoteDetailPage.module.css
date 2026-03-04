@@ -8,7 +8,14 @@
 .topActions { display: flex; gap: 8px; }
 
 .quoteHeader { display: flex; flex-direction: column; gap: 8px; }
+.titleRow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .title { font-size: 24px; font-weight: 700; }
+.badge { padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+.badge_draft { background: #e0e7ff; color: #3730a3; }
+.badge_sent { background: #fef3c7; color: #92400e; }
+.badge_approved { background: #d1fae5; color: #065f46; }
+.quoteActions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.btnSend { }
 .meta { display: flex; gap: 8px; flex-wrap: wrap; }
 .metaTag {
   font-size: 12px;

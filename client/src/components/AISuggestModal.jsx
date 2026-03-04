@@ -47,13 +47,15 @@ export default function AISuggestModal({ quoteId, guestCount, currentItems, onAd
         <div className={styles.list}>
           {suggestions.map(s => (
             <div key={s.id} className={styles.item}>
-              {s.photo_url && (
+              {s.photo_url ? (
                 <img
-                  src={`/api/proxy-image?url=${encodeURIComponent(s.photo_url)}`}
+                  src={api.proxyImageUrl(s.photo_url)}
                   alt={s.title}
                   className={styles.thumb}
-                  onError={e => { e.target.style.display = 'none'; }}
+                  onError={e => { e.target.src = '/placeholder.png'; }}
                 />
+              ) : (
+                <img src="/placeholder.png" alt="" className={styles.thumb} aria-hidden />
               )}
               <div className={styles.info}>
                 <span className={styles.name}>{s.title}</span>

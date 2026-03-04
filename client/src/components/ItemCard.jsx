@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../api';
 import styles from './ItemCard.module.css';
 
 export default function ItemCard({ item, onEdit, onDelete, onAddToQuote }) {
@@ -21,15 +22,18 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote }) {
       >
         {item.photo_url && !imgError ? (
           <img
-            src={`/api/proxy-image?url=${encodeURIComponent(item.photo_url)}`}
+            src={api.proxyImageUrl(item.photo_url)}
             alt={item.title}
             className={styles.img}
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className={styles.imgPlaceholder}>
-            <span>📦</span>
-          </div>
+          <img
+            src="/placeholder.png"
+            alt=""
+            className={styles.img}
+            aria-hidden
+          />
         )}
         <span className={`badge badge-${sourceLabel} ${styles.sourceBadge}`}>
           {sourceLabel}

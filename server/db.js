@@ -232,6 +232,22 @@ async function initDb() {
   ]) {
     try { db.exec(col); } catch {}
   }
+
+  // quotes — status lifecycle + lead linkage + public share token
+  const quoteCols = [
+    "ALTER TABLE quotes ADD COLUMN status TEXT DEFAULT 'draft'",
+    "ALTER TABLE quotes ADD COLUMN lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL",
+    "ALTER TABLE quotes ADD COLUMN public_token TEXT"
+  ];
+  for (const sql of quoteCols) {
+    try { db.exec(sql); } catch (e) {}
+  }
+  // leads — back-reference to quote
+  try { db.exec("ALTER TABLE leads ADD COLUMN quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL"); } catch (e) {}
+  try {
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_quotes_public_token ON quotes(public_token) WHERE public_token IS NOT NULL");
+  } catch (e) {}
+
   // Promote first-ever user to admin/approved (safe to run every start)
   db.prepare(
     "UPDATE users SET role='admin', approved=1 WHERE id=(SELECT MIN(id) FROM users)"

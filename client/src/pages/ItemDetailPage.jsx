@@ -87,13 +87,13 @@ export default function ItemDetailPage() {
           <div className={styles.imgWrapper}>
             {item.photo_url && !imgError ? (
               <img
-                src={`/api/proxy-image?url=${encodeURIComponent(item.photo_url)}`}
+                src={api.proxyImageUrl(item.photo_url)}
                 alt={item.title}
                 className={styles.img}
                 onError={() => setImgError(true)}
               />
             ) : (
-              <div className={styles.imgPlaceholder}>📦</div>
+              <img src="/placeholder.png" alt="" className={styles.img} aria-hidden />
             )}
           </div>
           {item.category && <span className={`badge ${styles.catBadge}`}>{item.category}</span>}

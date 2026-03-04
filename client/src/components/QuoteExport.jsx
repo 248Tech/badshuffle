@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
+import { api } from '../api';
 import styles from './QuoteExport.module.css';
 
 export default function QuoteExport({ quote, settings = {}, totals = null }) {
@@ -69,13 +70,14 @@ export default function QuoteExport({ quote, settings = {}, totals = null }) {
               <div className={styles.exportImgWrapper}>
                 {item.photo_url ? (
                   <img
-                    src={`/api/proxy-image?url=${encodeURIComponent(item.photo_url)}`}
+                    src={api.proxyImageUrl(item.photo_url)}
                     alt={item.title}
                     className={styles.exportImg}
                     crossOrigin="anonymous"
+                    onError={e => { e.target.src = '/placeholder.png'; }}
                   />
                 ) : (
-                  <div className={styles.exportImgPlaceholder}>📦</div>
+                  <img src="/placeholder.png" alt="" className={styles.exportImg} aria-hidden />
                 )}
               </div>
               <div className={styles.exportItemBody}>

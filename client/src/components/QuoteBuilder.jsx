@@ -67,13 +67,13 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange }) {
             <div key={item.qitem_id} className={styles.quoteItem}>
               {item.photo_url ? (
                 <img
-                  src={`/api/proxy-image?url=${encodeURIComponent(item.photo_url)}`}
+                  src={api.proxyImageUrl(item.photo_url)}
                   alt={item.title}
                   className={styles.thumb}
-                  onError={e => { e.target.style.display='none'; }}
+                  onError={e => { e.target.src = '/placeholder.png'; }}
                 />
               ) : (
-                <div className={styles.thumbPlaceholder}>📦</div>
+                <img src="/placeholder.png" alt="" className={styles.thumb} aria-hidden />
               )}
               <span className={styles.itemTitle}>{item.title}</span>
               <div className={styles.qtyControl}>
@@ -106,13 +106,13 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange }) {
             <div key={item.id} className={styles.pickerItem} onClick={() => addItem(item)}>
               {item.photo_url ? (
                 <img
-                  src={`/api/proxy-image?url=${encodeURIComponent(item.photo_url)}`}
+                  src={api.proxyImageUrl(item.photo_url)}
                   alt={item.title}
                   className={styles.thumb}
-                  onError={e => { e.target.style.display='none'; }}
+                  onError={e => { e.target.src = '/placeholder.png'; }}
                 />
               ) : (
-                <div className={styles.thumbPlaceholder}>📦</div>
+                <img src="/placeholder.png" alt="" className={styles.thumb} aria-hidden />
               )}
               <span className={styles.itemTitle}>{item.title}</span>
               <span className={styles.addHint}>+ Add</span>

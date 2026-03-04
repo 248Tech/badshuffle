@@ -84,6 +84,16 @@ export default function QuoteDetailPage() {
     }
   };
 
+  const handleSend = async () => {
+    try {
+      await api.sendQuote(id);
+      toast.success('Quote sent; client link ready.');
+      load();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
   if (loading) return <div className="empty-state"><div className="spinner" /></div>;
   if (!quote) return null;
 
@@ -145,7 +155,32 @@ export default function QuoteDetailPage() {
         </div>
       ) : (
         <div className={styles.quoteHeader}>
-          <h1 className={styles.title}>{quote.name}</h1>
+          <div className={styles.titleRow}>
+            <h1 className={styles.title}>{quote.name}</h1>
+            <span className={`${styles.badge} ${styles['badge_' + (quote.status || 'draft')]}`}>
+              {quote.status || 'draft'}
+            </span>
+          </div>
+          <div className={styles.quoteActions}>
+            {quote.status === 'draft' && (
+              <button type="button" onClick={handleSend} className={`btn btn-primary btn-sm ${styles.btnSend}`}>
+                Send to Client
+              </button>
+            )}
+            {quote.public_token && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  const url = `${window.location.origin}/quote/public/${quote.public_token}`;
+                  navigator.clipboard.writeText(url);
+                  toast.success('Client link copied to clipboard');
+                }}
+              >
+                Copy Client Link
+              </button>
+            )}
+          </div>
           <div className={styles.meta}>
             {date && <span className={styles.metaTag}>📅 {date}</span>}
             {quote.guest_count > 0 && (

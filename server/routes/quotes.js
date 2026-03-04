@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 
 module.exports = function makeRouter(db) {
   const router = express.Router();
@@ -42,7 +43,7 @@ module.exports = function makeRouter(db) {
 
   // PUT /api/quotes/:id
   router.put('/:id', (req, res) => {
-    const { name, guest_count, event_date, notes } = req.body;
+    const { name, guest_count, event_date, notes, lead_id } = req.body;
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     if (!quote) return res.status(404).json({ error: 'Not found' });
 
@@ -52,6 +53,7 @@ module.exports = function makeRouter(db) {
         guest_count = COALESCE(?, guest_count),
         event_date  = COALESCE(?, event_date),
         notes       = COALESCE(?, notes),
+        lead_id     = COALESCE(?, lead_id),
         updated_at  = datetime('now')
       WHERE id = ?
     `).run(
@@ -59,8 +61,46 @@ module.exports = function makeRouter(db) {
       guest_count !== undefined ? guest_count : null,
       event_date !== undefined ? event_date : null,
       notes !== undefined ? notes : null,
+      lead_id !== undefined ? lead_id : null,
       req.params.id
     );
+
+    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    res.json({ quote: updated });
+  });
+
+  // POST /api/quotes/:id/send — set status to 'sent', generate public_token
+  router.post('/:id/send', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+
+    const token = quote.public_token || crypto.randomBytes(24).toString('hex');
+    db.prepare("UPDATE quotes SET status = 'sent', public_token = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(token, req.params.id);
+
+    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    res.json({ quote: updated });
+  });
+
+  // POST /api/quotes/:id/approve — set status to 'approved'
+  router.post('/:id/approve', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+
+    db.prepare("UPDATE quotes SET status = 'approved', updated_at = datetime('now') WHERE id = ?")
+      .run(req.params.id);
+
+    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    res.json({ quote: updated });
+  });
+
+  // POST /api/quotes/:id/revert — revert approved/sent back to draft
+  router.post('/:id/revert', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+
+    db.prepare("UPDATE quotes SET status = 'draft', updated_at = datetime('now') WHERE id = ?")
+      .run(req.params.id);
 
     const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     res.json({ quote: updated });

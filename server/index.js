@@ -8,6 +8,7 @@ const cors = require('cors');
 const initDb = require('./db');
 const requireAuth = require('./lib/authMiddleware');
 const requireAdmin = require('./lib/adminMiddleware');
+const requireOperator = require('./lib/operatorMiddleware');
 const authRouter = require('./routes/auth');
 const singleInstance = require('./services/singleInstance');
 const updateCheck = require('./services/updateCheck');
@@ -52,6 +53,20 @@ async function start() {
   app.use('/api/auth', authRouter(db));
   app.get('/api/health', (req, res) => res.json({ ok: true }));
   app.use('/api/extension', require('./routes/extension'));
+  // Public quote view (no auth)
+  app.get('/api/quotes/public/:token', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    const items = db.prepare(`
+      SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order,
+             i.id, i.title, i.photo_url, i.unit_price, i.taxable
+      FROM quote_items qi
+      JOIN items i ON i.id = qi.item_id
+      WHERE qi.quote_id = ?
+      ORDER BY qi.sort_order ASC, qi.id ASC
+    `).all(quote.id);
+    res.json({ ...quote, items });
+  });
 
   // Protected routes
   const auth = requireAuth(db);
@@ -61,7 +76,7 @@ async function start() {
   app.use('/api/stats',       auth, require('./routes/stats')(db));
   app.use('/api/ai',          auth, require('./routes/ai')(db));
   app.use('/api/proxy-image', auth, require('./lib/imageProxy'));
-  app.use('/api/settings',    auth, require('./routes/settings')(db));
+  app.use('/api/settings',    auth, requireOperator(db), require('./routes/settings')(db));
   app.use('/api/leads',       auth, require('./routes/leads')(db));
   app.use('/api/admin',       requireAdmin(db), require('./routes/admin')(db));
 

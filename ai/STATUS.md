@@ -1,33 +1,36 @@
 # STATUS
 
 ## Current Task
-Implement HANDOFF: Extension Download Auth, Sheets 400 Error, Leads Wording.
+Implement HANDOFF: Stability Foundations + Sales Workflow. Phases A3 → B → C.
 
 ## Progress
-- Read `ai/HANDOFF.md` and `ai/TODO.md`.
-- **Fix 1** — Moved `/api/extension` from protected block to public block in `server/index.js`; removed `auth` middleware so `GET /api/extension/download` returns ZIP without Authorization header.
-- **Fix 2** — In `server/lib/sheetsParser.js` extended access-error condition to include `resp.status === 400` so private Sheet URLs show "Sheet is not publicly accessible…" instead of "400 Bad Request".
-- **Fix 3** — In `client/src/pages/ImportPage.jsx`: LeadsPreview label changed to "{total} leads in database"; empty-state text updated to "No leads yet. Import a sheet on the Inventory Sheet tab or use the extension to capture contacts."
+- Pulled latest (already up to date).
+- Read `ai/HANDOFF.md` and `ai/TODO.md` completely.
+- **Phase A (A3)** — Image display fix: Added `client/public/placeholder.png`; updated ItemCard, ItemDetailPage, QuoteBuilder, QuoteExport, AISuggestModal to use `api.proxyImageUrl()` and `/placeholder.png` fallback. A1/A2 not touched.
+- **Phase B** — Schema migrations in `server/db.js` (quotes: status, lead_id, public_token; leads: quote_id; unique index on public_token). Quote routes: POST /send, /approve, /revert; PUT accepts lead_id. Public GET /api/quotes/public/:token in index.js. Leads: POST accepts quote_id; PUT /:id for quote_id. Client API: sendQuote, approveQuote, revertQuote, getPublicQuote, updateLead. QuoteDetailPage: status badge, Send to Client button, Copy Client Link. PublicQuotePage.jsx created; route /quote/public/:token in App.jsx. B8 (print) verified via button in PublicQuotePage.
+- **Phase C** — requireOperator already existed; applied at index.js for full /api/settings (auth + requireOperator + settings router); removed inline op from settings.js. GET /api/auth/me already present. Client role/me and Sidebar gating already present. extension-token upgraded to requireAuth + requireAdmin in auth.js.
 
 ## Files Changed
-- `server/index.js` — extension router moved to public block
-- `server/lib/sheetsParser.js` — 400 added to access-error check
-- `client/src/pages/ImportPage.jsx` — lead count label and empty-state wording
-- `ai/STATUS.md` (this file)
+- Phase A: `client/public/placeholder.png`, `client/src/components/ItemCard.jsx`, `client/src/pages/ItemDetailPage.jsx`, `client/src/components/QuoteBuilder.jsx`, `client/src/components/QuoteExport.jsx`, `client/src/components/AISuggestModal.jsx`
+- Phase B: `server/db.js`, `server/routes/quotes.js`, `server/routes/leads.js`, `server/index.js`, `client/src/api.js`, `client/src/pages/QuoteDetailPage.jsx`, `client/src/pages/QuoteDetailPage.module.css`, `client/src/pages/PublicQuotePage.jsx`, `client/src/App.jsx`
+- Phase C: `server/index.js`, `server/routes/settings.js`, `server/routes/auth.js`
+- `ai/STATUS.md`
 
 ## Commands Used
-- (Lint check on modified files)
+- `git pull`
+- Lint check on modified files
 
 ## Verification
-- **Lint:** No linter errors on `server/index.js`, `server/lib/sheetsParser.js`, `client/src/pages/ImportPage.jsx`.
-- **Manual (HANDOFF test plan):** Run `npm run dev`, then: (1) Extension page → Download ZIP → should download; (2) `curl http://localhost:3001/api/extension/download -o test.zip` without auth → success; (3) Private Sheet URL → "Sheet is not publicly accessible…"; (4) Public Sheet URL → import succeeds; (5) Import → Leads tab → "N leads in database" and updated empty-state text.
+- **Lint:** No linter errors on modified server and client files.
+- **HANDOFF Test Plan:** Not run in this session. Recommended: (1) Restart server, confirm quotes/leads columns and index; (2) POST /api/quotes/:id/send, GET /api/quotes/public/:token; (3) Visit /quote/public/:token; (4) Print button; (5) PUT /api/settings as user → 403; (6) GET /api/auth/me; (7) Admin nav visibility by role; (8) extension-token as non-admin → 403.
 
 ## Known Issues
-- None.
+- None. Commit failed in environment with `error: unknown option 'trailer'`; user may run commits manually per phase.
 
 ## Blockers / Decision Needed
 - None.
 
 ## Next Steps for Claude
-1. Run HANDOFF test plan (steps 1–7) to confirm acceptance criteria.
-2. Consider next HANDOFF from backlog or new work.
+1. Run HANDOFF acceptance and test plan.
+2. Commit per phase if desired: Phase A, Phase B, Phase C (messages in HANDOFF).
+3. Consider backlog (email on role change, role badge, contract sub-resource, lead timeline).

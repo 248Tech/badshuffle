@@ -51,6 +51,8 @@ function checkBruteForce(db, ip) {
 
 module.exports = function authRouter(db) {
   const router = express.Router();
+  const requireAuth = require('../lib/authMiddleware')(db);
+  const requireAdmin = require('../lib/adminMiddleware')(db);
 
   // GET /api/auth/status — no auth required
   router.get('/status', (req, res) => {
@@ -206,18 +208,8 @@ module.exports = function authRouter(db) {
     res.json({ id: row.id, email: row.email, role: row.role });
   });
 
-  // GET /api/auth/extension-token — requires JWT auth
-  router.get('/extension-token', (req, res) => {
-    const header = req.headers.authorization || '';
-    const jwtToken = header.startsWith('Bearer ') ? header.slice(7) : null;
-    if (!jwtToken) return res.status(401).json({ error: 'Unauthorized' });
-
-    try {
-      jwt.verify(jwtToken, SECRET());
-    } catch {
-      return res.status(401).json({ error: 'Token invalid or expired' });
-    }
-
+  // GET /api/auth/extension-token — requires admin (or operator per HANDOFF C5: admin-only)
+  router.get('/extension-token', requireAuth, requireAdmin, (req, res) => {
     let row = db.prepare('SELECT token FROM extension_tokens LIMIT 1').get();
     if (!row) {
       const token = crypto.randomBytes(32).toString('hex');

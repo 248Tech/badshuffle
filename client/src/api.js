@@ -95,6 +95,10 @@ export const api = {
   createQuote: (body) => request('/quotes', { method: 'POST', body }),
   updateQuote: (id, body) => request(`/quotes/${id}`, { method: 'PUT', body }),
   deleteQuote: (id) => request(`/quotes/${id}`, { method: 'DELETE' }),
+  sendQuote: (id) => request(`/quotes/${id}/send`, { method: 'POST' }),
+  approveQuote: (id) => request(`/quotes/${id}/approve`, { method: 'POST' }),
+  revertQuote: (id) => request(`/quotes/${id}/revert`, { method: 'POST' }),
+  getPublicQuote: (token) => request(`/quotes/public/${token}`),
   addQuoteItem: (quoteId, body) => request(`/quotes/${quoteId}/items`, { method: 'POST', body }),
   updateQuoteItem: (quoteId, qitemId, body) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'PUT', body }),
   removeQuoteItem: (quoteId, qitemId) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'DELETE' }),
@@ -109,6 +113,7 @@ export const api = {
     return request(`/leads?${qs}`);
   },
   createLead: (body) => request('/leads', { method: 'POST', body }),
+  updateLead: (id, body) => request(`/leads/${id}`, { method: 'PUT', body }),
   deleteLead: (id) => request(`/leads/${id}`, { method: 'DELETE' }),
 
   // Stats

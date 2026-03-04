@@ -27,17 +27,31 @@ module.exports = function makeRouter(db) {
 
   // POST /api/leads
   router.post('/', (req, res) => {
-    const { name, email, phone, event_date, event_type, source_url, notes } = req.body || {};
+    const { name, email, phone, event_date, event_type, source_url, notes, quote_id } = req.body || {};
     const result = db.prepare(`
-      INSERT INTO leads (name, email, phone, event_date, event_type, source_url, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO leads (name, email, phone, event_date, event_type, source_url, notes, quote_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       name || null, email || null, phone || null,
       event_date || null, event_type || null,
-      source_url || null, notes || null
+      source_url || null, notes || null,
+      quote_id !== undefined ? quote_id : null
     );
     const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json({ lead });
+  });
+
+  // PUT /api/leads/:id
+  router.put('/:id', (req, res) => {
+    const { quote_id } = req.body || {};
+    const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(req.params.id);
+    if (!lead) return res.status(404).json({ error: 'Not found' });
+    db.prepare('UPDATE leads SET quote_id = ? WHERE id = ?').run(
+      quote_id !== undefined ? quote_id : lead.quote_id,
+      req.params.id
+    );
+    const updated = db.prepare('SELECT * FROM leads WHERE id = ?').get(req.params.id);
+    res.json({ lead: updated });
   });
 
   // DELETE /api/leads/:id

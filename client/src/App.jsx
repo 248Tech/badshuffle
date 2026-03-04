@@ -15,6 +15,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import SetupPage from './pages/SetupPage.jsx';
 import ForgotPage from './pages/ForgotPage.jsx';
 import ResetPage from './pages/ResetPage.jsx';
+import PublicQuotePage from './pages/PublicQuotePage.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import { api, getToken } from './api';
 
@@ -57,6 +58,7 @@ export default function App() {
             <Route path="/setup" element={<SetupPage />} />
             <Route path="/forgot" element={<ForgotPage />} />
             <Route path="/reset" element={<ResetPage />} />
+            <Route path="/quote/public/:token" element={<PublicQuotePage />} />
 
             {/* Protected app routes */}
             <Route path="/" element={<ProtectedRoute><Layout role={role} /></ProtectedRoute>}>
