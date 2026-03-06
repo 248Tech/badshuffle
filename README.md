@@ -1,31 +1,34 @@
-# BadShuffle v3.2.3
+# BadShuffle v0.3.2
 
 A self-hosted inventory and quoting tool for event rental businesses. Manage your catalog, build quotes, track usage stats, and sync items directly from Goodshuffle Pro — all running locally on your machine with no subscription required.
 
+*Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history.*
+
 ---
 
-## What's New in v3.2.3
+## What's New in v0.3.2
 
 - **Quote detail header** — New QuoteHeader component: quote name, status badge, metadata (date, guests, items), and actions in a clear layout with flex and responsive wrapping
 - **Button hierarchy** — Primary: Send to Client; Secondary: Edit; Ghost: Copy link, AI Suggest, Duplicate; Danger: Delete
 - **Status badge** — More visible draft/sent/approved badge (larger, uppercase)
 - **UI redesign strategy** — `docs/UI_UX_REDESIGN_STRATEGY.md` with priority plan, design system rules, and concrete recommendations for quote detail and spacing
+- **Billing page** — Overpaid quotes list for sales (refund due); remaining balance on quote quickview
 
-## What's New in v3.2.2
+## What's New in v0.3.1
 
 - **Quotes page view toggle** — Switch between List and Tile view from the Quotes page header
 - **Contract total on quickview** — Each quote card/tile and list row shows the computed contract total
 - **Duplicate on Quotes page** — Duplicate button on each quote quickview (and in list row actions); duplicates full quote (details, line items, custom items)
 - **Multi-select and batch actions** — Select one or more quotes via checkboxes; "Duplicate (n)" and "Delete (n)" in a batch bar with confirmation for batch delete
 
-## What's New in v3.2.1
+## What's New in v0.3.0
 
 - **Quote approval from public link** — Clients can approve a quote from the public link; "Approve this Quote" button on the shared quote page
 - **Contracts** — Add a contract to any quote (Contract tab); clients sign on the public page (agree + name); full change log (who changed what and when)
 - **Lead timeline** — Activity log per lead: created, quote linked, email sent, reply received; click a lead on the Leads page to see the timeline
 - **Contract change logs** — Every contract edit is recorded with timestamp, user email, and a summary of what changed
 
-## What's New in v3.2
+## What's New in v0.2.0
 
 - **Files** — media library for uploading images, PDFs, and documents; attach files to outbound emails
 - **Custom quote items** — add one-off line items to any quote with a title, price, quantity, and photo picked from your media library or inventory

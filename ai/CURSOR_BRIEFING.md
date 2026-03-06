@@ -4,40 +4,40 @@
 
 BadShuffle is a self-hosted inventory and quoting tool for event rental businesses. It runs as two local Windows executables (server + client). Stack: Node/Express + sql.js SQLite on the back end, React + Vite on the front end.
 
-## Current state: v3.2.3 (latest release)
+## Current state: v0.3.2 (latest release)
 
 All planned phases (A, B, C from HANDOFF.md) are complete. Latest release:
 
 ```
-release: v3.2.3 — Quote detail header refactor, button hierarchy, status badge, UI redesign strategy
+release: v0.3.2 — Quote detail header refactor, button hierarchy, status badge, UI redesign strategy, Billing page, version history correction
 ```
 
-### What was built in v3.2.3
+### What was built in v0.3.2
 - **QuoteHeader component** — Extracted from QuoteDetailPage: title, metadata, status badge, and all quote actions in one component; flex layout with space-between and responsive wrapping
 - **Quote detail button hierarchy** — Primary: Send to Client; Secondary: Edit; Ghost: Copy Client Link, AI Suggest, Duplicate; Danger: Delete
 - **Status badge** — More prominent styling (larger padding, 12px font, uppercase) for draft/sent/approved
 - **docs/UI_UX_REDESIGN_STRATEGY.md** — Full UI/UX redesign strategy (priority plan, design system rules, concrete recommendations for quote detail and global spacing)
 - **JSX fix** — Removed stray closing tag that broke the quote-tab fragment in QuoteDetailPage
 
-### What was built in v3.2.2
+### What was built in v0.3.1
 - **Quotes page** — Toggle between List and Tile view; each quote quickview shows contract total and a Duplicate button; multi-select (checkboxes) with batch "Duplicate (n)" and "Delete (n)"; optional ConfirmDialog title for batch delete
 - **API** — `POST /api/quotes/:id/duplicate` (already present); GET `/api/quotes` returns computed `total` per quote
 - **QuoteCard** — Displays total, Duplicate button, selection checkbox when in selectable mode; Open/Duplicate/Delete use stopPropagation so card click toggles selection
 
-### What was built in v3.2.1
+### What was built in v0.3.0
 - **Quote approval from public link** — "Approve this Quote" on public quote page; `POST /api/quotes/approve-by-token` (no auth)
 - **Contract sub-resource** — `contracts` table; Contract tab on QuoteDetailPage (body HTML); client signs on public page (checkbox + name); `GET/PUT /api/quotes/:id/contract`, public `POST /api/quotes/contract/sign`
 - **Lead timeline** — `lead_events` table; auto-log: lead created, quote linked, email sent, reply received; activity panel on LeadsPage (click lead to see timeline)
 - **Contract change logs** — `contract_logs` table; every contract update records time, user email, and old/new body; "Change log" section in Contract tab
 
-### What was built in v3.2
+### What was built in v0.2.0
 - **Files** — media library (`/files`), upload images/PDFs, attach to emails
 - **Custom quote items** — one-off line items with title, price, qty, photo from media library
 - **Messages** — two-pane thread view, logs outbound emails, ingests client replies via IMAP poll
 - **SMTP send** — "Send to Client" delivers email via SMTP and logs the message
 - **IMAP auto-poll** — checks inbox every 5 min, links replies back to originating quote
 
-### What was built before v3.2 (all complete)
+### What was built before v0.2.0 (all complete)
 - CLI admin tools: `create-admin`, `reset-password`, `reset-auth`, `wipe-database`
 - Auth fix: no more logout loop or incognito 401 redirect loop
 - Lead import wizard: 3-step column mapping (CSV/XLSX/Google Sheets)
@@ -101,7 +101,7 @@ client/src/
 - `badshuffle.lock` deleted (runtime lock file, ignored going forward)
 - `badshuffle/` untracked — this is the extracted/packaged executable directory, not source
 
-Working tree is committed and tagged as v3.2.3.
+Working tree is committed; canonical version is v0.3.2 (0.x pre-release until 1.0).
 
 ## Known stubs / incomplete items
 
