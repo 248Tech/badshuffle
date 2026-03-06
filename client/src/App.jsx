@@ -17,6 +17,7 @@ import ForgotPage from './pages/ForgotPage.jsx';
 import ResetPage from './pages/ResetPage.jsx';
 import PublicQuotePage from './pages/PublicQuotePage.jsx';
 import TemplatesPage from './pages/TemplatesPage.jsx';
+import DashboardPage from './pages/DashboardPage.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import { api, getToken } from './api';
 
@@ -97,7 +98,8 @@ export default function App() {
 
             {/* Protected app routes */}
             <Route path="/" element={<ProtectedRoute><Layout role={role} /></ProtectedRoute>}>
-              <Route index element={<Navigate to="/inventory" replace />} />
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="inventory/:id" element={<ItemDetailPage />} />
               <Route path="import" element={<ImportPage />} />

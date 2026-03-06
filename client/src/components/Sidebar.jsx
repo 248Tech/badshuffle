@@ -4,6 +4,7 @@ import styles from './Sidebar.module.css';
 import { clearToken, api } from '../api';
 
 const NAV = [
+  { to: '/dashboard', label: 'Dashboard', icon: '📊' },
   { to: '/inventory', label: 'Inventory', icon: '📦' },
   { to: '/import',    label: 'Import',    icon: '⬇️' },
   { to: '/quotes',    label: 'Quotes',    icon: '📋' },

@@ -1,0 +1,113 @@
+.page { display: flex; flex-direction: column; gap: 24px; }
+.title { font-size: 24px; font-weight: 700; }
+.error { color: var(--color-danger, #dc2626); }
+
+/* Stat cards */
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+@media (max-width: 800px) { .statGrid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .statGrid { grid-template-columns: 1fr; } }
+
+.statCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.statLabel {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.statValue { font-size: 30px; font-weight: 700; line-height: 1.1; }
+
+/* Charts grid */
+.charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 800px) { .charts { grid-template-columns: 1fr; } }
+
+.chartCard { padding: 20px; }
+.chartTitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+}
+
+/* Bar chart */
+.barChart { display: flex; flex-direction: column; gap: 12px; }
+.barRow { display: flex; align-items: center; gap: 10px; }
+.barLabel { width: 74px; font-size: 12px; text-transform: capitalize; color: var(--color-text-muted); flex-shrink: 0; }
+.barTrack {
+  flex: 1;
+  background: var(--color-border);
+  border-radius: 4px;
+  height: 22px;
+  overflow: hidden;
+}
+.barFill { height: 100%; border-radius: 4px; transition: width 0.4s ease; min-width: 2px; }
+.barValue { width: 28px; text-align: right; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+
+/* Revenue breakdown table */
+.revenueTable { margin-top: 16px; display: flex; flex-direction: column; }
+.revenueRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 6px 0;
+  border-top: 1px solid var(--color-border);
+}
+.revenueLabel { font-weight: 600; text-transform: capitalize; }
+
+/* Delivery visualizer */
+.deliveryCard { padding: 20px; }
+.empty { font-size: 13px; color: var(--color-text-muted); font-style: italic; margin: 0; }
+
+.eventList { display: flex; flex-direction: column; gap: 6px; }
+.eventRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.eventRow:hover { border-color: var(--color-primary); }
+
+.eventDateBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 58px;
+}
+.eventDay { font-size: 13px; font-weight: 700; }
+.eventDaysOut { font-size: 11px; color: var(--color-text-muted); }
+.eventName { flex: 1; font-size: 14px; font-weight: 500; }
+.eventGuests { font-size: 12px; color: var(--color-text-muted); white-space: nowrap; }
+
+.eventStatus {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.status_draft    { background: #e0e7ff; color: #3730a3; }
+.status_sent     { background: #fef3c7; color: #92400e; }
+.status_approved { background: #d1fae5; color: #065f46; }

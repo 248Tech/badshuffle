@@ -36,7 +36,11 @@ export default function QuoteDetailPage() {
   const [saving, setSaving] = useState(false);
   const [showAI, setShowAI] = useState(false);
   const [venueEditing, setVenueEditing] = useState(false);
+  const [clientEditing, setClientEditing] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showLogPicker, setShowLogPicker] = useState(false);
+  const [logSearch, setLogSearch] = useState('');
+  const [logItems, setLogItems] = useState([]);
 
   const load = useCallback(() => {
     api.getQuote(id)
@@ -115,6 +119,53 @@ export default function QuoteDetailPage() {
   };
 
   const handleSendClick = () => setShowSendModal(true);
+
+  useEffect(() => {
+    if (showLogPicker) {
+      api.getItems({}).then(d => setLogItems((d.items || []).filter(isLogistics))).catch(() => {});
+    }
+  }, [showLogPicker]);
+
+  const handleClientSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.updateQuote(id, {
+        client_first_name: form.client_first_name || null,
+        client_last_name: form.client_last_name || null,
+        client_email: form.client_email || null,
+        client_phone: form.client_phone || null,
+        client_address: form.client_address || null
+      });
+      toast.success('Client updated');
+      setClientEditing(false);
+      load();
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddLogisticsItem = async (item) => {
+    try {
+      await api.addQuoteItem(id, { item_id: item.id, quantity: 1 });
+      toast.success(`Added ${item.title}`);
+      load();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleRemoveLogisticsItem = async (qitemId, title) => {
+    try {
+      await api.removeQuoteItem(id, qitemId);
+      toast.info(`Removed ${title}`);
+      load();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
 
   const handleVenueSave = async (e) => {
     e.preventDefault();
@@ -273,16 +324,35 @@ export default function QuoteDetailPage() {
 
           <div className={styles.clientVenueRow}>
             <div className={styles.clientBlock}>
-              <h4 className={styles.venueTitle}>Client information</h4>
-              {(quote.client_first_name || quote.client_last_name || quote.client_email || quote.client_phone || quote.client_address) ? (
-                <div className={styles.venueGrid}>
-                  {(quote.client_first_name || quote.client_last_name) && <span><strong>Name:</strong> {[quote.client_first_name, quote.client_last_name].filter(Boolean).join(' ')}</span>}
-                  {quote.client_email && <span><strong>Email:</strong> {quote.client_email}</span>}
-                  {quote.client_phone && <span><strong>Phone:</strong> {quote.client_phone}</span>}
-                  {quote.client_address && <span><strong>Address:</strong> {quote.client_address}</span>}
-                </div>
+              {clientEditing ? (
+                <form onSubmit={handleClientSave} className={styles.venueForm}>
+                  <h4 className={styles.venueTitle}>Client information</h4>
+                  <div className={styles.formRow}>
+                    <div className="form-group"><label>First name</label><input value={form.client_first_name || ''} onChange={e => setForm(f => ({ ...f, client_first_name: e.target.value }))} /></div>
+                    <div className="form-group"><label>Last name</label><input value={form.client_last_name || ''} onChange={e => setForm(f => ({ ...f, client_last_name: e.target.value }))} /></div>
+                  </div>
+                  <div className="form-group"><label>Email</label><input type="email" value={form.client_email || ''} onChange={e => setForm(f => ({ ...f, client_email: e.target.value }))} /></div>
+                  <div className="form-group"><label>Phone</label><input value={form.client_phone || ''} onChange={e => setForm(f => ({ ...f, client_phone: e.target.value }))} /></div>
+                  <div className="form-group"><label>Address</label><input value={form.client_address || ''} onChange={e => setForm(f => ({ ...f, client_address: e.target.value }))} /></div>
+                  <div className={styles.formActions}>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setClientEditing(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+                  </div>
+                </form>
               ) : (
-                <p className={styles.emptyHint}>No client info. Click Edit to add.</p>
+                <div role="button" tabIndex={0} className={styles.venueClickable} onClick={() => setClientEditing(true)} onKeyDown={e => e.key === 'Enter' && setClientEditing(true)}>
+                  <h4 className={styles.venueTitle}>Client information</h4>
+                  {(quote.client_first_name || quote.client_last_name || quote.client_email || quote.client_phone || quote.client_address) ? (
+                    <div className={styles.venueGrid}>
+                      {(quote.client_first_name || quote.client_last_name) && <span><strong>Name:</strong> {[quote.client_first_name, quote.client_last_name].filter(Boolean).join(' ')}</span>}
+                      {quote.client_email && <span><strong>Email:</strong> {quote.client_email}</span>}
+                      {quote.client_phone && <span><strong>Phone:</strong> {quote.client_phone}</span>}
+                      {quote.client_address && <span><strong>Address:</strong> {quote.client_address}</span>}
+                    </div>
+                  ) : (
+                    <p className={styles.emptyHint}>Click to add client info</p>
+                  )}
+                </div>
               )}
             </div>
             <div className={styles.venueBlock}>
@@ -323,16 +393,54 @@ export default function QuoteDetailPage() {
           </div>
           {quote.quote_notes && <p className={styles.notes}><strong>Quote notes:</strong> {quote.quote_notes}</p>}
 
-          {logisticsItems.length > 0 && (
-            <div className={styles.logisticsBlock}>
-              <h4 className={styles.logisticsTitle}>Logistics (delivery / pickup)</h4>
-              <ul className={styles.logisticsList}>
-                {logisticsItems.map(it => (
-                  <li key={it.qitem_id}>{it.label || it.title} ×{it.quantity || 1} {it.unit_price > 0 ? `$${(it.unit_price * (it.quantity || 1)).toFixed(2)}` : ''}</li>
-                ))}
-              </ul>
+          <div className={styles.logisticsBlock}>
+              <div className={styles.logisticsHeader}>
+                <h4 className={styles.logisticsTitle}>Logistics / Delivery</h4>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setShowLogPicker(v => !v); setLogSearch(''); }}>
+                  {showLogPicker ? 'Cancel' : '+ Add item'}
+                </button>
+              </div>
+              {logisticsItems.length > 0 && (
+                <ul className={styles.logisticsList}>
+                  {logisticsItems.map(it => (
+                    <li key={it.qitem_id} className={styles.logisticsItem}>
+                      <span className={styles.logisticsItemName}>{it.label || it.title} ×{it.quantity || 1}</span>
+                      {it.unit_price > 0 && <span>${(it.unit_price * (it.quantity || 1)).toFixed(2)}</span>}
+                      <button type="button" className={styles.logRemoveBtn} onClick={() => handleRemoveLogisticsItem(it.qitem_id, it.label || it.title)}>✕</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {logisticsItems.length === 0 && !showLogPicker && (
+                <p className={styles.emptyHint}>No delivery items. Click "+ Add item" to add logistics-category items.</p>
+              )}
+              {showLogPicker && (
+                <div className={styles.logPicker}>
+                  <input
+                    className={styles.logPickerSearch}
+                    placeholder="Search logistics items…"
+                    value={logSearch}
+                    onChange={e => setLogSearch(e.target.value)}
+                    autoFocus
+                  />
+                  {logItems.length === 0 ? (
+                    <p className={styles.emptyHint}>No items with "logistics" in their category found in inventory.</p>
+                  ) : (
+                    <div className={styles.logPickerList}>
+                      {logItems
+                        .filter(i => !logSearch || i.title.toLowerCase().includes(logSearch.toLowerCase()))
+                        .map(item => (
+                          <div key={item.id} className={styles.logPickerRow}>
+                            <span className={styles.logPickerTitle}>{item.title}</span>
+                            {item.unit_price > 0 && <span className={styles.logPickerPrice}>${item.unit_price.toFixed(2)}</span>}
+                            <button type="button" className="btn btn-primary btn-sm" onClick={() => handleAddLogisticsItem(item)}>+ Add</button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
 
           {(totals.subtotal > 0 || totals.deliveryTotal > 0) && (
             <div className={styles.totalsBar}>

@@ -10,6 +10,43 @@ module.exports = function makeRouter(db) {
     res.json({ quotes });
   });
 
+  // GET /api/quotes/summary — dashboard aggregates (must be before /:id)
+  router.get('/summary', (req, res) => {
+    const allQuotes = db.prepare('SELECT id, name, status, event_date, guest_count, created_at FROM quotes').all();
+
+    const byStatus = { draft: 0, sent: 0, approved: 0 };
+    allQuotes.forEach(q => {
+      const s = q.status || 'draft';
+      byStatus[s] = (byStatus[s] || 0) + 1;
+    });
+
+    const revRows = db.prepare(`
+      SELECT COALESCE(q.status, 'draft') AS status,
+             COALESCE(SUM(qi.quantity * i.unit_price), 0) AS revenue
+      FROM quotes q
+      LEFT JOIN quote_items qi ON qi.quote_id = q.id
+      LEFT JOIN items i ON i.id = qi.item_id
+      GROUP BY COALESCE(q.status, 'draft')
+    `).all();
+    const revenueByStatus = {};
+    revRows.forEach(r => { revenueByStatus[r.status] = r.revenue; });
+
+    const today = new Date().toISOString().split('T')[0];
+    const in90 = new Date(Date.now() + 90 * 864e5).toISOString().split('T')[0];
+    const upcoming = allQuotes
+      .filter(q => q.event_date && q.event_date >= today && q.event_date <= in90)
+      .sort((a, b) => a.event_date.localeCompare(b.event_date));
+
+    const monthMap = {};
+    allQuotes.forEach(q => {
+      const m = (q.created_at || '').slice(0, 7);
+      if (m) monthMap[m] = (monthMap[m] || 0) + 1;
+    });
+    const byMonth = Object.keys(monthMap).sort().slice(-6).map(m => ({ month: m, count: monthMap[m] }));
+
+    res.json({ total: allQuotes.length, byStatus, revenueByStatus, upcoming, byMonth });
+  });
+
   // GET /api/quotes/:id
   router.get('/:id', (req, res) => {
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);

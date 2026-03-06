@@ -90,6 +90,7 @@ export const api = {
 
   // Quotes
   getQuotes: () => request('/quotes'),
+  getQuotesSummary: () => request('/quotes/summary'),
   getQuote: (id) => request(`/quotes/${id}`),
   createQuote: (body) => request('/quotes', { method: 'POST', body }),
   updateQuote: (id, body) => request(`/quotes/${id}`, { method: 'PUT', body }),

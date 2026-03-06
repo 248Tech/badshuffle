@@ -23,16 +23,14 @@ export default function InventoryPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
   const [categories, setCategories] = useState([]);
 
   const load = useCallback(() => {
     setLoading(true);
     const params = {};
     if (search) params.search = search;
-    if (categoryFilter) params.category = categoryFilter;
     api.getItems(params).then(d => setItems(d.items || [])).finally(() => setLoading(false));
-  }, [search, categoryFilter]);
+  }, [search]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -131,16 +129,6 @@ export default function InventoryPage() {
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
-        {categories.length > 0 && (
-          <select
-            className={styles.categorySelect}
-            value={categoryFilter}
-            onChange={e => setCategoryFilter(e.target.value)}
-          >
-            <option value="">All categories</option>
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        )}
       </div>
 
       {/* Add / Edit Form */}
