@@ -25,6 +25,19 @@ async function request(path, options = {}) {
   return data;
 }
 
+/** Public API call (no Authorization header) — for quote approval by token, etc. */
+async function publicRequest(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const resp = await fetch(`${BASE}${path}`, {
+    headers,
+    ...options,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+  return data;
+}
+
 export { getToken, setToken, clearToken };
 
 export const api = {
@@ -98,7 +111,12 @@ export const api = {
   sendQuote: (id, body) => request(`/quotes/${id}/send`, { method: 'POST', body: body || {} }),
   approveQuote: (id) => request(`/quotes/${id}/approve`, { method: 'POST' }),
   revertQuote: (id) => request(`/quotes/${id}/revert`, { method: 'POST' }),
-  getPublicQuote: (token) => request(`/quotes/public/${token}`),
+  getQuoteContract: (id) => request(`/quotes/${id}/contract`),
+  getQuoteContractLogs: (id) => request(`/quotes/${id}/contract/logs`),
+  updateQuoteContract: (id, body) => request(`/quotes/${id}/contract`, { method: 'PUT', body }),
+  getPublicQuote: (token) => publicRequest(`/quotes/public/${token}`),
+  approveQuoteByToken: (token) => publicRequest('/quotes/approve-by-token', { method: 'POST', body: { token } }),
+  signContractByToken: (token, body) => publicRequest('/quotes/contract/sign', { method: 'POST', body: { token, ...body } }),
   addQuoteItem: (quoteId, body) => request(`/quotes/${quoteId}/items`, { method: 'POST', body }),
   updateQuoteItem: (quoteId, qitemId, body) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'PUT', body }),
   removeQuoteItem: (quoteId, qitemId) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'DELETE' }),
@@ -123,6 +141,7 @@ export const api = {
   previewLeadsImport: (body) => request('/leads/preview', { method: 'POST', body }),
   importLeads: (body) => request('/leads/import', { method: 'POST', body }),
   updateLead: (id, body) => request(`/leads/${id}`, { method: 'PUT', body }),
+  getLeadEvents: (id) => request(`/leads/${id}/events`),
   deleteLead: (id) => request(`/leads/${id}`, { method: 'DELETE' }),
 
   // Stats

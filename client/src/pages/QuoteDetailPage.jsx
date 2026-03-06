@@ -49,6 +49,12 @@ export default function QuoteDetailPage() {
   // Custom items form
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customForm, setCustomForm] = useState({ title: '', unit_price: '', quantity: '1', taxable: true, photo_url: '' });
+  // Contract tab
+  const [detailTab, setDetailTab] = useState('quote');
+  const [contract, setContract] = useState(null);
+  const [contractBody, setContractBody] = useState('');
+  const [contractSaving, setContractSaving] = useState(false);
+  const [contractLogs, setContractLogs] = useState([]);
 
   const load = useCallback(() => {
     api.getQuote(id)
@@ -83,6 +89,45 @@ export default function QuoteDetailPage() {
   useEffect(() => {
     api.getSettings().then(s => setSettings(s)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (detailTab !== 'contract' || !id) return;
+    api.getQuoteContract(id)
+      .then(d => {
+        setContract(d.contract);
+        setContractBody(d.contract ? (d.contract.body_html || '') : '');
+      })
+      .catch(() => toast.error('Failed to load contract'));
+    api.getQuoteContractLogs(id)
+      .then(d => setContractLogs(d.logs || []))
+      .catch(() => setContractLogs([]));
+  }, [detailTab, id]);
+
+  const handleSaveContract = async (e) => {
+    e.preventDefault();
+    setContractSaving(true);
+    try {
+      const d = await api.updateQuoteContract(id, { body_html: contractBody });
+      setContract(d.contract);
+      const logsRes = await api.getQuoteContractLogs(id);
+      setContractLogs(logsRes.logs || []);
+      toast.success('Contract saved');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setContractSaving(false);
+    }
+  };
+
+  const contractLogSummary = (log) => {
+    const oldLen = (log.old_body || '').length;
+    const newLen = (log.new_body || '').length;
+    if (oldLen === 0 && newLen === 0) return 'No content';
+    if (oldLen === 0) return `Contract body created (${newLen} characters)`;
+    if (newLen === 0) return `Contract body cleared (was ${oldLen} characters)`;
+    if (oldLen === newLen) return `Contract body updated (${newLen} characters)`;
+    return `Contract body updated (${oldLen} → ${newLen} characters)`;
+  };
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
@@ -322,6 +367,13 @@ export default function QuoteDetailPage() {
           </form>
         </div>
       ) : (
+        <>
+          <div className={styles.tabs}>
+            <button type="button" className={`${styles.tab} ${detailTab === 'quote' ? styles.tabActive : ''}`} onClick={() => setDetailTab('quote')}>Quote</button>
+            <button type="button" className={`${styles.tab} ${detailTab === 'contract' ? styles.tabActive : ''}`} onClick={() => setDetailTab('contract')}>Contract</button>
+          </div>
+          {detailTab === 'quote' && (
+        <>
         <div className={styles.quoteHeader}>
           <div className={styles.titleRow}>
             <h1 className={styles.title}>{quote.name}</h1>
@@ -578,6 +630,52 @@ export default function QuoteDetailPage() {
           </div>
         </div>
       </div>
+          </>)}
+          {detailTab === 'contract' && (
+            <div className={`card ${styles.editCard}`}>
+              <h3 className={styles.formSectionTitle}>Contract</h3>
+              <p className={styles.notes}>Contract text shown to the client on the public quote page. Client can sign from the public link.</p>
+              <form onSubmit={handleSaveContract} className={styles.form}>
+                <div className="form-group">
+                  <label>Contract body (HTML or plain text)</label>
+                  <textarea
+                    rows={12}
+                    value={contractBody}
+                    onChange={e => setContractBody(e.target.value)}
+                    placeholder="Enter contract terms. Simple HTML allowed (e.g. &lt;p&gt;, &lt;strong&gt;)."
+                  />
+                </div>
+                <div className={styles.formActions}>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={contractSaving}>
+                    {contractSaving ? 'Saving…' : 'Save contract'}
+                  </button>
+                </div>
+              </form>
+              {contract && contract.signed_at && (
+                <p className={styles.notes} style={{ marginTop: 12 }}>
+                  Signed {new Date(contract.signed_at).toLocaleString()}
+                  {contract.signer_name && ` by ${contract.signer_name}`}.
+                </p>
+              )}
+              {contractLogs.length > 0 && (
+                <div className={styles.contractLogs}>
+                  <h4 className={styles.contractLogsTitle}>Change log</h4>
+                  <ul className={styles.contractLogsList}>
+                    {contractLogs.map(log => (
+                      <li key={log.id} className={styles.contractLogItem}>
+                        <span className={styles.contractLogWhen}>{log.changed_at ? new Date(log.changed_at).toLocaleString() : ''}</span>
+                        <span className={styles.contractLogWho}>{log.user_email || 'Unknown user'}</span>
+                        <span className={styles.contractLogWhat}>{contractLogSummary(log)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+
+      )}
 
       {showAI && (
         <AISuggestModal

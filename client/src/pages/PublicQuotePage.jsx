@@ -23,12 +23,41 @@ export default function PublicQuotePage() {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [approving, setApproving] = useState(false);
+  const [approveSuccess, setApproveSuccess] = useState(false);
+  const [signerName, setSignerName] = useState('');
+  const [agreeChecked, setAgreeChecked] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [signSuccess, setSignSuccess] = useState(false);
 
-  useEffect(() => {
+  const loadQuote = () => {
+    setLoading(true);
     api.getPublicQuote(token)
       .then(data => { setQuote(data); setLoading(false); })
       .catch(err => { setError(err.message); setLoading(false); });
-  }, [token]);
+  };
+
+  useEffect(() => { loadQuote(); }, [token]);
+
+  const handleApprove = () => {
+    setApproving(true);
+    api.approveQuoteByToken(token)
+      .then(data => { setQuote(data.quote); setApproveSuccess(true); })
+      .catch(err => { setError(err.message); })
+      .finally(() => setApproving(false));
+  };
+
+  const handleSignContract = () => {
+    if (!agreeChecked || !signerName.trim()) return;
+    setSigning(true);
+    api.signContractByToken(token, { signer_name: signerName.trim(), signature_data: 'agreed' })
+      .then(data => {
+        setQuote(q => (q ? { ...q, contract: data.contract } : q));
+        setSignSuccess(true);
+      })
+      .catch(err => { setError(err.message); })
+      .finally(() => setSigning(false));
+  };
 
   if (loading) return <p>Loading quote…</p>;
   if (error) return <p>Error: {error}</p>;
@@ -124,7 +153,63 @@ export default function PublicQuotePage() {
 
       {quote.quote_notes && <div style={{ ...section, fontSize: 13, color: '#6b7280' }}><strong>Notes:</strong> {quote.quote_notes}</div>}
 
-      <div style={{ marginTop: 32, display: 'flex', gap: 12 }}>
+      {quote.contract && (quote.contract.body_html || quote.contract.signed_at) && (
+        <div style={{ ...section, padding: 16, border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#6b7280', marginBottom: 12 }}>Contract</div>
+          {quote.contract.body_html && (
+            <div
+              style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}
+              dangerouslySetInnerHTML={{ __html: quote.contract.body_html }}
+            />
+          )}
+          {quote.contract.signed_at ? (
+            <p style={{ margin: 0, fontSize: 13, color: '#065f46' }}>
+              Signed {new Date(quote.contract.signed_at).toLocaleString()}
+              {quote.contract.signer_name && ` by ${quote.contract.signer_name}`}.
+            </p>
+          ) : (
+            <>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer', fontSize: 14 }}>
+                <input type="checkbox" checked={agreeChecked} onChange={e => setAgreeChecked(e.target.checked)} />
+                I agree to the terms above
+              </label>
+              <input
+                type="text"
+                placeholder="Full name (signature)"
+                value={signerName}
+                onChange={e => setSignerName(e.target.value)}
+                style={{ display: 'block', width: '100%', maxWidth: 280, padding: '8px 12px', marginBottom: 10, border: '1px solid #e5e7eb', borderRadius: 6 }}
+              />
+              <button
+                type="button"
+                onClick={handleSignContract}
+                disabled={signing || !agreeChecked || !signerName.trim()}
+                style={{ padding: '10px 20px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, cursor: signing ? 'wait' : 'pointer' }}
+              >
+                {signing ? 'Signing…' : 'Sign contract'}
+              </button>
+            </>
+          )}
+          {signSuccess && <p style={{ margin: '10px 0 0', fontSize: 13, color: '#065f46' }}>Contract signed. Thank you!</p>}
+        </div>
+      )}
+
+      {approveSuccess && (
+        <div style={{ ...section, padding: 12, background: '#d1fae5', border: '1px solid #10b981', borderRadius: 8, color: '#065f46' }}>
+          Quote approved. Thank you!
+        </div>
+      )}
+
+      <div style={{ marginTop: 32, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {quote.status !== 'approved' && (
+          <button
+            onClick={handleApprove}
+            disabled={approving}
+            style={{ padding: '10px 20px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, cursor: approving ? 'wait' : 'pointer' }}
+          >
+            {approving ? 'Approving…' : 'Approve this Quote'}
+          </button>
+        )}
         <button
           onClick={() => window.print()}
           style={{ padding: '10px 20px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}

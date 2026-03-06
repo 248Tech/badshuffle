@@ -90,7 +90,41 @@ async function start() {
     const customItems = db.prepare(
       'SELECT * FROM quote_custom_items WHERE quote_id = ? ORDER BY sort_order ASC, id ASC'
     ).all(quote.id);
-    res.json({ ...quote, items, customItems });
+    let contract = null;
+    try {
+      contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(quote.id);
+    } catch (e) { /* contracts table may not exist yet */ }
+    res.json({ ...quote, items, customItems, contract });
+  });
+
+  // Public quote approve by token (no auth)
+  app.post('/api/quotes/approve-by-token', (req, res) => {
+    const token = (req.body && req.body.token) || '';
+    if (!token) return res.status(400).json({ error: 'token required' });
+    const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(token);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    db.prepare("UPDATE quotes SET status = 'approved', updated_at = datetime('now') WHERE id = ?").run(quote.id);
+    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(quote.id);
+    res.json({ quote: updated });
+  });
+
+  // Public contract sign by token (no auth)
+  app.post('/api/quotes/contract/sign', (req, res) => {
+    const token = (req.body && req.body.token) || '';
+    const { signature_data, signer_name } = req.body || {};
+    if (!token) return res.status(400).json({ error: 'token required' });
+    const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(token);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    let contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(quote.id);
+    if (!contract) {
+      db.prepare('INSERT INTO contracts (quote_id, body_html, signed_at, signature_data, signer_name) VALUES (?, ?, datetime(\'now\'), ?, ?)')
+        .run(quote.id, null, signature_data || null, signer_name || null);
+    } else if (!contract.signed_at) {
+      db.prepare('UPDATE contracts SET signed_at = datetime(\'now\'), signature_data = ?, signer_name = ?, updated_at = datetime(\'now\') WHERE quote_id = ?')
+        .run(signature_data || null, signer_name || null, quote.id);
+    }
+    contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(quote.id);
+    res.json({ contract });
   });
 
   // Protected routes

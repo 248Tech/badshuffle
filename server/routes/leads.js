@@ -64,6 +64,17 @@ module.exports = function makeRouter(db) {
     res.json({ leads, total, page: pageNum, limit: limitNum });
   });
 
+  // GET /api/leads/:id/events — timeline for a lead (must be before GET /:id if we had one; we only have PUT /:id)
+  router.get('/:id/events', (req, res) => {
+    const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(req.params.id);
+    if (!lead) return res.status(404).json({ error: 'Not found' });
+    let events = [];
+    try {
+      events = db.prepare('SELECT * FROM lead_events WHERE lead_id = ? ORDER BY created_at DESC').all(req.params.id);
+    } catch (e) { /* table may not exist */ }
+    res.json({ events });
+  });
+
   // POST /api/leads
   router.post('/', (req, res) => {
     const { name, email, phone, event_date, event_type, source_url, notes, quote_id } = req.body || {};
@@ -76,7 +87,11 @@ module.exports = function makeRouter(db) {
       source_url || null, notes || null,
       quote_id !== undefined ? quote_id : null
     );
-    const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(result.lastInsertRowid);
+    const leadId = result.lastInsertRowid;
+    const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(leadId);
+    try {
+      db.prepare('INSERT INTO lead_events (lead_id, event_type, note) VALUES (?, ?, ?)').run(leadId, 'lead_created', null);
+    } catch (e) {}
     res.status(201).json({ lead });
   });
 
@@ -85,11 +100,19 @@ module.exports = function makeRouter(db) {
     const { quote_id } = req.body || {};
     const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(req.params.id);
     if (!lead) return res.status(404).json({ error: 'Not found' });
+    const prevQuoteId = lead.quote_id;
     db.prepare('UPDATE leads SET quote_id = ? WHERE id = ?').run(
       quote_id !== undefined ? quote_id : lead.quote_id,
       req.params.id
     );
     const updated = db.prepare('SELECT * FROM leads WHERE id = ?').get(req.params.id);
+    if (quote_id !== undefined && quote_id !== prevQuoteId && quote_id) {
+      try {
+        const q = db.prepare('SELECT name FROM quotes WHERE id = ?').get(quote_id);
+        db.prepare('INSERT INTO lead_events (lead_id, event_type, note) VALUES (?, ?, ?)')
+          .run(req.params.id, 'quote_linked', q ? q.name : null);
+      } catch (e) {}
+    }
     res.json({ lead: updated });
   });
 

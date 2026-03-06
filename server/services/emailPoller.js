@@ -48,6 +48,15 @@ async function pollOnce(db) {
           inReplyTo,
           outbound.quote_name || ''
         );
+        if (outbound.quote_id) {
+          try {
+            const quote = db.prepare('SELECT lead_id FROM quotes WHERE id = ?').get(outbound.quote_id);
+            if (quote && quote.lead_id) {
+              db.prepare('INSERT INTO lead_events (lead_id, event_type, note) VALUES (?, ?, ?)')
+                .run(quote.lead_id, 'reply_received', parsed.subject || 'Reply received');
+            }
+          } catch (e) {}
+        }
         ingested++;
       }
     } finally {

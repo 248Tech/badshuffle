@@ -48,6 +48,54 @@ module.exports = function makeRouter(db, uploadsDir) {
     res.json({ total: allQuotes.length, byStatus, revenueByStatus, upcoming, byMonth });
   });
 
+  // GET /api/quotes/:id/contract
+  router.get('/:id/contract', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    let contract = null;
+    try {
+      contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(req.params.id);
+    } catch (e) { /* table may not exist */ }
+    res.json({ contract: contract || null });
+  });
+
+  // PUT /api/quotes/:id/contract — create or update contract body (staff only)
+  router.put('/:id/contract', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    const { body_html } = req.body || {};
+    const existing = db.prepare('SELECT id, body_html FROM contracts WHERE quote_id = ?').get(req.params.id);
+    const oldBody = existing ? (existing.body_html || null) : null;
+    const newBody = body_html !== undefined ? (body_html || null) : oldBody;
+
+    if (existing) {
+      db.prepare('UPDATE contracts SET body_html = ?, updated_at = datetime(\'now\') WHERE quote_id = ?').run(newBody, req.params.id);
+    } else {
+      db.prepare('INSERT INTO contracts (quote_id, body_html) VALUES (?, ?)').run(req.params.id, newBody);
+    }
+
+    const userId = req.user && req.user.sub;
+    const userEmail = (req.user && req.user.email) || (userId ? db.prepare('SELECT email FROM users WHERE id = ?').get(userId)?.email : null) || null;
+    try {
+      db.prepare('INSERT INTO contract_logs (quote_id, user_id, user_email, old_body, new_body) VALUES (?, ?, ?, ?, ?)')
+        .run(req.params.id, userId || null, userEmail, oldBody, newBody);
+    } catch (e) {}
+
+    const contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(req.params.id);
+    res.json({ contract });
+  });
+
+  // GET /api/quotes/:id/contract/logs
+  router.get('/:id/contract/logs', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    let logs = [];
+    try {
+      logs = db.prepare('SELECT id, quote_id, changed_at, user_id, user_email, old_body, new_body FROM contract_logs WHERE quote_id = ? ORDER BY changed_at DESC').all(req.params.id);
+    } catch (e) {}
+    res.json({ logs });
+  });
+
   // GET /api/quotes/:id
   router.get('/:id', (req, res) => {
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
@@ -204,6 +252,12 @@ module.exports = function makeRouter(db, uploadsDir) {
             INSERT OR IGNORE INTO messages (quote_id, direction, from_email, to_email, subject, body_text, body_html, message_id, status, sent_at, quote_name)
             VALUES (?, 'outbound', ?, ?, ?, ?, ?, ?, 'sent', datetime('now'), ?)
           `).run(req.params.id, smtp.smtp_from || smtp.smtp_user, toEmail, subject || '', bodyText || '', bodyHtml || null, msgId, quoteName);
+          if (quote.lead_id) {
+            try {
+              db.prepare('INSERT INTO lead_events (lead_id, event_type, note) VALUES (?, ?, ?)')
+                .run(quote.lead_id, 'email_sent', subject || 'Quote sent');
+            } catch (e) {}
+          }
 
           emailPreview = { to: toEmail, subject: subject || '(No subject)', sent: true };
         } catch (err) {

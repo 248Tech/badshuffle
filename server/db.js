@@ -352,6 +352,50 @@ async function initDb() {
     `);
   } catch(e) {}
 
+  // Lead timeline / activity log
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS lead_events (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        lead_id    INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+        event_type TEXT NOT NULL,
+        note       TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
+
+  // Contracts (one per quote: body + client signature)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS contracts (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id       INTEGER NOT NULL UNIQUE REFERENCES quotes(id) ON DELETE CASCADE,
+        body_html      TEXT,
+        signed_at      TEXT,
+        signature_data TEXT,
+        signer_name    TEXT,
+        created_at     TEXT DEFAULT (datetime('now')),
+        updated_at     TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
+
+  // Contract change logs (who changed what and when)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS contract_logs (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id    INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        changed_at  TEXT DEFAULT (datetime('now')),
+        user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        user_email  TEXT,
+        old_body    TEXT,
+        new_body    TEXT
+      )
+    `);
+  } catch (e) {}
+
   // Messages (outbound emails + inbound replies)
   try {
     db.exec(`

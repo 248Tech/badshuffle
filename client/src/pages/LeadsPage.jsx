@@ -12,6 +12,9 @@ export default function LeadsPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
   const limit = 25;
 
   const load = useCallback(() => {
@@ -29,10 +32,20 @@ export default function LeadsPage() {
   // Reset to page 1 when search changes
   useEffect(() => { setPage(1); }, [search]);
 
+  useEffect(() => {
+    if (!selectedLead) { setEvents([]); return; }
+    setEventsLoading(true);
+    api.getLeadEvents(selectedLead.id)
+      .then(d => { setEvents(d.events || []); })
+      .catch(() => { setEvents([]); })
+      .finally(() => setEventsLoading(false));
+  }, [selectedLead]);
+
   const handleDelete = async () => {
     if (!confirmDelete) return;
     try {
       await api.deleteLead(confirmDelete.id);
+      if (selectedLead?.id === confirmDelete.id) setSelectedLead(null);
       toast.info('Lead deleted');
       load();
     } catch (e) {
@@ -43,6 +56,11 @@ export default function LeadsPage() {
   };
 
   const pages = Math.ceil(total / limit);
+
+  const eventLabel = (type) => {
+    const labels = { lead_created: 'Lead created', quote_linked: 'Quote linked', email_sent: 'Email sent', reply_received: 'Reply received' };
+    return labels[type] || type;
+  };
 
   return (
     <div className={styles.page}>
@@ -86,11 +104,15 @@ export default function LeadsPage() {
               </thead>
               <tbody>
                 {leads.map(l => (
-                  <tr key={l.id}>
+                  <tr
+                    key={l.id}
+                    className={selectedLead?.id === l.id ? styles.rowSelected : ''}
+                    onClick={() => setSelectedLead(s => (s?.id === l.id ? null : l))}
+                  >
                     <td>{l.name || '—'}</td>
                     <td>
                       {l.email
-                        ? <a href={`mailto:${l.email}`} className={styles.emailLink}>{l.email}</a>
+                        ? <a href={`mailto:${l.email}`} className={styles.emailLink} onClick={e => e.stopPropagation()}>{l.email}</a>
                         : '—'}
                     </td>
                     <td>{l.phone || '—'}</td>
@@ -98,11 +120,11 @@ export default function LeadsPage() {
                     <td>{l.event_type || '—'}</td>
                     <td>
                       {l.source_url
-                        ? <a href={l.source_url} target="_blank" rel="noopener noreferrer" className={styles.emailLink} title={l.source_url}>view</a>
+                        ? <a href={l.source_url} target="_blank" rel="noopener noreferrer" className={styles.emailLink} title={l.source_url} onClick={e => e.stopPropagation()}>view</a>
                         : '—'}
                     </td>
                     <td>{l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}</td>
-                    <td>
+                    <td onClick={e => e.stopPropagation()}>
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{ color: 'var(--color-danger)' }}
@@ -127,6 +149,33 @@ export default function LeadsPage() {
                 Next →
               </button>
             </div>
+          )}
+        </div>
+      )}
+
+      {selectedLead && (
+        <div className={`card ${styles.timelineCard}`}>
+          <div className={styles.timelineHeader}>
+            <h3 className={styles.timelineTitle}>Activity — {selectedLead.name || selectedLead.email || 'Lead #' + selectedLead.id}</h3>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedLead(null)}>Close</button>
+          </div>
+          {eventsLoading ? (
+            <div className={styles.timelineBody}><div className="spinner" /></div>
+          ) : events.length === 0 ? (
+            <p className={styles.timelineEmpty}>No activity yet.</p>
+          ) : (
+            <ul className={styles.timeline}>
+              {events.map(ev => (
+                <li key={ev.id} className={styles.timelineItem}>
+                  <span className={styles.timelineDot} />
+                  <div className={styles.timelineContent}>
+                    <span className={styles.timelineType}>{eventLabel(ev.event_type)}</span>
+                    {ev.note && <span className={styles.timelineNote}> — {ev.note}</span>}
+                    <div className={styles.timelineDate}>{ev.created_at ? new Date(ev.created_at).toLocaleString() : ''}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}

@@ -1,8 +1,15 @@
-# BadShuffle v3.2
+# BadShuffle v3.2.1
 
 A self-hosted inventory and quoting tool for event rental businesses. Manage your catalog, build quotes, track usage stats, and sync items directly from Goodshuffle Pro — all running locally on your machine with no subscription required.
 
 ---
+
+## What's New in v3.2.1
+
+- **Quote approval from public link** — Clients can approve a quote from the public link; "Approve this Quote" button on the shared quote page
+- **Contracts** — Add a contract to any quote (Contract tab); clients sign on the public page (agree + name); full change log (who changed what and when)
+- **Lead timeline** — Activity log per lead: created, quote linked, email sent, reply received; click a lead on the Leads page to see the timeline
+- **Contract change logs** — Every contract edit is recorded with timestamp, user email, and a summary of what changed
 
 ## What's New in v3.2
 
