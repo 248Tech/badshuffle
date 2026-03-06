@@ -1,3 +1,4 @@
+// BadShuffle server — app version in repo root package.json (0.x pre-release)
 const path = require('path');
 const fs = require('fs');
 const dotenvPath = typeof process.pkg !== 'undefined'

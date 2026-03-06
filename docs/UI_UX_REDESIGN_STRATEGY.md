@@ -1,5 +1,7 @@
 # Quote Detail UI/UX Redesign Strategy
 
+*BadShuffle 0.x pre-release. See [CHANGELOG.md](../CHANGELOG.md) for version history.*
+
 ## Redesign Strategy Summary
 
 The quote detail experience suffers from **flat hierarchy** (totals and status don’t stand out), **competing CTAs** (Send, Edit, AI Suggest, Duplicate, Delete look similar), **loose spacing** that wastes space without improving clarity, and **weak separation** between Client, Venue, Logistics, Custom Items, and Totals. This strategy:

@@ -9,7 +9,7 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.2.0** – Feature release
 - **0.3.0**, **0.3.1** – Quote workflow, admin CLI, leads, auth improvements
 
-**Note:** Tags `v3.2.1`, `v3.2.2`, and `v3.2.3` were created on the remote in error. The project version line remains **0.x** until an official 1.0 release. Use **0.3.x** as the current pre-release line.
+**Note:** Earlier tags using a 3.x scheme were created on the remote in error. The project version line remains **0.x** until an official 1.0 release. Use **0.3.x** as the current pre-release line.
 
 ---
 
