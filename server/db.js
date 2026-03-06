@@ -396,6 +396,56 @@ async function initDb() {
     `);
   } catch (e) {}
 
+  // Quote-level file attachments (files attached to this quote)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS quote_attachments (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id   INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        file_id    INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(quote_id, file_id)
+      )
+    `);
+  } catch (e) {}
+
+  // Quote payments (billing / applied payments)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS quote_payments (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id    INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        amount      REAL NOT NULL,
+        method      TEXT,
+        status      TEXT DEFAULT 'charged',
+        reference   TEXT,
+        paid_at     TEXT,
+        note        TEXT,
+        created_at  TEXT DEFAULT (datetime('now')),
+        created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+  } catch (e) {}
+
+  // Quote activity log (unified log for contract, payments, files, items, send)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS quote_activity_log (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id    INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        event_type  TEXT NOT NULL,
+        description TEXT,
+        old_value   TEXT,
+        new_value   TEXT,
+        user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        user_email  TEXT,
+        created_at  TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
+  try { db.exec('ALTER TABLE quote_activity_log ADD COLUMN old_value TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE quote_activity_log ADD COLUMN new_value TEXT'); } catch (e) {}
+
   // Messages (outbound emails + inbound replies)
   try {
     db.exec(`

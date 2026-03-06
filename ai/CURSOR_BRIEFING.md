@@ -4,13 +4,18 @@
 
 BadShuffle is a self-hosted inventory and quoting tool for event rental businesses. It runs as two local Windows executables (server + client). Stack: Node/Express + sql.js SQLite on the back end, React + Vite on the front end.
 
-## Current state: v3.2.1 (latest release)
+## Current state: v3.2.2 (latest release)
 
 All planned phases (A, B, C from HANDOFF.md) are complete. Latest release:
 
 ```
-release: v3.2.1 — Public quote approval, Contracts, Lead timeline, Contract change logs
+release: v3.2.2 — Quotes page: list/tile view, contract total, duplicate, multi-select batch actions
 ```
+
+### What was built in v3.2.2
+- **Quotes page** — Toggle between List and Tile view; each quote quickview shows contract total and a Duplicate button; multi-select (checkboxes) with batch "Duplicate (n)" and "Delete (n)"; optional ConfirmDialog title for batch delete
+- **API** — `POST /api/quotes/:id/duplicate` (already present); GET `/api/quotes` returns computed `total` per quote
+- **QuoteCard** — Displays total, Duplicate button, selection checkbox when in selectable mode; Open/Duplicate/Delete use stopPropagation so card click toggles selection
 
 ### What was built in v3.2.1
 - **Quote approval from public link** — "Approve this Quote" on public quote page; `POST /api/quotes/approve-by-token` (no auth)
@@ -89,7 +94,7 @@ client/src/
 - `badshuffle.lock` deleted (runtime lock file, ignored going forward)
 - `badshuffle/` untracked — this is the extracted/packaged executable directory, not source
 
-Working tree is committed and tagged as v3.2.1.
+Working tree is committed and tagged as v3.2.2.
 
 ## Known stubs / incomplete items
 

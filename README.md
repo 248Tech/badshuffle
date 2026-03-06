@@ -1,8 +1,15 @@
-# BadShuffle v3.2.1
+# BadShuffle v3.2.2
 
 A self-hosted inventory and quoting tool for event rental businesses. Manage your catalog, build quotes, track usage stats, and sync items directly from Goodshuffle Pro — all running locally on your machine with no subscription required.
 
 ---
+
+## What's New in v3.2.2
+
+- **Quotes page view toggle** — Switch between List and Tile view from the Quotes page header
+- **Contract total on quickview** — Each quote card/tile and list row shows the computed contract total
+- **Duplicate on Quotes page** — Duplicate button on each quote quickview (and in list row actions); duplicates full quote (details, line items, custom items)
+- **Multi-select and batch actions** — Select one or more quotes via checkboxes; "Duplicate (n)" and "Delete (n)" in a batch bar with confirmation for batch delete
 
 ## What's New in v3.2.1
 
@@ -228,6 +235,7 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | GET | `/quotes/:id` | Get quote with items and custom items |
 | PUT | `/quotes/:id` | Update quote |
 | DELETE | `/quotes/:id` | Delete quote |
+| POST | `/quotes/:id/duplicate` | Duplicate quote (details, items, custom items); returns new quote |
 | POST | `/quotes/:id/send` | Send quote email, set status to sent, log message |
 | POST | `/quotes/:id/approve` | Set status to approved |
 | POST | `/quotes/:id/revert` | Revert to draft |

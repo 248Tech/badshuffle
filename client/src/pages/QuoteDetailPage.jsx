@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import QuoteBuilder from '../components/QuoteBuilder.jsx';
 import QuoteExport from '../components/QuoteExport.jsx';
 import AISuggestModal from '../components/AISuggestModal.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { useToast } from '../components/Toast.jsx';
 import styles from './QuoteDetailPage.module.css';
 
@@ -43,6 +44,8 @@ export default function QuoteDetailPage() {
   const [venueEditing, setVenueEditing] = useState(false);
   const [clientEditing, setClientEditing] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [showLogPicker, setShowLogPicker] = useState(false);
   const [logSearch, setLogSearch] = useState('');
   const [logItems, setLogItems] = useState([]);
@@ -55,6 +58,16 @@ export default function QuoteDetailPage() {
   const [contractBody, setContractBody] = useState('');
   const [contractSaving, setContractSaving] = useState(false);
   const [contractLogs, setContractLogs] = useState([]);
+  // Billing tab
+  const [payments, setPayments] = useState([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Offline - Check', reference: '', note: '', paid_at: '' });
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  // Files tab
+  const [quoteFiles, setQuoteFiles] = useState([]);
+  const [showFilePicker, setShowFilePicker] = useState(false);
+  // Logs tab
+  const [activity, setActivity] = useState([]);
 
   const load = useCallback(() => {
     api.getQuote(id)
@@ -89,6 +102,10 @@ export default function QuoteDetailPage() {
   useEffect(() => {
     api.getSettings().then(s => setSettings(s)).catch(() => {});
   }, []);
+  useEffect(() => {
+    if (!id) return;
+    api.getQuoteFiles(id).then(d => setQuoteFiles(d.files || [])).catch(() => setQuoteFiles([]));
+  }, [id]);
 
   useEffect(() => {
     if (detailTab !== 'contract' || !id) return;
@@ -101,6 +118,16 @@ export default function QuoteDetailPage() {
     api.getQuoteContractLogs(id)
       .then(d => setContractLogs(d.logs || []))
       .catch(() => setContractLogs([]));
+  }, [detailTab, id]);
+
+  useEffect(() => {
+    if (detailTab !== 'billing' || !id) return;
+    api.getQuotePayments(id).then(d => setPayments(d.payments || [])).catch(() => setPayments([]));
+  }, [detailTab, id]);
+
+  useEffect(() => {
+    if (detailTab !== 'logs' || !id) return;
+    api.getQuoteActivity(id).then(d => setActivity(d.activity || [])).catch(() => setActivity([]));
   }, [detailTab, id]);
 
   const handleSaveContract = async (e) => {
@@ -127,6 +154,106 @@ export default function QuoteDetailPage() {
     if (newLen === 0) return `Contract body cleared (was ${oldLen} characters)`;
     if (oldLen === newLen) return `Contract body updated (${newLen} characters)`;
     return `Contract body updated (${oldLen} → ${newLen} characters)`;
+  };
+
+  const handleRecordPayment = async (e) => {
+    e.preventDefault();
+    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) return;
+    setPaymentSaving(true);
+    try {
+      const d = await api.addQuotePayment(id, {
+        amount: parseFloat(paymentForm.amount),
+        method: paymentForm.method || 'Offline - Check',
+        reference: paymentForm.reference || null,
+        note: paymentForm.note || null,
+        paid_at: paymentForm.paid_at || new Date().toISOString().slice(0, 19).replace('T', ' ')
+      });
+      setPayments(d.payments || []);
+      setShowPaymentModal(false);
+      setPaymentForm({ amount: '', method: 'Offline - Check', reference: '', note: '', paid_at: '' });
+      const logsRes = await api.getQuoteActivity(id);
+      setActivity(logsRes.activity || []);
+      toast.success('Payment recorded');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
+
+  const handleAttachFile = (fileId) => {
+    api.addQuoteFile(id, { file_id: fileId })
+      .then(d => { setQuoteFiles(d.files || []); setShowFilePicker(false); toast.success('File attached'); })
+      .catch(e => toast.error(e.message));
+  };
+
+  const handleDetachFile = (fileId) => {
+    api.removeQuoteFile(id, fileId)
+      .then(() => { setQuoteFiles(f => f.filter(x => x.file_id !== fileId)); toast.info('File removed'); })
+      .catch(e => toast.error(e.message));
+  };
+
+  const handleDeleteQuote = async () => {
+    try {
+      await api.deleteQuote(id);
+      toast.info('Quote deleted');
+      navigate('/quotes');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setShowConfirmDelete(false);
+    }
+  };
+
+  const handleDuplicateQuote = async () => {
+    if (!quote) return;
+    setDuplicating(true);
+    try {
+      const body = {
+        name: (quote.name || 'Quote') + ' (copy)',
+        guest_count: quote.guest_count ?? 0,
+        event_date: quote.event_date || null,
+        notes: quote.notes || null,
+        venue_name: quote.venue_name || null,
+        venue_email: quote.venue_email || null,
+        venue_phone: quote.venue_phone || null,
+        venue_address: quote.venue_address || null,
+        venue_contact: quote.venue_contact || null,
+        venue_notes: quote.venue_notes || null,
+        quote_notes: quote.quote_notes || null,
+        tax_rate: quote.tax_rate != null ? quote.tax_rate : null,
+        client_first_name: quote.client_first_name || null,
+        client_last_name: quote.client_last_name || null,
+        client_email: quote.client_email || null,
+        client_phone: quote.client_phone || null,
+        client_address: quote.client_address || null
+      };
+      const { quote: newQuote } = await api.createQuote(body);
+      for (const it of quote.items || []) {
+        await api.addQuoteItem(newQuote.id, {
+          item_id: it.id,
+          quantity: it.quantity ?? 1,
+          label: it.label || null,
+          sort_order: it.sort_order ?? 0
+        });
+      }
+      for (const ci of customItems) {
+        await api.addCustomItem(newQuote.id, {
+          title: ci.title,
+          unit_price: ci.unit_price ?? 0,
+          quantity: ci.quantity ?? 1,
+          photo_url: ci.photo_url || null,
+          taxable: ci.taxable !== 0 ? 1 : 0,
+          sort_order: ci.sort_order ?? 0
+        });
+      }
+      toast.success('Quote duplicated');
+      navigate(`/quotes/${newQuote.id}`);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setDuplicating(false);
+    }
   };
 
   const handleSaveEdit = async (e) => {
@@ -299,6 +426,24 @@ export default function QuoteDetailPage() {
           >
             ✨ AI Suggest
           </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={duplicating}
+            onClick={handleDuplicateQuote}
+            title="Duplicate this quote (same details and line items)"
+          >
+            {duplicating ? '…' : 'Duplicate'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ color: 'var(--color-danger)' }}
+            onClick={() => setShowConfirmDelete(true)}
+            title="Delete this quote"
+          >
+            Delete
+          </button>
         </div>
       </div>
 
@@ -371,6 +516,9 @@ export default function QuoteDetailPage() {
           <div className={styles.tabs}>
             <button type="button" className={`${styles.tab} ${detailTab === 'quote' ? styles.tabActive : ''}`} onClick={() => setDetailTab('quote')}>Quote</button>
             <button type="button" className={`${styles.tab} ${detailTab === 'contract' ? styles.tabActive : ''}`} onClick={() => setDetailTab('contract')}>Contract</button>
+            <button type="button" className={`${styles.tab} ${detailTab === 'billing' ? styles.tabActive : ''}`} onClick={() => setDetailTab('billing')}>Billing</button>
+            <button type="button" className={`${styles.tab} ${detailTab === 'files' ? styles.tabActive : ''}`} onClick={() => setDetailTab('files')}>Files {quoteFiles.length > 0 ? `(${quoteFiles.length})` : ''}</button>
+            <button type="button" className={`${styles.tab} ${detailTab === 'logs' ? styles.tabActive : ''}`} onClick={() => setDetailTab('logs')}>Logs</button>
           </div>
           {detailTab === 'quote' && (
         <>
@@ -673,6 +821,113 @@ export default function QuoteDetailPage() {
               )}
             </div>
           )}
+          {detailTab === 'billing' && (
+            <div className={`card ${styles.editCard}`}>
+              <h3 className={styles.formSectionTitle}>Billing</h3>
+              <div className={styles.billingSummary}>
+                <div className={styles.billingBlock}>
+                  <h4 className={styles.venueTitle}>Contract total</h4>
+                  <div className={styles.billingTotal}>${(totals.total || 0).toFixed(2)}</div>
+                </div>
+                <div className={styles.billingBlock}>
+                  <h4 className={styles.venueTitle}>Applied</h4>
+                  <div className={styles.billingApplied}>
+                    ${(payments.reduce((s, p) => s + (p.amount || 0), 0)).toFixed(2)}
+                  </div>
+                </div>
+                <div className={styles.billingBlock}>
+                  <h4 className={styles.venueTitle}>Balance</h4>
+                  <div className={styles.billingBalance}>
+                    ${Math.max(0, (totals.total || 0) - payments.reduce((s, p) => s + (p.amount || 0), 0)).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              <div className={styles.formActions} style={{ marginBottom: 16 }}>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowPaymentModal(true)}>
+                  Record offline payment
+                </button>
+              </div>
+              {payments.length > 0 ? (
+                <table className={styles.logTable}>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Method</th>
+                      <th>Reference</th>
+                      <th>Amount</th>
+                      <th>Note</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map(p => (
+                      <tr key={p.id}>
+                        <td>{p.paid_at ? new Date(p.paid_at).toLocaleDateString() : (p.created_at ? new Date(p.created_at).toLocaleDateString() : '—')}</td>
+                        <td>{p.method || '—'}</td>
+                        <td>{p.reference || '—'}</td>
+                        <td>${(p.amount || 0).toFixed(2)}</td>
+                        <td>{p.note || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className={styles.emptyHint}>No payments recorded yet.</p>
+              )}
+            </div>
+          )}
+          {detailTab === 'files' && (
+            <div className={`card ${styles.editCard}`}>
+              <h3 className={styles.formSectionTitle}>Files</h3>
+              <p className={styles.notes}>Files attached to this quote. Add from your media library.</p>
+              <div className={styles.formActions} style={{ marginBottom: 12 }}>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowFilePicker(true)}>
+                  Add file from library
+                </button>
+              </div>
+              {quoteFiles.length > 0 ? (
+                <ul className={styles.quoteFilesList}>
+                  {quoteFiles.map(f => (
+                    <li key={f.attachment_id || f.file_id} className={styles.quoteFileItem}>
+                      <a href={api.fileServeUrl(f.file_id)} target="_blank" rel="noopener noreferrer" className={styles.quoteFileName}>
+                        {f.original_name || 'File #' + f.file_id}
+                      </a>
+                      {f.size != null && <span className={styles.quoteFileSize}> ({(f.size / 1024).toFixed(1)} KB)</span>}
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={() => handleDetachFile(f.file_id)}>Remove</button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.emptyHint}>No files attached to this quote.</p>
+              )}
+            </div>
+          )}
+          {detailTab === 'logs' && (
+            <div className={`card ${styles.editCard}`}>
+              <h3 className={styles.formSectionTitle}>Activity log</h3>
+              <p className={styles.notes}>All changes to this quote: items, custom items, contract, payments, and files. Includes user, time, and original vs changed values.</p>
+              {activity.length > 0 ? (
+                <ul className={styles.activityLogList}>
+                  {activity.map(entry => (
+                    <li key={entry.id} className={styles.activityLogItem}>
+                      <div className={styles.activityLogMeta}>
+                        <span className={styles.contractLogWhen}>{entry.created_at ? new Date(entry.created_at).toLocaleString() : ''}</span>
+                        <span className={styles.contractLogWho}>{entry.user_email || 'System'}</span>
+                      </div>
+                      <div className={styles.contractLogWhat}>{entry.description || entry.event_type}</div>
+                      {(entry.old_value || entry.new_value) && (
+                        <div className={styles.activityLogValues}>
+                          {entry.old_value && <div className={styles.activityLogOld}><strong>Original:</strong> {entry.old_value}</div>}
+                          {entry.new_value && <div className={styles.activityLogNew}><strong>Changed to:</strong> {entry.new_value}</div>}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.emptyHint}>No activity yet.</p>
+              )}
+            </div>
+          )}
         </>
 
       )}
@@ -695,6 +950,100 @@ export default function QuoteDetailPage() {
           onError={e => toast.error(e.message)}
         />
       )}
+
+      {showPaymentModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowPaymentModal(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <h3 className={styles.modalTitle}>Record offline payment</h3>
+            <form onSubmit={handleRecordPayment} className={styles.form}>
+              <div className="form-group">
+                <label>Amount ($) *</label>
+                <input type="number" step="0.01" min="0" required value={paymentForm.amount} onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label>Method</label>
+                <select value={paymentForm.method} onChange={e => setPaymentForm(f => ({ ...f, method: e.target.value }))}>
+                  <option>Offline - Check</option>
+                  <option>Cash</option>
+                  <option>ACH</option>
+                  <option>Card</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Reference (e.g. check #)</label>
+                <input value={paymentForm.reference} onChange={e => setPaymentForm(f => ({ ...f, reference: e.target.value }))} placeholder="Optional" />
+              </div>
+              <div className="form-group">
+                <label>Date</label>
+                <input type="datetime-local" value={paymentForm.paid_at} onChange={e => setPaymentForm(f => ({ ...f, paid_at: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label>Note</label>
+                <input value={paymentForm.note} onChange={e => setPaymentForm(f => ({ ...f, note: e.target.value }))} placeholder="Optional" />
+              </div>
+              <div className={styles.formActions}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowPaymentModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={paymentSaving}>{paymentSaving ? 'Saving…' : 'Record payment'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showFilePicker && (
+        <QuoteFilePicker
+          currentFileIds={quoteFiles.map(f => f.file_id)}
+          onSelect={handleAttachFile}
+          onClose={() => setShowFilePicker(false)}
+        />
+      )}
+
+      {showConfirmDelete && (
+        <ConfirmDialog
+          message={`Delete quote "${quote?.name || 'this quote'}"? This cannot be undone.`}
+          onConfirm={handleDeleteQuote}
+          onCancel={() => setShowConfirmDelete(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// File picker for quote attachments — pick from media library
+function QuoteFilePicker({ currentFileIds = [], onSelect, onClose }) {
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    api.getFiles().then(d => setFiles(d.files || [])).catch(() => setFiles([])).finally(() => setLoading(false));
+  }, []);
+  const attached = new Set(currentFileIds);
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modal} style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+        <div className={styles.imagePickerHeader}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Add file to quote</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
+        </div>
+        {loading ? (
+          <div style={{ padding: 20, textAlign: 'center' }}><div className="spinner" /></div>
+        ) : files.length === 0 ? (
+          <p className={styles.emptyHint}>No files in library. Upload files on the Files page first.</p>
+        ) : (
+          <ul className={styles.quoteFilesList} style={{ maxHeight: 320, overflowY: 'auto' }}>
+            {files.map(f => (
+              <li key={f.id} className={styles.quoteFileItem}>
+                <span className={styles.quoteFileName}>{f.original_name || 'File #' + f.id}</span>
+                {attached.has(f.id) ? (
+                  <span className={styles.quoteFileSize}> (already attached)</span>
+                ) : (
+                  <button type="button" className="btn btn-primary btn-sm" style={{ marginLeft: 8 }} onClick={() => onSelect(f.id)}>Attach</button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

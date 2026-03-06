@@ -3,7 +3,13 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: relative;
 }
+.card.selected { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.card.selectable { padding-left: 36px; }
+.checkboxWrap { position: absolute; top: 12px; left: 12px; }
+.checkboxWrap input { cursor: pointer; }
+.total { font-size: 13px; font-weight: 600; color: var(--color-primary); }
 
 .header {
   display: flex;

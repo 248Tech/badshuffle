@@ -1,10 +1,44 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../components/Toast.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import styles from './LeadsPage.module.css';
 
+/** Build quote payload from lead; only include fields that match expected format. */
+function quoteFromLead(lead) {
+  const name = (lead.name && String(lead.name).trim()) || (lead.email && String(lead.email).trim()) || 'Quote from lead';
+  const body = { name };
+
+  if (lead.guest_count != null && Number.isInteger(Number(lead.guest_count)) && Number(lead.guest_count) >= 0) {
+    body.guest_count = Number(lead.guest_count);
+  }
+
+  const eventDate = lead.event_date != null ? String(lead.event_date).trim() : '';
+  if (eventDate && /^\d{4}-\d{2}-\d{2}$/.test(eventDate)) body.event_date = eventDate;
+
+  if (lead.notes != null && typeof lead.notes === 'string') body.notes = lead.notes;
+
+  if (lead.name && typeof lead.name === 'string') {
+    const parts = lead.name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      body.client_first_name = parts[0];
+      body.client_last_name = parts.slice(1).join(' ');
+    } else if (parts.length === 1 && parts[0]) {
+      body.client_first_name = parts[0];
+    }
+  }
+
+  const email = lead.email != null ? String(lead.email).trim() : '';
+  if (email && email.includes('@')) body.client_email = email;
+
+  if (lead.phone != null && typeof lead.phone === 'string' && lead.phone.trim()) body.client_phone = lead.phone.trim();
+
+  return body;
+}
+
 export default function LeadsPage() {
+  const navigate = useNavigate();
   const toast = useToast();
   const [leads, setLeads] = useState([]);
   const [total, setTotal] = useState(0);
@@ -15,6 +49,7 @@ export default function LeadsPage() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [creatingQuoteForId, setCreatingQuoteForId] = useState(null);
   const limit = 25;
 
   const load = useCallback(() => {
@@ -52,6 +87,23 @@ export default function LeadsPage() {
       toast.error(e.message);
     } finally {
       setConfirmDelete(null);
+    }
+  };
+
+  const handleCreateQuote = async (lead, e) => {
+    if (e) e.stopPropagation();
+    setCreatingQuoteForId(lead.id);
+    try {
+      const body = quoteFromLead(lead);
+      const { quote } = await api.createQuote(body);
+      await api.updateQuote(quote.id, { lead_id: lead.id });
+      await api.updateLead(lead.id, { quote_id: quote.id });
+      toast.success('Quote created and linked to lead');
+      navigate(`/quotes/${quote.id}`);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setCreatingQuoteForId(null);
     }
   };
 
@@ -124,7 +176,16 @@ export default function LeadsPage() {
                         : '—'}
                     </td>
                     <td>{l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}</td>
-                    <td onClick={e => e.stopPropagation()}>
+                    <td onClick={e => e.stopPropagation()} className={styles.actionsCell}>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={creatingQuoteForId === l.id}
+                        onClick={e => handleCreateQuote(l, e)}
+                        title="Create a new quote from this lead"
+                      >
+                        {creatingQuoteForId === l.id ? '…' : 'Create quote'}
+                      </button>
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{ color: 'var(--color-danger)' }}

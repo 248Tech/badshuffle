@@ -183,3 +183,29 @@
 .contractLogWhen { color: var(--color-text-muted); font-size: 12px; }
 .contractLogWho { font-weight: 600; color: var(--color-text); }
 .contractLogWhat { color: var(--color-text-muted); }
+
+/* Billing tab */
+.billingSummary { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.billingBlock { padding: 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.billingTotal, .billingApplied, .billingBalance { font-size: 18px; font-weight: 700; margin-top: 4px; }
+.billingBalance { color: var(--color-primary); }
+.logTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.logTable th, .logTable td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border); }
+.logTable th { background: var(--color-surface); font-weight: 600; color: var(--color-text-muted); }
+
+/* Files tab */
+.quoteFilesList { list-style: none; margin: 0; padding: 0; }
+.quoteFileItem { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--color-border); }
+.quoteFileItem:last-child { border-bottom: none; }
+.quoteFileName { font-size: 13px; color: var(--color-primary); text-decoration: none; }
+.quoteFileName:hover { text-decoration: underline; }
+.quoteFileSize { font-size: 12px; color: var(--color-text-muted); }
+
+/* Activity log tab */
+.activityLogList { list-style: none; margin: 0; padding: 0; }
+.activityLogItem { padding: 12px 0; border-bottom: 1px solid var(--color-border); }
+.activityLogItem:last-child { border-bottom: none; }
+.activityLogMeta { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; margin-bottom: 4px; }
+.activityLogValues { margin-top: 8px; padding-left: 12px; border-left: 3px solid var(--color-border); font-size: 12px; color: var(--color-text-muted); }
+.activityLogOld { margin-bottom: 2px; }
+.activityLogNew { }

@@ -54,6 +54,7 @@
 .table tbody tr:hover { background: var(--color-surface); }
 .table tbody tr.rowSelected { background: rgba(99, 102, 241, 0.08); }
 .table tbody tr:last-child td { border-bottom: none; }
+.actionsCell { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 
 .emailLink { color: var(--color-primary); text-decoration: none; }
 .emailLink:hover { text-decoration: underline; }

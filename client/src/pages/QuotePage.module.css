@@ -8,8 +8,25 @@
 .formRow { display: flex; gap: 12px; flex-wrap: wrap; }
 .formRow .form-group { min-width: 120px; }
 .formActions { display: flex; gap: 8px; justify-content: flex-end; }
+.headerActions { display: flex; align-items: center; gap: 12px; }
+.viewToggle { display: flex; gap: 2px; }
+.viewToggle .btn.active { background: var(--color-bg-elevated); }
+.batchBar {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  background: var(--color-bg-elevated); border-radius: 8px;
+}
+.batchBar span { font-size: 13px; color: var(--color-text-muted); margin-right: 4px; }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
+.listWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--color-border); }
+.table th { font-weight: 600; color: var(--color-text-muted); }
+.table tbody tr:hover { background: var(--color-bg-elevated); }
+.colCheck { width: 40px; }
+.colActions { white-space: nowrap; }
+.colActions .btn { margin-right: 4px; }
+.rowSelected { background: color-mix(in srgb, var(--color-primary) 12%, transparent) !important; }
