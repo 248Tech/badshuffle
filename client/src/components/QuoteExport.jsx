@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 import { api } from '../api';
 import styles from './QuoteExport.module.css';
 
-export default function QuoteExport({ quote, settings = {}, totals = null }) {
+export default function QuoteExport({ quote, settings = {}, totals = null, customItems = [] }) {
   const ref = useRef(null);
   const [exporting, setExporting] = useState(false);
 
@@ -39,7 +39,7 @@ export default function QuoteExport({ quote, settings = {}, totals = null }) {
   const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
   const equipmentItems = (quote.items || []).filter(it => !isLogistics(it));
   const logisticsItems = (quote.items || []).filter(it => isLogistics(it));
-  const showTotals = totals && (totals.subtotal > 0 || totals.deliveryTotal > 0);
+  const showTotals = totals && (totals.subtotal > 0 || totals.deliveryTotal > 0 || (totals.customSubtotal || 0) > 0);
 
   const handlePrint = () => {
     window.print();
@@ -124,6 +124,20 @@ export default function QuoteExport({ quote, settings = {}, totals = null }) {
           ))}
         </div>
 
+        {customItems.length > 0 && (
+          <div className={styles.exportLogistics}>
+            <h4 className={styles.exportLogisticsTitle}>Custom Items</h4>
+            <div className={styles.exportLogisticsList}>
+              {customItems.map(ci => (
+                <div key={ci.id} className={styles.exportLogisticsItem}>
+                  <span>{ci.title} ×{ci.quantity || 1}</span>
+                  {ci.unit_price > 0 && <span>${((ci.unit_price || 0) * (ci.quantity || 1)).toFixed(2)}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {logisticsItems.length > 0 && (
           <div className={styles.exportLogistics}>
             <h4 className={styles.exportLogisticsTitle}>Logistics (delivery / pickup)</h4>
@@ -144,6 +158,12 @@ export default function QuoteExport({ quote, settings = {}, totals = null }) {
               <div className={styles.exportTotalsRow}>
                 <span>Subtotal</span>
                 <span>${totals.subtotal.toFixed(2)}</span>
+              </div>
+            )}
+            {(totals.customSubtotal || 0) > 0 && (
+              <div className={styles.exportTotalsRow}>
+                <span>Custom items</span>
+                <span>${totals.customSubtotal.toFixed(2)}</span>
               </div>
             )}
             {totals.deliveryTotal > 0 && (

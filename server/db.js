@@ -320,6 +320,68 @@ async function initDb() {
     db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
   }
 
+  // Files table (media library)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS files (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        original_name TEXT NOT NULL,
+        stored_name   TEXT NOT NULL UNIQUE,
+        mime_type     TEXT,
+        size          INTEGER,
+        uploaded_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at    TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch(e) {}
+
+  // Custom line items on quotes
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS quote_custom_items (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id    INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        title       TEXT NOT NULL,
+        unit_price  REAL DEFAULT 0,
+        quantity    INTEGER DEFAULT 1,
+        photo_url   TEXT,
+        taxable     INTEGER DEFAULT 1,
+        sort_order  INTEGER DEFAULT 0,
+        created_at  TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch(e) {}
+
+  // Messages (outbound emails + inbound replies)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id    INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
+        direction   TEXT NOT NULL,
+        from_email  TEXT,
+        to_email    TEXT,
+        subject     TEXT,
+        body_text   TEXT,
+        body_html   TEXT,
+        message_id  TEXT UNIQUE,
+        in_reply_to TEXT,
+        status      TEXT DEFAULT 'sent',
+        sent_at     TEXT DEFAULT (datetime('now')),
+        quote_name  TEXT
+      )
+    `);
+  } catch(e) {}
+
+  // Seed IMAP settings
+  const imapDefaults = {
+    imap_host: '', imap_port: '993', imap_secure: 'true',
+    imap_user: '', imap_pass_enc: '', imap_poll_enabled: '0'
+  };
+  for (const [k, v] of Object.entries(imapDefaults)) {
+    db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
+  }
+
   return db;
 }
 

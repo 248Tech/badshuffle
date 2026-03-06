@@ -1,7 +1,8 @@
 const express = require('express');
+const path = require('path');
 const crypto = require('crypto');
 
-module.exports = function makeRouter(db) {
+module.exports = function makeRouter(db, uploadsDir) {
   const router = express.Router();
 
   // GET /api/quotes
@@ -62,7 +63,11 @@ module.exports = function makeRouter(db) {
       ORDER BY qi.sort_order ASC, qi.id ASC
     `).all(req.params.id);
 
-    res.json({ ...quote, items });
+    const customItems = db.prepare(
+      'SELECT * FROM quote_custom_items WHERE quote_id = ? ORDER BY sort_order ASC, id ASC'
+    ).all(req.params.id);
+
+    res.json({ ...quote, items, customItems });
   });
 
   // POST /api/quotes
@@ -117,17 +122,17 @@ module.exports = function makeRouter(db) {
         updated_at   = datetime('now')
       WHERE id = ?
     `).run(
-      name ?? null,
+      name !== undefined ? name : null,
       guest_count !== undefined ? guest_count : null,
-      event_date ?? null,
+      event_date !== undefined ? event_date : null,
       notes !== undefined ? notes : null,
       lead_id !== undefined ? lead_id : null,
-      venue_name ?? null,
-      venue_email ?? null,
-      venue_phone ?? null,
-      venue_address ?? null,
-      venue_contact ?? null,
-      venue_notes ?? null,
+      venue_name !== undefined ? venue_name : null,
+      venue_email !== undefined ? venue_email : null,
+      venue_phone !== undefined ? venue_phone : null,
+      venue_address !== undefined ? venue_address : null,
+      venue_contact !== undefined ? venue_contact : null,
+      venue_notes !== undefined ? venue_notes : null,
       quote_notes !== undefined ? quote_notes : null,
       tax_rate !== undefined ? (tax_rate === null ? null : Number(tax_rate)) : quote.tax_rate,
       client_first_name !== undefined ? client_first_name : null,
@@ -142,18 +147,73 @@ module.exports = function makeRouter(db) {
     res.json({ quote: updated });
   });
 
-  // POST /api/quotes/:id/send — optional email; set status to 'sent', generate public_token
-  router.post('/:id/send', (req, res) => {
+  // POST /api/quotes/:id/send — email; set status to 'sent', generate public_token
+  router.post('/:id/send', async (req, res) => {
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     if (!quote) return res.status(404).json({ error: 'Not found' });
 
-    const { templateId, subject, bodyHtml, bodyText, toEmail } = req.body || {};
-    // Stub: if SMTP configured we could send here; for now just record and return preview
-    const emailPreview = toEmail ? { to: toEmail, subject: subject || '(No subject)', body: bodyText || bodyHtml || '' } : null;
+    const { templateId, subject, bodyHtml, bodyText, toEmail, attachmentIds = [] } = req.body || {};
 
     const token = quote.public_token || crypto.randomBytes(24).toString('hex');
     db.prepare("UPDATE quotes SET status = 'sent', public_token = ?, updated_at = datetime('now') WHERE id = ?")
       .run(token, req.params.id);
+
+    let emailPreview = null;
+
+    if (toEmail) {
+      const smtpRows = db.prepare("SELECT key, value FROM settings WHERE key LIKE 'smtp_%'").all();
+      const smtp = {};
+      smtpRows.forEach(r => { smtp[r.key] = r.value; });
+
+      if (smtp.smtp_host && smtp.smtp_user) {
+        try {
+          const nodemailer = require('nodemailer');
+          const { decrypt } = require('../lib/crypto');
+          const transporter = nodemailer.createTransport({
+            host: smtp.smtp_host,
+            port: parseInt(smtp.smtp_port || '587'),
+            secure: smtp.smtp_secure === 'true',
+            auth: { user: smtp.smtp_user, pass: smtp.smtp_pass_enc ? decrypt(smtp.smtp_pass_enc) : '' }
+          });
+
+          const msgId = '<bs-q' + req.params.id + '-' + Date.now() + '@badshuffle.local>';
+          const mailOptions = {
+            from: smtp.smtp_from || smtp.smtp_user,
+            to: toEmail,
+            subject: subject || '',
+            text: bodyText || '',
+            html: bodyHtml || undefined,
+            messageId: msgId,
+            attachments: []
+          };
+
+          // Add file attachments
+          for (const fid of attachmentIds) {
+            const f = db.prepare('SELECT * FROM files WHERE id = ?').get(fid);
+            if (f && uploadsDir) {
+              const filePath = path.join(uploadsDir, f.stored_name);
+              mailOptions.attachments.push({ filename: f.original_name, path: filePath });
+            }
+          }
+
+          await transporter.sendMail(mailOptions);
+
+          // Log outbound message
+          const quoteName = quote.name || '';
+          db.prepare(`
+            INSERT OR IGNORE INTO messages (quote_id, direction, from_email, to_email, subject, body_text, body_html, message_id, status, sent_at, quote_name)
+            VALUES (?, 'outbound', ?, ?, ?, ?, ?, ?, 'sent', datetime('now'), ?)
+          `).run(req.params.id, smtp.smtp_from || smtp.smtp_user, toEmail, subject || '', bodyText || '', bodyHtml || null, msgId, quoteName);
+
+          emailPreview = { to: toEmail, subject: subject || '(No subject)', sent: true };
+        } catch (err) {
+          // SMTP failed — still return success for the status update, include error info
+          emailPreview = { to: toEmail, subject: subject || '(No subject)', error: err.message };
+        }
+      } else {
+        emailPreview = { to: toEmail, subject: subject || '(No subject)', body: bodyText || bodyHtml || '' };
+      }
+    }
 
     const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     res.json({ quote: updated, emailPreview });
@@ -272,6 +332,57 @@ module.exports = function makeRouter(db) {
   router.delete('/:id/items/:qitem_id', (req, res) => {
     db.prepare('DELETE FROM quote_items WHERE id = ? AND quote_id = ?')
       .run(req.params.qitem_id, req.params.id);
+    res.json({ deleted: true });
+  });
+
+  // POST /api/quotes/:id/custom-items
+  router.post('/:id/custom-items', (req, res) => {
+    const quote = db.prepare('SELECT id FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Quote not found' });
+
+    const { title, unit_price = 0, quantity = 1, photo_url, taxable = 1, sort_order = 0 } = req.body || {};
+    if (!title) return res.status(400).json({ error: 'title required' });
+
+    const result = db.prepare(
+      'INSERT INTO quote_custom_items (quote_id, title, unit_price, quantity, photo_url, taxable, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(req.params.id, title, unit_price, quantity, photo_url || null, taxable ? 1 : 0, sort_order);
+
+    const item = db.prepare('SELECT * FROM quote_custom_items WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json({ item });
+  });
+
+  // PUT /api/quotes/:id/custom-items/:cid
+  router.put('/:id/custom-items/:cid', (req, res) => {
+    const { title, unit_price, quantity, photo_url, taxable, sort_order } = req.body || {};
+
+    db.prepare(`
+      UPDATE quote_custom_items SET
+        title      = COALESCE(?, title),
+        unit_price = COALESCE(?, unit_price),
+        quantity   = COALESCE(?, quantity),
+        photo_url  = COALESCE(?, photo_url),
+        taxable    = COALESCE(?, taxable),
+        sort_order = COALESCE(?, sort_order)
+      WHERE id = ? AND quote_id = ?
+    `).run(
+      title !== undefined ? title : null,
+      unit_price !== undefined ? unit_price : null,
+      quantity !== undefined ? quantity : null,
+      photo_url !== undefined ? photo_url : null,
+      taxable !== undefined ? (taxable ? 1 : 0) : null,
+      sort_order !== undefined ? sort_order : null,
+      req.params.cid,
+      req.params.id
+    );
+
+    const item = db.prepare('SELECT * FROM quote_custom_items WHERE id = ?').get(req.params.cid);
+    res.json({ item });
+  });
+
+  // DELETE /api/quotes/:id/custom-items/:cid
+  router.delete('/:id/custom-items/:cid', (req, res) => {
+    db.prepare('DELETE FROM quote_custom_items WHERE id = ? AND quote_id = ?')
+      .run(req.params.cid, req.params.id);
     res.json({ deleted: true });
   });
 

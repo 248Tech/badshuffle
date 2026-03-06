@@ -130,3 +130,32 @@
 .builderCol { display: flex; flex-direction: column; gap: 16px; }
 .exportCard { padding: 20px; }
 .exportTitle { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 14px; }
+
+/* Custom Items */
+.customItemsBlock { padding: 12px 0; border-top: 1px solid var(--color-border); }
+.customItemsHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.customItemsTitle { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin: 0; }
+.customItemsList { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.customItem { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
+.customItemThumb { width: 36px; height: 36px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.customItemName { flex: 1; font-weight: 500; }
+.customItemQty { color: var(--color-text-muted); }
+.customItemPrice { font-weight: 600; color: var(--color-primary); }
+.customItemForm { padding: 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+
+/* Image Picker */
+.imagePicker { border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); overflow: hidden; }
+.imagePickerHeader { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--color-border); }
+.imagePickerGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; padding: 10px; max-height: 200px; overflow-y: auto; }
+.imagePickerThumb { background: var(--color-surface); border: 2px solid transparent; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; padding: 0; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+.imagePickerThumb:hover { border-color: var(--color-primary); }
+.imagePickerThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Send modal attachment grid */
+.attachmentGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto; }
+.attachThumb { position: relative; background: var(--color-surface); border: 2px solid var(--color-border); border-radius: var(--radius-sm); padding: 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; overflow: hidden; }
+.attachThumb:hover { border-color: var(--color-primary); }
+.attachSelected { border-color: var(--color-primary); background: rgba(99, 102, 241, 0.1); }
+.attachThumb img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 2px; }
+.attachName { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: center; }
+.attachCheck { position: absolute; top: 2px; right: 2px; background: var(--color-primary); color: #fff; font-size: 9px; width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; }

@@ -9,6 +9,8 @@ const NAV = [
   { to: '/import',    label: 'Import',    icon: '⬇️' },
   { to: '/quotes',    label: 'Quotes',    icon: '📋' },
   { to: '/leads',     label: 'Leads',     icon: '👤' },
+  { to: '/files',     label: 'Files',     icon: '🗂️' },
+  { to: '/messages',  label: 'Messages',  icon: '💬' },
   { to: '/stats',     label: 'Stats',     icon: '📊' },
   { to: '/extension', label: 'Extension', icon: '🧩' },
   { to: '/admin',     label: 'Admin',     icon: '👥', role: 'admin' },
@@ -19,11 +21,15 @@ const NAV = [
 export default function Sidebar({ role = '' }) {
   const navigate = useNavigate();
   const [pendingCount, setPendingCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     api.admin.getUsers()
       .then(users => setPendingCount(users.filter(u => !u.approved).length))
       .catch(() => {}); // 403 for non-admins — silent
+    api.getUnreadCount()
+      .then(d => setUnreadCount(d.count || 0))
+      .catch(() => {});
   }, []);
 
   function handleLogout() {
@@ -56,6 +62,9 @@ export default function Sidebar({ role = '' }) {
               {item.label}
               {(item.to === '/admin' && pendingCount > 0) && (
                 <span className={styles.pendingBadge}>{pendingCount}</span>
+              )}
+              {(item.to === '/messages' && unreadCount > 0) && (
+                <span className={styles.pendingBadge}>{unreadCount}</span>
               )}
             </NavLink>
           </li>

@@ -133,5 +133,36 @@ export const api = {
   aiSuggest: (body) => request('/ai/suggest', { method: 'POST', body }),
 
   // Image proxy
-  proxyImageUrl: (url) => `/api/proxy-image?url=${encodeURIComponent(url)}`
+  proxyImageUrl: (url) => `/api/proxy-image?url=${encodeURIComponent(url)}`,
+
+  // Files (media library)
+  getFiles: () => request('/files'),
+  uploadFiles: (formData) => {
+    const token = getToken();
+    return fetch(`${BASE}/files/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    }).then(async r => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      return data;
+    });
+  },
+  deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
+  fileServeUrl: (id) => `/api/files/${id}/serve`,
+
+  // Custom quote items
+  addCustomItem:    (qid, body)       => request(`/quotes/${qid}/custom-items`, { method: 'POST', body }),
+  updateCustomItem: (qid, cid, body)  => request(`/quotes/${qid}/custom-items/${cid}`, { method: 'PUT', body }),
+  removeCustomItem: (qid, cid)        => request(`/quotes/${qid}/custom-items/${cid}`, { method: 'DELETE' }),
+
+  // Messages
+  getMessages: (params) => {
+    const qs = new URLSearchParams(Object.entries(params || {}).filter(function(e) { return e[1] !== undefined && e[1] !== ''; }));
+    return request('/messages?' + qs);
+  },
+  getUnreadCount:    () => request('/messages/unread-count'),
+  markMessageRead:   (id) => request('/messages/' + id + '/read', { method: 'PUT' }),
+  deleteMessage:     (id) => request('/messages/' + id, { method: 'DELETE' }),
 };

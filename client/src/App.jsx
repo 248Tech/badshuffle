@@ -18,6 +18,8 @@ import ResetPage from './pages/ResetPage.jsx';
 import PublicQuotePage from './pages/PublicQuotePage.jsx';
 import TemplatesPage from './pages/TemplatesPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
+import FilesPage from './pages/FilesPage.jsx';
+import MessagesPage from './pages/MessagesPage.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import { api, getToken } from './api';
 
@@ -108,6 +110,8 @@ export default function App() {
               <Route path="stats" element={<StatsPage />} />
               <Route path="extension" element={<ExtensionPage />} />
               <Route path="leads" element={<LeadsPage />} />
+              <Route path="files" element={<FilesPage />} />
+              <Route path="messages" element={<MessagesPage />} />
               <Route path="admin" element={<AdminPage />} />
               <Route path="templates" element={<TemplatesPage />} />
               <Route path="settings" element={<SettingsPage />} />

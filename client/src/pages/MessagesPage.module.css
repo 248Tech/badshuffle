@@ -1,0 +1,99 @@
+.page { display: flex; flex-direction: column; gap: 16px; height: calc(100vh - 80px); }
+.header { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+.title { font-size: 22px; font-weight: 700; }
+
+.tabs { display: flex; gap: 4px; }
+.tab {
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.tab:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.tabActive { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.tabActive:hover { background: var(--color-primary); color: #fff; }
+
+.panes {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 700px) {
+  .panes { grid-template-columns: 1fr; }
+}
+
+.listPane {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow-y: auto;
+  background: var(--color-bg);
+}
+
+.threadRow {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.threadRow:hover { background: var(--color-surface); }
+.threadSelected { background: var(--color-surface); border-left: 3px solid var(--color-primary); }
+
+.threadTop { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.threadName { font-size: 13px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unreadDot { width: 8px; height: 8px; border-radius: 50%; background: #f97316; flex-shrink: 0; }
+.threadTime { font-size: 11px; color: var(--color-text-muted); flex-shrink: 0; }
+.threadSnippet { font-size: 12px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.threadCount { font-size: 11px; color: var(--color-text-muted); }
+
+.detailPane {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow-y: auto;
+  background: var(--color-bg);
+}
+
+.empty { padding: 40px; text-align: center; color: var(--color-text-muted); font-size: 14px; }
+
+.threadDetail { display: flex; flex-direction: column; height: 100%; }
+.detailHeader {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+.detailTitle { font-size: 16px; font-weight: 700; }
+
+.messageList { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+
+.message {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: var(--color-surface);
+}
+.msg_inbound { border-left: 3px solid #3b82f6; }
+.msg_outbound { border-left: 3px solid #10b981; }
+
+.msgMeta { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.dirBadge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.dir_inbound { background: #dbeafe; color: #1d4ed8; }
+.dir_outbound { background: #d1fae5; color: #065f46; }
+.msgAddr { font-size: 12px; color: var(--color-text-muted); flex: 1; }
+.msgTime { font-size: 11px; color: var(--color-text-muted); }
+.msgDelete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.msgDelete:hover { background: #fee2e2; color: #dc2626; }
+.msgSubject { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.msgBody { font-size: 13px; color: var(--color-text); white-space: pre-wrap; line-height: 1.5; }
