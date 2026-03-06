@@ -1,8 +1,15 @@
-# BadShuffle v3.2.2
+# BadShuffle v3.2.3
 
 A self-hosted inventory and quoting tool for event rental businesses. Manage your catalog, build quotes, track usage stats, and sync items directly from Goodshuffle Pro — all running locally on your machine with no subscription required.
 
 ---
+
+## What's New in v3.2.3
+
+- **Quote detail header** — New QuoteHeader component: quote name, status badge, metadata (date, guests, items), and actions in a clear layout with flex and responsive wrapping
+- **Button hierarchy** — Primary: Send to Client; Secondary: Edit; Ghost: Copy link, AI Suggest, Duplicate; Danger: Delete
+- **Status badge** — More visible draft/sent/approved badge (larger, uppercase)
+- **UI redesign strategy** — `docs/UI_UX_REDESIGN_STRATEGY.md` with priority plan, design system rules, and concrete recommendations for quote detail and spacing
 
 ## What's New in v3.2.2
 

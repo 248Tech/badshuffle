@@ -4,13 +4,20 @@
 
 BadShuffle is a self-hosted inventory and quoting tool for event rental businesses. It runs as two local Windows executables (server + client). Stack: Node/Express + sql.js SQLite on the back end, React + Vite on the front end.
 
-## Current state: v3.2.2 (latest release)
+## Current state: v3.2.3 (latest release)
 
 All planned phases (A, B, C from HANDOFF.md) are complete. Latest release:
 
 ```
-release: v3.2.2 — Quotes page: list/tile view, contract total, duplicate, multi-select batch actions
+release: v3.2.3 — Quote detail header refactor, button hierarchy, status badge, UI redesign strategy
 ```
+
+### What was built in v3.2.3
+- **QuoteHeader component** — Extracted from QuoteDetailPage: title, metadata, status badge, and all quote actions in one component; flex layout with space-between and responsive wrapping
+- **Quote detail button hierarchy** — Primary: Send to Client; Secondary: Edit; Ghost: Copy Client Link, AI Suggest, Duplicate; Danger: Delete
+- **Status badge** — More prominent styling (larger padding, 12px font, uppercase) for draft/sent/approved
+- **docs/UI_UX_REDESIGN_STRATEGY.md** — Full UI/UX redesign strategy (priority plan, design system rules, concrete recommendations for quote detail and global spacing)
+- **JSX fix** — Removed stray closing tag that broke the quote-tab fragment in QuoteDetailPage
 
 ### What was built in v3.2.2
 - **Quotes page** — Toggle between List and Tile view; each quote quickview shows contract total and a Duplicate button; multi-select (checkboxes) with batch "Duplicate (n)" and "Delete (n)"; optional ConfirmDialog title for batch delete
@@ -94,7 +101,7 @@ client/src/
 - `badshuffle.lock` deleted (runtime lock file, ignored going forward)
 - `badshuffle/` untracked — this is the extracted/packaged executable directory, not source
 
-Working tree is committed and tagged as v3.2.2.
+Working tree is committed and tagged as v3.2.3.
 
 ## Known stubs / incomplete items
 

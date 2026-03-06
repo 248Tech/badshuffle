@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import QuoteBuilder from '../components/QuoteBuilder.jsx';
 import QuoteExport from '../components/QuoteExport.jsx';
+import QuoteHeader from '../components/QuoteHeader.jsx';
 import AISuggestModal from '../components/AISuggestModal.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { useToast } from '../components/Toast.jsx';
@@ -402,50 +403,40 @@ export default function QuoteDetailPage() {
   if (loading) return <div className="empty-state"><div className="spinner" /></div>;
   if (!quote) return null;
 
-  const date = quote.event_date
-    ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString()
-    : null;
-
   const taxRate = quote.tax_rate != null ? quote.tax_rate : settings.tax_rate;
   const totals = computeTotals(quote.items, customItems, taxRate);
   const logisticsItems = (quote.items || []).filter(it => (it.category || '').toLowerCase().includes('logistics'));
 
   return (
     <div className={styles.page}>
-      <div className={styles.topBar}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/quotes')}>
-          ← Quotes
-        </button>
-        <div className={styles.topActions}>
-          <button className="btn btn-ghost btn-sm" onClick={() => setEditing(v => !v)}>
-            {editing ? 'Cancel Edit' : '✏️ Edit'}
+      {editing ? (
+        <div className={styles.topBar}>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/quotes')}>
+            ← Quotes
           </button>
-          <button
-            className="btn btn-accent btn-sm"
-            onClick={() => setShowAI(true)}
-          >
-            ✨ AI Suggest
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            disabled={duplicating}
-            onClick={handleDuplicateQuote}
-            title="Duplicate this quote (same details and line items)"
-          >
-            {duplicating ? '…' : 'Duplicate'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            style={{ color: 'var(--color-danger)' }}
-            onClick={() => setShowConfirmDelete(true)}
-            title="Delete this quote"
-          >
-            Delete
-          </button>
+          <div className={styles.topActions}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>
+              Cancel Edit
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <QuoteHeader
+          quote={quote}
+          duplicating={duplicating}
+          onBack={() => navigate('/quotes')}
+          onSend={handleSendClick}
+          onEdit={() => setEditing(true)}
+          onCopyLink={() => {
+            const url = `${window.location.origin}/quote/public/${quote.public_token}`;
+            navigator.clipboard.writeText(url);
+            toast.success('Client link copied to clipboard');
+          }}
+          onAISuggest={() => setShowAI(true)}
+          onDuplicate={handleDuplicateQuote}
+          onDelete={() => setShowConfirmDelete(true)}
+        />
+      )}
 
       {editing ? (
         <div className={`card ${styles.editCard}`}>
@@ -522,44 +513,6 @@ export default function QuoteDetailPage() {
           </div>
           {detailTab === 'quote' && (
         <>
-        <div className={styles.quoteHeader}>
-          <div className={styles.titleRow}>
-            <h1 className={styles.title}>{quote.name}</h1>
-            <span className={`${styles.badge} ${styles['badge_' + (quote.status || 'draft')]}`}>
-              {quote.status || 'draft'}
-            </span>
-          </div>
-          <div className={styles.quoteActions}>
-            {quote.status === 'draft' && (
-              <button type="button" onClick={handleSendClick} className={`btn btn-primary btn-sm ${styles.btnSend}`}>
-                Send to Client
-              </button>
-            )}
-            {quote.public_token && (
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => {
-                  const url = `${window.location.origin}/quote/public/${quote.public_token}`;
-                  navigator.clipboard.writeText(url);
-                  toast.success('Client link copied to clipboard');
-                }}
-              >
-                Copy Client Link
-              </button>
-            )}
-          </div>
-          <div className={styles.meta}>
-            {date && <span className={styles.metaTag}>📅 {date}</span>}
-            {quote.guest_count > 0 && (
-              <span className={styles.metaTag}>👥 {quote.guest_count} guests</span>
-            )}
-            <span className={styles.metaTag}>
-              {(quote.items || []).length} items
-            </span>
-          </div>
-          {quote.notes && <p className={styles.notes}>{quote.notes}</p>}
-
           <div className={styles.clientVenueRow}>
             <div className={styles.clientBlock}>
               {clientEditing ? (
@@ -760,8 +713,6 @@ export default function QuoteDetailPage() {
               <span className={styles.total}>Grand total: <strong>${totals.total.toFixed(2)}</strong></span>
             </div>
           )}
-        </div>
-      )}
 
       <div className={styles.columns}>
         <div className={styles.builderCol}>
