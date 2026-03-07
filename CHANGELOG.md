@@ -13,7 +13,7 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 
 ---
 
-## [0.3.2] (next)
+## [0.3.2] - 2026-03-06
 
 ### Changed
 - Version metadata and CHANGELOG added; canonical version remains 0.x pre-release.
