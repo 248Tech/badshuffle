@@ -8,13 +8,13 @@ A self-hosted inventory and quoting tool for event rental businesses. Manage you
 
 ## What's New in v0.4.0
 
-Version 0.4.0 delivers a strong mix of usability, presentation, and platform maturity improvements across the app.
-
-This release includes a broad set of **UI improvements** to make the overall experience cleaner, more organized, and easier to work with during daily operations. **Inventory management** has also been improved with sorting changes, support for inventory item categories, and category filtering, making it much easier to organize products and quickly find what you need. A new **tile view for products** adds a more visual way to browse inventory, and the addition of the **company logo** gives the platform a more polished, branded feel.
-
-On the **customer-facing side**, this update also introduces a **client view of the quote page**, expanding the system beyond internal workflows and improving how quotes can be presented externally. For **developers and integrations**, the platform now includes a **fully interfaceable API with OpenAPI support**, laying the groundwork for cleaner integrations, tooling, and future expansion.
-
-This version also includes a **full security audit**, followed by several highly advanced and extremely classified [redacted] changes, which have definitely made everything more secure, more stable, and at least 17% more mysterious.
+- **UI improvements** — Cleaner, more organized experience across the app for daily operations
+- **Inventory management** — Sorting changes, item categories, and category filtering to organize and find products faster
+- **Tile view for products** — Visual browse of inventory alongside list view
+- **Company logo** — Branded feel in settings and customer-facing views
+- **Client view of quote page** — Shareable quote page for customers; better presentation beyond internal workflows
+- **API with OpenAPI support** — Versioned API and OpenAPI spec for integrations, tooling, and future expansion
+- **Security audit** — Full security audit plus [redacted] changes for a more secure, stable, and at least 17% more mysterious platform
 
 ## What's New in v0.3.2
 
