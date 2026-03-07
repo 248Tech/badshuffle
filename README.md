@@ -1,10 +1,15 @@
-# BadShuffle v0.3.2
+# BadShuffle v0.4.0
 
 A self-hosted inventory and quoting tool for event rental businesses. Manage your catalog, build quotes, track usage stats, and sync items directly from Goodshuffle Pro — all running locally on your machine with no subscription required.
 
 *Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history.*
 
 ---
+
+## What's New in v0.4.0
+
+- **AI folder** — Consolidated project context for developers and AI sessions: `AI/` holds PROJECT_OVERVIEW, ARCHITECTURE, FEATURES, DATA_MODELS, WORKFLOWS, TODO, KNOWN_GAPS, and SETUP so the system is easy to onboard and extend.
+- **GitHub docs** — README updated with current features, project structure, and a **Coming soon** section for planned improvements.
 
 ## What's New in v0.3.2
 
@@ -52,6 +57,19 @@ A self-hosted inventory and quoting tool for event rental businesses. Manage you
 
 ---
 
+## Coming soon
+
+Planned improvements and roadmap (see [ai/KNOWN_GAPS.md](ai/KNOWN_GAPS.md) and [ai/TODO.md](ai/TODO.md) for details):
+
+- **Pull sheets** — Generate warehouse pull lists from approved quotes (order → pull → load → deliver → return). Not yet implemented.
+- **Role badge** — Show Admin / Operator badge in the header next to the current user.
+- **Email on role change** — Notify users when an admin changes their role.
+- **Send modal preview** — Inline preview of the quote email or public link before sending.
+- **Inventory reservation** — Use `quantity_in_stock` to reserve or track items going out on quotes (today it’s display-only).
+- **Delivery/return tracking** — Optional delivery and return dates or status per quote/order.
+
+---
+
 ## Project Structure
 
 ```
@@ -73,6 +91,7 @@ badshuffle/
 │   ├── content.js   Scrapes Goodshuffle catalog pages
 │   ├── background.js  Posts items to localhost:3001
 │   └── popup.html
+├── ai/              Project context for developers and AI (overview, architecture, features, data models, workflows, TODO, gaps, setup)
 └── scripts/
     └── postpackage.js  Copies build output → dist/
 ```

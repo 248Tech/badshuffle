@@ -9,7 +9,18 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.2.0** – Feature release
 - **0.3.0**, **0.3.1** – Quote workflow, admin CLI, leads, auth improvements
 
-**Note:** Earlier tags using a 3.x scheme were created on the remote in error. The project version line remains **0.x** until an official 1.0 release. Use **0.3.x** as the current pre-release line.
+**Note:** Earlier tags using a 3.x scheme were created on the remote in error. The project version line remains **0.x** until an official 1.0 release. Use **0.4.x** as the current pre-release line.
+
+---
+
+## [0.4.0] - 2026-03-06
+
+### Added
+- **AI folder** — Consolidated documentation for onboarding and extension: PROJECT_OVERVIEW, ARCHITECTURE, FEATURES, DATA_MODELS, WORKFLOWS, TODO, KNOWN_GAPS, SETUP, README.
+- **README** — "Coming soon" section: pull sheets, role badge, email on role change, send preview, inventory reservation, delivery/return tracking.
+
+### Changed
+- GitHub README updated to v0.4.0; project structure now includes `AI/`.
 
 ---
 

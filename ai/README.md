@@ -1,89 +1,22 @@
-## AI Collaboration Layer
+# AI — Project context for AI sessions
 
-This folder defines the **persistent AI coordination layer** used by Claude (remote architect/orchestrator) and Cursor (local implementation agent) to collaborate through version-controlled documents.
+This folder holds **consolidated project documentation** so future AI sessions can quickly understand the system without re-scanning the whole repo.
 
-### Purpose
+## Files (read these first)
 
-- **AI coordination layer for Claude + Cursor**
-- Provide a stable, repo-local protocol for:
-  - Claude to design architecture, plans, and reviews.
-  - Cursor to implement changes, record progress, and expose diffs.
-  - Git to synchronize shared state between machines and sessions.
+| File | Purpose |
+|------|---------|
+| **PROJECT_OVERVIEW.md** | What the app is, major modules, how frontend and backend interact. |
+| **ARCHITECTURE.md** | Folder structure, core services, data flow, how inventory/quotes/operations connect. |
+| **FEATURES.md** | Implemented features (quotes, items, contracts, billing, files, logistics, etc.) and where logic lives. |
+| **DATA_MODELS.md** | Main entities (Quote, QuoteItem, Item, Lead, Contract, etc.) and relationships. |
+| **WORKFLOWS.md** | Quote flow (inquiry → quote → approval → order); operations flow (conceptual; pull sheets not implemented). |
+| **TODO.md** | Aggregated TODO/FIXME and backlog items. |
+| **KNOWN_GAPS.md** | Incomplete features, tech debt, UI placeholders, assumptions. |
+| **SETUP.md** | How to run: env, install, dev server, DB, CLI. |
 
-### Roles
+## Relation to `ai/` (lowercase)
 
-- **Claude (Architect / Planner / Reviewer)**
-  - Owns high-level direction and architecture.
-  - Writes and updates:
-    - `HANDOFF.md` — authoritative task/feature definition and plan.
-    - `TODO.md` — prioritized task list and backlog.
-    - `DECISIONS.md` — architecture decisions and rationale.
-  - Reviews `STATUS.md`, `LAST.patch`, and `LAST.status` to understand what Cursor implemented.
+The repo also has an **`ai/`** folder (lowercase) with coordination docs: HANDOFF.md, STATUS.md, CURSOR_BRIEFING.md, DECISIONS.md, TODO.md, README.md. Those are for Claude/Cursor workflow and task handoff. This **`AI/`** folder is for **system context**: what the app does, how it’s built, and what’s left to do — so any AI (or human) can onboard quickly.
 
-- **Cursor (Implementation Agent)**
-  - Treats `HANDOFF.md` as the **source of truth** for work to perform.
-  - Focuses on local implementation details and minimal diffs.
-  - Updates:
-    - `STATUS.md` — current task, progress, files changed, commands used, verification, and next steps.
-    - `LAST.patch` — most recent patch of work for Claude to review.
-    - `LAST.status` — snapshot of `git status --porcelain` after work.
-  - Must not invent large architectural changes without explicit direction in `HANDOFF.md` or `DECISIONS.md`.
-
-### Communication Protocol
-
-All coordination happens via Markdown and patch files inside `/ai`, synchronized via Git.
-
-- **Claude writes**
-  - `HANDOFF.md` — detailed description of the current feature or task, constraints, current state, implementation plan, acceptance criteria, and test plan.
-  - `TODO.md` — high-level backlog of upcoming work items.
-  - `DECISIONS.md` — running log of architecture and process decisions.
-
-- **Cursor updates**
-  - `STATUS.md` — describes what Cursor is currently implementing, progress, changed files, commands used, verification, known issues, and what Claude should do next.
-  - `LAST.patch` — generated via `git diff > ai/LAST.patch` at the end of a work session or task.
-  - `LAST.status` — generated via `git status --porcelain > ai/LAST.status` at the end of a work session or task.
-
-- **Git as Transport**
-  - All `/ai` files are committed to the repository.
-  - Claude and Cursor stay in sync by pulling and pushing Git history.
-  - No external coordination channel is required; the repository itself is the shared state.
-
-### Workflow Overview
-
-1. **Claude**:
-   - Updates `HANDOFF.md` with a clear objective, constraints, current state, plan, acceptance criteria, and test plan.
-   - Optionally updates `TODO.md` and `DECISIONS.md`.
-   - Commits and pushes changes.
-
-2. **Cursor**:
-   - Pulls latest changes.
-   - Reads `ai/HANDOFF.md` and treats it as the authoritative specification.
-   - Implements the requested changes in the codebase.
-   - Updates `ai/STATUS.md` with:
-     - Current task
-     - Progress
-     - Files changed
-     - Commands used
-     - Verification results
-     - Known issues
-     - Next steps for Claude
-   - Generates:
-     - `git diff > ai/LAST.patch`
-     - `git status --porcelain > ai/LAST.status`
-   - Stages and commits changes (but only pushes when explicitly instructed).
-
-3. **Claude**:
-   - Reviews `STATUS.md`, `LAST.patch`, and `LAST.status`.
-   - Updates `HANDOFF.md`, `TODO.md`, and `DECISIONS.md` for the next iteration.
-
-### Behavioral Rules for Cursor
-
-- **Follow HANDOFF**: Treat `ai/HANDOFF.md` as the authoritative task definition.
-- **Respect Claude’s plan**: Do not overwrite or significantly alter Claude’s plan except as part of executing the described steps.
-- **Minimal diffs**: Prefer focused, minimal changes instead of large rewrites.
-- **Always update status**: After implementing changes, update `ai/STATUS.md` to reflect what was done and what remains.
-- **Always export patches**: After work is complete (before or alongside committing), regenerate:
-  - `git diff > ai/LAST.patch`
-  - `git status --porcelain > ai/LAST.status`
-- **No surprise architecture**: Avoid introducing new architectural patterns or large-scale refactors unless explicitly requested in `HANDOFF.md` or justified by an entry in `DECISIONS.md` authored by Claude.
-
+When you change the system (e.g. add pull sheets, new routes, new tables), update the relevant file here (e.g. FEATURES.md, DATA_MODELS.md, ARCHITECTURE.md) so the next session stays in sync.
