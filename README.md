@@ -1,4 +1,4 @@
-# BadShuffle v0.4.1
+# BadShuffle v0.4.2
 
 A self-hosted inventory and quoting tool for event rental businesses. Manage your catalog, build quotes, track usage stats, and sync items directly from Goodshuffle Pro — all running locally on your machine with no subscription required.
 
@@ -6,7 +6,7 @@ A self-hosted inventory and quoting tool for event rental businesses. Manage you
 
 ---
 
-## What's New in v0.4.1
+## What's New in v0.4.2
 
 - **Inventory availability & conflict detection** — Backend and frontend detect when reserved quantities exceed stock. New `/api/availability` endpoints: conflicts (items over-reserved), subrental-needs (shortfall items), and per-quote conflict check. Conflicts consider quote status and rental date ranges (delivery → pickup).
 - **Vendor / subrental system** — New `vendors` table and CRUD API. Inventory items support `is_subrental` and `vendor_id`. Vendor management page in the UI; vendor selection in the item editor.

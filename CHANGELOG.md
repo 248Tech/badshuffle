@@ -13,7 +13,7 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 
 ---
 
-## [0.4.1] - 2026-03-07
+## [0.4.2] - 2026-03-07
 
 ### Added
 - **Availability & conflict detection** — `/api/availability/conflicts`, `/api/availability/subrental-needs`, `/api/availability/quote/:id`; considers quote status and rental date ranges (delivery → pickup).
@@ -22,10 +22,14 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **Dashboard** — Conflicts panel (items over-reserved); Subrental Needs panel (items needing external source).
 - **Quote builder** — Conflict indicator icon next to line items that overlap with other reservations.
 - **Setting** — `count_oos_oversold` (whether out-of-stock items count toward dashboard conflict detection).
-- **Client API helpers** — `getVendors`, `createVendor`, `updateVendor`, `deleteVendor`, `getConflicts`, `getSubrentalNeeds`, `getQuoteConflicts`.
+- **Client API helpers** — `getVendors`, `createVendor`, `updateVendor`, `deleteVendor`, `getConflicts`, `getSubrentalNeeds`, `getQuoteConflicts**.
 
 ### Development
 - Initial Bun support testing in dev workflow (non-breaking).
+
+---
+
+## [0.4.1] - (tag exists; features documented in 0.4.2)
 
 ---
 
