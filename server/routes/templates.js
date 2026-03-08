@@ -3,6 +3,31 @@ const express = require('express');
 module.exports = function makeRouter(db) {
   const router = express.Router();
 
+  // Contract templates (must be before /:id)
+  router.get('/contract-templates', (req, res) => {
+    const list = db.prepare('SELECT id, name, body_html, created_at FROM contract_templates ORDER BY name').all();
+    res.json({ contractTemplates: list });
+  });
+  router.post('/contract-templates', (req, res) => {
+    const { name, body_html } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const result = db.prepare(
+      'INSERT INTO contract_templates (name, body_html) VALUES (?, ?)'
+    ).run(name || '', body_html || null);
+    const row = db.prepare('SELECT * FROM contract_templates WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json(row);
+  });
+  router.get('/contract-templates/:id', (req, res) => {
+    const row = db.prepare('SELECT * FROM contract_templates WHERE id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    res.json(row);
+  });
+  router.delete('/contract-templates/:id', (req, res) => {
+    const result = db.prepare('DELETE FROM contract_templates WHERE id = ?').run(req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ deleted: true });
+  });
+
   // GET /api/templates
   router.get('/', (req, res) => {
     const list = db.prepare('SELECT id, name, subject, is_default, created_at FROM email_templates ORDER BY name').all();

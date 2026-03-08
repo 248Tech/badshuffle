@@ -1,11 +1,16 @@
-import React from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
-import { clearToken } from '../api';
+import { clearToken, api } from '../api';
 import styles from './Layout.module.css';
 
 export default function Layout({ role = '' }) {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    api.presence.update(location.pathname).catch(() => {});
+  }, [location.pathname]);
 
   function handleLogout() {
     clearToken();

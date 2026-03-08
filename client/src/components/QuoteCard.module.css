@@ -9,6 +9,11 @@
 .card.selectable { padding-left: 36px; }
 .checkboxWrap { position: absolute; top: 12px; left: 12px; }
 .checkboxWrap input { cursor: pointer; }
+.totals { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.contractTotal { font-weight: 600; color: var(--color-primary); }
+.remainingBalance { color: #c00; font-size: 13px; }
+.remainingOverpaid { color: #b45309; font-size: 13px; }
+.overpaidBadge { font-size: 11px; font-weight: 600; padding: 2px 8px; background: #fef3c7; color: #b45309; border: 1px solid #f59e0b; border-radius: 999px; }
 .total { font-size: 13px; font-weight: 600; color: var(--color-primary); }
 
 .header {

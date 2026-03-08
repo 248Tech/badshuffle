@@ -2,8 +2,35 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const https = require('https');
 const nodemailer = require('nodemailer');
 const { decrypt } = require('../lib/crypto');
+
+function verifyRecaptcha(secretKey, responseToken, remoteIp) {
+  return new Promise((resolve) => {
+    const body = `secret=${encodeURIComponent(secretKey)}&response=${encodeURIComponent(responseToken)}${remoteIp ? '&remoteip=' + encodeURIComponent(remoteIp) : ''}`;
+    const req = https.request({
+      hostname: 'www.google.com',
+      path: '/recaptcha/api/siteverify',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          resolve(!!json.success);
+        } catch {
+          resolve(false);
+        }
+      });
+    });
+    req.on('error', () => resolve(false));
+    req.write(body);
+    req.end();
+  });
+}
 
 const SECRET = () => process.env.JWT_SECRET || 'change-me';
 const BRUTE_WINDOW_MIN = 15;
@@ -53,11 +80,28 @@ module.exports = function authRouter(db) {
   const router = express.Router();
   const requireAuth = require('../lib/authMiddleware')(db);
   const requireAdmin = require('../lib/adminMiddleware')(db);
+  const requireOperator = require('../lib/operatorMiddleware')(db);
 
   // GET /api/auth/status — no auth required
   router.get('/status', (req, res) => {
     const row = db.prepare('SELECT COUNT(*) as cnt FROM users').get();
     res.json({ setup: row.cnt > 0 });
+  });
+
+  // GET /api/auth/captcha-config — no auth; used by login page to show math + reCAPTCHA
+  router.get('/captcha-config', (req, res) => {
+    const rows = db.prepare(
+      "SELECT key, value FROM settings WHERE key IN ('recaptcha_enabled', 'recaptcha_site_key')"
+    ).all();
+    const settings = {};
+    for (const r of rows) settings[r.key] = r.value;
+    const recaptcha_enabled = (settings.recaptcha_enabled || '0') === '1';
+    const recaptcha_site_key = (settings.recaptcha_site_key || '').trim();
+    res.json({
+      math_required: true,
+      recaptcha_enabled: recaptcha_enabled && recaptcha_site_key.length > 0,
+      recaptcha_site_key: recaptcha_site_key || ''
+    });
   });
 
   // POST /api/auth/setup — create first admin (only if no users exist)
@@ -92,8 +136,32 @@ module.exports = function authRouter(db) {
   router.post('/login', async (req, res) => {
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
     try {
-      const { email, password } = req.body || {};
+      const { email, password, math_a, math_b, math_answer, recaptcha_response } = req.body || {};
       if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+      // Math question (always required)
+      const a = parseInt(math_a, 10);
+      const b = parseInt(math_b, 10);
+      const answer = parseInt(math_answer, 10);
+      if (isNaN(a) || isNaN(b) || isNaN(answer) || a + b !== answer) {
+        return res.status(400).json({ error: 'Incorrect answer to the math question' });
+      }
+
+      // reCAPTCHA v2 (when enabled and secret key set)
+      const recaptchaRows = db.prepare(
+        "SELECT key, value FROM settings WHERE key IN ('recaptcha_enabled', 'recaptcha_secret_key')"
+      ).all();
+      const recaptchaSettings = {};
+      for (const r of recaptchaRows) recaptchaSettings[r.key] = r.value;
+      const recaptchaEnabled = (recaptchaSettings.recaptcha_enabled || '0') === '1';
+      const recaptchaSecret = (recaptchaSettings.recaptcha_secret_key || '').trim();
+      if (recaptchaEnabled && recaptchaSecret) {
+        if (!recaptcha_response || typeof recaptcha_response !== 'string') {
+          return res.status(400).json({ error: 'Please complete the reCAPTCHA' });
+        }
+        const recaptchaOk = await verifyRecaptcha(recaptchaSecret, recaptcha_response, ip);
+        if (!recaptchaOk) return res.status(400).json({ error: 'reCAPTCHA verification failed' });
+      }
 
       // Brute-force check
       const failCount = checkBruteForce(db, ip);
@@ -219,8 +287,8 @@ module.exports = function authRouter(db) {
     res.json({ token: row.token });
   });
 
-  // POST /api/auth/test-mail — public endpoint, rate-limited (5/min per IP)
-  router.post('/test-mail', async (req, res) => {
+  // POST /api/auth/test-mail — operator/admin only (was public; locked down for security)
+  router.post('/test-mail', requireAuth, requireOperator, async (req, res) => {
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
     const count = (testMailCounts.get(ip) || 0) + 1;
     testMailCounts.set(ip, count);

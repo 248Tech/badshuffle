@@ -4,6 +4,10 @@ import styles from './QuoteCard.module.css';
 
 export default function QuoteCard({ quote, onDelete, onDuplicate, total, selectable, selected, onToggleSelect }) {
   const navigate = useNavigate();
+  const contractTotal = total != null ? total : (quote.contract_total ?? quote.total);
+  const hasTotal = contractTotal != null && contractTotal > 0;
+  const remaining = quote.remaining_balance != null ? quote.remaining_balance : (hasTotal ? contractTotal - (quote.amount_paid || 0) : null);
+  const overpaid = !!quote.overpaid;
 
   const date = quote.event_date
     ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString()
@@ -47,9 +51,18 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
         <span className={styles.tag}>
           🕒 {new Date(quote.created_at).toLocaleDateString()}
         </span>
+        {overpaid && <span className={styles.overpaidBadge}>Overpaid</span>}
       </div>
-      {total != null && total > 0 && (
-        <div className={styles.total}>Contract total: ${Number(total).toFixed(2)}</div>
+      {hasTotal && (
+        <div className={styles.totals}>
+          <div className={styles.contractTotal}>Contract total: ${Number(contractTotal).toFixed(2)}</div>
+          <div className={overpaid ? styles.remainingOverpaid : styles.remainingBalance}>
+            {overpaid
+              ? <>Overpaid: <strong>${Math.abs(remaining).toFixed(2)}</strong> (refund due)</>
+              : <>Remaining balance: <strong>${Number(remaining).toFixed(2)}</strong></>
+            }
+          </div>
+        </div>
       )}
       {quote.notes && <p className={styles.notes}>{quote.notes}</p>}
       <div className={styles.actions} onClick={e => e.stopPropagation()}>

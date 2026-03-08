@@ -5,6 +5,16 @@ const dotenvPath = typeof process.pkg !== 'undefined'
   ? path.join(path.dirname(process.execPath), '.env')
   : path.resolve(__dirname, '../.env');
 require('dotenv').config({ path: dotenvPath });
+
+// Require strong JWT_SECRET in production
+if (process.env.NODE_ENV === 'production') {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret === 'change-me') {
+    console.error('Fatal: JWT_SECRET must be set to a strong random value in production (not "change-me").');
+    process.exit(1);
+  }
+}
+
 const express = require('express');
 const cors = require('cors');
 const initDb = require('./db');
@@ -14,7 +24,18 @@ const requireOperator = require('./lib/operatorMiddleware');
 const authRouter = require('./routes/auth');
 const singleInstance = require('./services/singleInstance');
 const updateCheck = require('./services/updateCheck');
-const emailPoller = require('./services/emailPoller');
+const jwt = require('jsonwebtoken');
+const { verifyFileServe, getSignedFileServePath } = require('./lib/fileServeAuth');
+const { safeFilename } = require('./lib/safeFilename');
+let emailPoller;
+try {
+  emailPoller = require('./services/emailPoller');
+} catch (e) {
+  if (e.code === 'MODULE_NOT_FOUND') {
+    console.warn('[emailPoller] Optional dependency missing (imapflow). Run: npm install --prefix server. IMAP polling disabled.');
+    emailPoller = { startPolling: () => {}, stopPolling: () => {} };
+  } else throw e;
+}
 
 const PORT = process.env.PORT || 3001;
 
@@ -65,37 +86,73 @@ async function start() {
   app.use('/api/extension', require('./routes/extension'));
   app.use('/api/proxy-image', require('./lib/imageProxy'));
 
-  // Public file serve — must be before auth so <img> tags work without Authorization header
+  // File serve — allowed with Bearer auth OR valid signed URL (for public quote images)
   app.get('/api/files/:id/serve', (req, res) => {
-    const file = db.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
+    const fileId = req.params.id;
+    const file = db.prepare('SELECT * FROM files WHERE id = ?').get(fileId);
     if (!file) return res.status(404).json({ error: 'Not found' });
     const filePath = path.join(UPLOADS_DIR, file.stored_name);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing' });
-    res.setHeader('Content-Disposition', 'inline; filename="' + file.original_name.replace(/"/g, '') + '"');
+
+    const authHeader = req.headers.authorization || '';
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const secret = process.env.JWT_SECRET || 'change-me';
+    let allowed = false;
+    if (bearer) {
+      try {
+        jwt.verify(bearer, secret);
+        allowed = true;
+      } catch {}
+    }
+    if (!allowed && req.query.sig && req.query.exp) {
+      allowed = verifyFileServe(fileId, req.query.sig, req.query.exp);
+    }
+    if (!allowed) return res.status(401).json({ error: 'Unauthorized' });
+
+    const filename = safeFilename(file.original_name);
+    res.setHeader('Content-Disposition', 'inline; filename="' + filename + '"');
     res.setHeader('Content-Type', file.mime_type || 'application/octet-stream');
     fs.createReadStream(filePath).pipe(res);
   });
 
-  // Public quote view (no auth)
+  // Public quote view (no auth) — add signed file URLs for images so public page can load them
   app.get('/api/quotes/public/:token', (req, res) => {
     const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
-    const items = db.prepare(`
-      SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order,
-             i.id, i.title, i.photo_url, i.unit_price, i.taxable, i.category
+    const allItems = db.prepare(`
+      SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote,
+             i.id, i.title, i.photo_url, i.unit_price, i.taxable, i.category, i.description
       FROM quote_items qi
       JOIN items i ON i.id = qi.item_id
       WHERE qi.quote_id = ?
       ORDER BY qi.sort_order ASC, qi.id ASC
     `).all(quote.id);
+    const items = allItems.filter(r => !r.hidden_from_quote);
     const customItems = db.prepare(
       'SELECT * FROM quote_custom_items WHERE quote_id = ? ORDER BY sort_order ASC, id ASC'
     ).all(quote.id);
+    const addSignedPhoto = (row) => {
+      const pu = row.photo_url;
+      if (pu != null && String(pu).trim() !== '' && /^\d+$/.test(String(pu).trim())) {
+        row.signed_photo_url = getSignedFileServePath(String(pu).trim(), '/api/files');
+      }
+      return row;
+    };
+    items.forEach(addSignedPhoto);
+    customItems.forEach(addSignedPhoto);
     let contract = null;
     try {
       contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(quote.id);
     } catch (e) { /* contracts table may not exist yet */ }
-    res.json({ ...quote, items, customItems, contract });
+    const settingRows = db.prepare("SELECT key, value FROM settings WHERE key IN ('company_name', 'company_email', 'company_logo')").all();
+    const company = {};
+    for (const r of settingRows) company[r.key] = r.value != null ? String(r.value) : '';
+    const company_name = company.company_name ?? '';
+    const company_email = company.company_email ?? '';
+    let company_logo = company.company_logo ?? '';
+    const signed_company_logo = (company_logo && /^\d+$/.test(String(company_logo).trim()))
+      ? getSignedFileServePath(String(company_logo).trim(), '/api/files') : null;
+    res.json({ ...quote, items, customItems, contract, company_name, company_email, company_logo, signed_company_logo });
   });
 
   // Public quote approve by token (no auth)
@@ -104,7 +161,7 @@ async function start() {
     if (!token) return res.status(400).json({ error: 'token required' });
     const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
-    db.prepare("UPDATE quotes SET status = 'approved', updated_at = datetime('now') WHERE id = ?").run(quote.id);
+    db.prepare("UPDATE quotes SET status = 'approved', has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?").run(quote.id);
     const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(quote.id);
     res.json({ quote: updated });
   });
@@ -130,17 +187,36 @@ async function start() {
 
   // Protected routes
   const auth = requireAuth(db);
+  const requireOperatorDb = requireOperator(db);
+  const requireAdminDb = requireAdmin(db);
+
+  // API v1 — versioned, envelope responses at /api/v1
+  const createV1Router = require('./api/v1');
+  app.use('/api/v1', createV1Router(db, {
+    auth,
+    requireAdmin: requireAdminDb,
+    requireOperator: requireOperatorDb,
+    UPLOADS_DIR,
+  }));
+
   app.use('/api/files',     auth, require('./routes/files')(db, UPLOADS_DIR));
   app.use('/api/items',       auth, require('./routes/items')(db));
   app.use('/api/sheets',      auth, require('./routes/sheets')(db));
   app.use('/api/quotes',      auth, require('./routes/quotes')(db, UPLOADS_DIR));
   app.use('/api/stats',       auth, require('./routes/stats')(db));
   app.use('/api/ai',          auth, require('./routes/ai')(db));
-  app.use('/api/settings',    auth, requireOperator(db), require('./routes/settings')(db));
-  app.use('/api/templates',   auth, requireOperator(db), require('./routes/templates')(db));
+  app.use('/api/settings',    auth, requireOperatorDb, require('./routes/settings')(db));
+  app.use('/api/templates',   auth, requireOperatorDb, require('./routes/templates')(db));
   app.use('/api/leads',       auth, require('./routes/leads')(db));
   app.use('/api/messages',    auth, require('./routes/messages')(db));
-  app.use('/api/admin',       requireAdmin(db), require('./routes/admin')(db));
+  app.use('/api/admin',       requireAdminDb, require('./routes/admin')(db));
+  app.use('/api/billing',    auth, requireOperatorDb, require('./routes/billing')(db));
+  app.use('/api/presence',   auth, require('./routes/presence')());
+
+  // API 404 — return JSON so clients get a consistent error shape
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'Not found', path: req.path });
+  });
 
   app.listen(PORT, () => {
     console.log(`BadShuffle server running on http://localhost:${PORT}`);

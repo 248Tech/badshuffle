@@ -1,0 +1,322 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.modal {
+  background: var(--color-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  max-width: 840px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.closeBtn:hover {
+  color: var(--color-text);
+}
+
+.body {
+  padding: 24px 28px 28px;
+}
+
+.addressText {
+  margin: 0 0 16px;
+  font-size: 15px;
+  color: var(--color-text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mapSection {
+  margin-top: 0;
+}
+
+.mapStyleOverlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.mapStyleOverlay .mapStyleBtn {
+  margin-bottom: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.mapWrapGrab { cursor: grab; }
+.mapWrapGrabbing { cursor: grabbing; }
+
+.mapStyleToggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.mapStyleToggle .mapStyleBtn {
+  margin-bottom: 0;
+}
+
+.zoomControls {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.zoomBtn {
+  width: 36px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.zoomBtn:hover:not(:disabled) {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.zoomBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mapStyleBtn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: none;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mapStyleBtn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.mapStyleBtnActive {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.mapStyleBtnActive:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.mapWrap {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  user-select: none;
+  touch-action: none;
+  width: 100%;
+  aspect-ratio: 780 / 480;
+  min-height: 280px;
+}
+
+.mapWrap:focus {
+  outline: none;
+}
+
+.mapImageWrap {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+  backface-visibility: hidden;
+  z-index: 0;
+}
+
+.mapPreloadImg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mapLoadingTile {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.staticMap {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.mapLinksOverlay {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.mapLinkBtn {
+  display: inline-block;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: background 0.15s;
+}
+
+.mapLinkBtn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+}
+
+.mapLinkBtnSecondary {
+  display: inline-block;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  transition: background 0.15s;
+}
+
+.mapLinkBtnSecondary:hover {
+  background: #fff;
+  color: var(--color-text);
+}
+
+.zoomOverlay {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+}
+
+.zoomOverlay .zoomBtn {
+  width: 32px;
+  height: 32px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zoomOverlay .zoomBtn:hover:not(:disabled) {
+  background: var(--color-surface);
+}
+
+.zoomOverlay .zoomBtn:disabled {
+  opacity: 0.5;
+}
+
+.mapErrorOverlay {
+  position: absolute;
+  bottom: 56px;
+  left: 12px;
+  right: 56px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mapHint {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.mapError {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}

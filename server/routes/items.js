@@ -11,9 +11,25 @@ module.exports = function makeRouter(db) {
     res.json({ categories: rows.map(r => r.category) });
   });
 
+  // GET /api/items/categories/popular — categories by quote usage (for quote builder filter)
+  router.get('/categories/popular', (req, res) => {
+    const { limit = 15 } = req.query;
+    const rows = db.prepare(`
+      SELECT i.category,
+             COALESCE(SUM(s.times_quoted), 0) AS usage_count
+      FROM items i
+      LEFT JOIN item_stats s ON s.item_id = i.id
+      WHERE i.category IS NOT NULL AND i.category != ''
+      GROUP BY i.category
+      ORDER BY usage_count DESC, i.category ASC
+      LIMIT ?
+    `).all(Math.max(1, Math.min(50, parseInt(limit, 10) || 15)));
+    res.json({ categories: rows.map(r => r.category) });
+  });
+
   // GET /api/items
   router.get('/', (req, res) => {
-    const { search, hidden, category } = req.query;
+    const { search, hidden, category, limit, offset, exclude_quote_id } = req.query;
     let query = `
       SELECT items.*,
         (SELECT COALESCE(SUM(qi.quantity),0) FROM quote_items qi
@@ -30,21 +46,35 @@ module.exports = function makeRouter(db) {
       query += ' AND items.hidden = ?';
       params.push(hidden === '1' ? 1 : 0);
     }
-    if (category) {
-      query += ' AND items.category = ?';
-      params.push(category);
+    const categoryNorm = category && String(category).trim() ? String(category).trim() : null;
+    if (categoryNorm) {
+      query += " AND LOWER(TRIM(COALESCE(items.category, ''))) = LOWER(?)";
+      params.push(categoryNorm);
     }
-    query += ' ORDER BY items.title ASC';
+    const excludeQuoteId = exclude_quote_id != null && String(exclude_quote_id).trim() !== '' ? parseInt(exclude_quote_id, 10) : null;
+    if (excludeQuoteId != null && !Number.isNaN(excludeQuoteId)) {
+      query += ' AND items.id NOT IN (SELECT item_id FROM quote_items WHERE quote_id = ?)';
+      params.push(excludeQuoteId);
+    }
+    const countQuery = `SELECT COUNT(*) AS n FROM items WHERE 1=1${search ? ' AND items.title LIKE ?' : ''}${hidden !== undefined ? ' AND items.hidden = ?' : ''}${categoryNorm ? " AND LOWER(TRIM(COALESCE(items.category, ''))) = LOWER(?)" : ''}${excludeQuoteId != null && !Number.isNaN(excludeQuoteId) ? ' AND items.id NOT IN (SELECT item_id FROM quote_items WHERE quote_id = ?)' : ''}`;
+    const total = db.prepare(countQuery).get(...params).n;
 
+    query += ' ORDER BY items.title ASC';
+    const lim = limit != null ? Math.max(1, Math.min(500, parseInt(limit, 10) || 100)) : 0;
+    const off = offset != null ? Math.max(0, parseInt(offset, 10) || 0) : 0;
+    if (lim > 0) {
+      query += ' LIMIT ? OFFSET ?';
+      params.push(lim, off);
+    }
     const items = db.prepare(query).all(...params);
-    res.json({ items, total: items.length });
+    res.json({ items, total });
   });
 
   // POST /api/items/upsert — must come BEFORE /:id route
   router.post('/upsert', (req, res) => {
     const {
       title, photo_url, source = 'manual', hidden = 0,
-      quantity_in_stock, unit_price, category, description, taxable
+      quantity_in_stock, unit_price, category, description, taxable, labor_hours
     } = req.body;
     if (!title) return res.status(400).json({ error: 'title required' });
 
@@ -61,6 +91,7 @@ module.exports = function makeRouter(db) {
           category          = COALESCE(?, category),
           description       = COALESCE(?, description),
           taxable           = COALESCE(?, taxable),
+          labor_hours       = COALESCE(?, labor_hours),
           updated_at        = datetime('now')
         WHERE id = ?
       `).run(
@@ -70,6 +101,7 @@ module.exports = function makeRouter(db) {
         category || null,
         description || null,
         taxable != null ? (taxable ? 1 : 0) : null,
+        labor_hours != null ? labor_hours : null,
         existing.id
       );
       const updated = db.prepare('SELECT * FROM items WHERE id = ?').get(existing.id);
@@ -77,14 +109,15 @@ module.exports = function makeRouter(db) {
     }
 
     const result = db.prepare(`
-      INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, taxable)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, taxable, labor_hours)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       title, photo_url || null, source, hidden ? 1 : 0,
       quantity_in_stock != null ? quantity_in_stock : 0,
       unit_price != null ? unit_price : 0,
       category || null, description || null,
-      taxable != null ? (taxable ? 1 : 0) : 1
+      taxable != null ? (taxable ? 1 : 0) : 1,
+      labor_hours != null ? labor_hours : 0
     );
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json({ item, created: true });
@@ -121,17 +154,18 @@ module.exports = function makeRouter(db) {
   router.post('/', (req, res) => {
     const {
       title, photo_url, source = 'manual', hidden = 0,
-      quantity_in_stock = 0, unit_price = 0, category, description, taxable = 1
+      quantity_in_stock = 0, unit_price = 0, category, description, taxable = 1, labor_hours = 0
     } = req.body;
     if (!title) return res.status(400).json({ error: 'title required' });
 
     try {
       const result = db.prepare(`
-        INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, taxable)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, taxable, labor_hours)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         title, photo_url || null, source, hidden ? 1 : 0,
-        quantity_in_stock, unit_price, category || null, description || null, taxable ? 1 : 0
+        quantity_in_stock, unit_price, category || null, description || null, taxable ? 1 : 0,
+        labor_hours != null ? labor_hours : 0
       );
       const item = db.prepare('SELECT * FROM items WHERE id = ?').get(result.lastInsertRowid);
       res.status(201).json({ item });
@@ -145,7 +179,7 @@ module.exports = function makeRouter(db) {
   router.put('/:id', (req, res) => {
     const {
       title, photo_url, source, hidden,
-      quantity_in_stock, unit_price, category, description, taxable
+      quantity_in_stock, unit_price, category, description, taxable, labor_hours
     } = req.body;
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
     if (!item) return res.status(404).json({ error: 'Not found' });
@@ -161,6 +195,7 @@ module.exports = function makeRouter(db) {
         category          = COALESCE(?, category),
         description       = COALESCE(?, description),
         taxable           = COALESCE(?, taxable),
+        labor_hours       = COALESCE(?, labor_hours),
         updated_at        = datetime('now')
       WHERE id = ?
     `).run(
@@ -173,6 +208,7 @@ module.exports = function makeRouter(db) {
       category !== undefined ? (category || null) : null,
       description !== undefined ? (description || null) : null,
       taxable != null ? (taxable ? 1 : 0) : null,
+      labor_hours !== undefined ? (labor_hours != null ? labor_hours : 0) : null,
       req.params.id
     );
 

@@ -29,6 +29,7 @@ export default function ItemDetailPage() {
           description: data.description || '',
           unit_price: data.unit_price != null ? String(data.unit_price) : '',
           quantity_in_stock: data.quantity_in_stock != null ? String(data.quantity_in_stock) : '',
+          labor_hours: data.labor_hours != null ? String(data.labor_hours) : '0',
           taxable: data.taxable !== 0,
           hidden: !!data.hidden
         });
@@ -53,6 +54,7 @@ export default function ItemDetailPage() {
         description: form.description || null,
         unit_price: form.unit_price !== '' ? parseFloat(form.unit_price) : 0,
         quantity_in_stock: form.quantity_in_stock !== '' ? parseInt(form.quantity_in_stock, 10) : 0,
+        labor_hours: form.labor_hours !== '' ? parseFloat(form.labor_hours) : 0,
         taxable: form.taxable ? 1 : 0,
         hidden: form.hidden ? 1 : 0
       });
@@ -124,6 +126,11 @@ export default function ItemDetailPage() {
                   <input type="number" min="0" value={form.quantity_in_stock}
                     onChange={e => setForm(f => ({ ...f, quantity_in_stock: e.target.value }))} placeholder="0" />
                 </div>
+                <div className="form-group">
+                  <label>Labor hours</label>
+                  <input type="number" min="0" step="0.25" value={form.labor_hours}
+                    onChange={e => setForm(f => ({ ...f, labor_hours: e.target.value }))} placeholder="0" />
+                </div>
               </div>
               <div className="form-group">
                 <label>Photo URL</label>
@@ -163,6 +170,10 @@ export default function ItemDetailPage() {
                 <div className={styles.metaItem}>
                   <span className={styles.metaLabel}>In Stock</span>
                   <span className={styles.metaValue}>{item.quantity_in_stock || 0}</span>
+                </div>
+                <div className={styles.metaItem}>
+                  <span className={styles.metaLabel}>Labor hours</span>
+                  <span className={styles.metaValue}>{item.labor_hours != null ? Number(item.labor_hours) : 0}</span>
                 </div>
                 {item.quantity_going_out > 0 && (
                   <div className={styles.metaItem}>

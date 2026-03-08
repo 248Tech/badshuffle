@@ -295,6 +295,7 @@ export default function QuotePage() {
                 <th>Event date</th>
                 <th>Guests</th>
                 <th>Contract total</th>
+                <th>Remaining balance</th>
                 <th className={styles.colActions}>Actions</th>
               </tr>
             </thead>
@@ -325,6 +326,16 @@ export default function QuotePage() {
                     <td>{eventDate}</td>
                     <td>{q.guest_count > 0 ? q.guest_count : '—'}</td>
                     <td>{q.total != null && q.total > 0 ? `$${Number(q.total).toFixed(2)}` : '—'}</td>
+                    <td>
+                      {q.total != null && q.total > 0 ? (
+                        q.overpaid ? (
+                          <span className={styles.overpaidCell}>Overpaid ${Math.abs(q.remaining_balance || 0).toFixed(2)}</span>
+                        ) : (
+                          <span className={styles.remainingCell}>${Number(q.remaining_balance != null ? q.remaining_balance : q.total).toFixed(2)}</span>
+                        )
+                      ) : '—'}
+                      {q.overpaid && <span className={styles.overpaidBadge}>Overpaid</span>}
+                    </td>
                     <td className={styles.colActions}>
                       <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate(`/quotes/${q.id}`)}>
                         Open

@@ -20,7 +20,11 @@ router.get('/', async (req, res) => {
     'goodshuffle.pro'
   ];
 
-  const isAllowed = allowedHosts.some(h => parsedUrl.hostname.endsWith(h));
+  const hostname = parsedUrl.hostname.toLowerCase();
+  const isAllowed = allowedHosts.some(h => {
+    const allowed = h.toLowerCase();
+    return hostname === allowed || hostname.endsWith('.' + allowed);
+  });
   if (!isAllowed) {
     return res.status(403).json({ error: 'Host not allowed' });
   }

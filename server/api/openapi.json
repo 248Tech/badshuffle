@@ -1,0 +1,150 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "BadShuffle API",
+    "description": "Self-hosted inventory and quoting API for event rental businesses. All v1 responses use an envelope: success `{ data, meta }`, error `{ error: { code, message }, meta }`.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "/api/v1", "description": "API v1 base path" }
+  ],
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "object", "properties": { "ok": { "type": "boolean" } } },
+                    "meta": { "type": "object", "properties": { "version": { "type": "string" }, "timestamp": { "type": "string", "format": "date-time" } } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/status": {
+      "get": {
+        "summary": "Check if setup is complete",
+        "security": [],
+        "responses": { "200": { "description": "Returns { setup: boolean } inside data" } }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login",
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["email", "password"], "properties": { "email": { "type": "string" }, "password": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Returns token in data" }, "401": { "description": "Invalid credentials" } }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Current user",
+        "responses": { "200": { "description": "User object in data" } }
+      }
+    },
+    "/items": {
+      "get": {
+        "summary": "List items",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "hidden", "in": "query", "schema": { "type": "string", "enum": ["0", "1"] } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Returns { items, total } inside data" } }
+      },
+      "post": {
+        "summary": "Create item",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "title": {}, "unit_price": {}, "category": {}, "description": {} } } } } },
+        "responses": { "200": { "description": "Created item in data" }, "400": { "description": "Validation error" } }
+      }
+    },
+    "/items/{id}": {
+      "get": { "summary": "Get item", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": {}, "404": {} } },
+      "put": { "summary": "Update item", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": {}, "404": {} } },
+      "delete": { "summary": "Delete item", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": {}, "404": {} } }
+    },
+    "/quotes": {
+      "get": { "summary": "List quotes", "responses": { "200": { "description": "Returns { quotes } inside data" } } },
+      "post": { "summary": "Create quote", "requestBody": { "content": { "application/json": { "schema": { "type": "object" } } } }, "responses": { "200": {} } }
+    },
+    "/quotes/{id}": {
+      "get": { "summary": "Get quote", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": {}, "404": {} } },
+      "put": { "summary": "Update quote", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": {}, "404": {} } },
+      "delete": { "summary": "Delete quote", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": {}, "404": {} } }
+    },
+    "/quotes/public/{token}": {
+      "get": {
+        "summary": "Get public quote by token (no auth)",
+        "security": [],
+        "parameters": [{ "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Quote with items, customItems, contract, company info" }, "404": {} }
+      }
+    },
+    "/leads": {
+      "get": { "summary": "List leads", "parameters": [{ "name": "search", "in": "query", "schema": { "type": "string" } }], "responses": { "200": {} } },
+      "post": { "summary": "Create lead", "responses": { "200": {} } }
+    },
+    "/settings": {
+      "get": { "summary": "Get settings (operator)", "responses": { "200": {} } },
+      "put": { "summary": "Update settings (operator)", "responses": { "200": {} } }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "OpenAPI 3.0 spec for this API",
+        "security": [],
+        "responses": { "200": { "description": "This specification" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT from POST /auth/login or extension token in X-Extension-Token"
+      }
+    },
+    "schemas": {
+      "EnvelopeSuccess": {
+        "type": "object",
+        "properties": {
+          "data": { "description": "Response payload" },
+          "meta": { "type": "object", "properties": { "version": { "type": "string" }, "timestamp": { "type": "string", "format": "date-time" } } }
+        }
+      },
+      "EnvelopeError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "example": "NOT_FOUND" },
+              "message": { "type": "string" },
+              "details": {}
+            }
+          },
+          "meta": { "type": "object", "properties": { "version": { "type": "string" }, "timestamp": { "type": "string" } } }
+        }
+      }
+    }
+  }
+}

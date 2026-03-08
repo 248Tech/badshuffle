@@ -129,6 +129,13 @@ Server env vars (`.env` in repo root):
 - `OPENAI_API_KEY` — optional, enables AI item suggestions
 - DB lives at `server/badshuffle.db` (auto-created on first run)
 
+## API (v1)
+
+- **All development must consider the API.** See **`ai/API_DEVELOPMENT.md`**.
+- Versioned API: **`/api/v1`** — envelope responses `{ data, meta }` / `{ error: { code, message }, meta }`.
+- OpenAPI spec: `server/api/openapi.json`; docs: **`GET /api/v1/docs`**, spec: **`GET /api/v1/openapi.json`**.
+- v1 router: `server/api/v1.js`; envelope: `server/lib/apiEnvelope.js`. New endpoints should be added under v1 and documented in the OpenAPI spec.
+
 ## Important conventions
 
 - All DB migrations go in `server/db.js` inside `initDb()`, using `try { db.run("ALTER TABLE...") } catch(e) {}` pattern

@@ -9,6 +9,10 @@ export default function TemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', subject: '', body_text: '', is_default: false });
+  const [contractTemplates, setContractTemplates] = useState([]);
+  const [contractForm, setContractForm] = useState({ name: '', body_html: '' });
+  const [showContractForm, setShowContractForm] = useState(false);
+  const [contractSaving, setContractSaving] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -18,7 +22,14 @@ export default function TemplatesPage() {
       .finally(() => setLoading(false));
   };
 
+  const loadContractTemplates = () => {
+    api.getContractTemplates()
+      .then(d => setContractTemplates(d.contractTemplates || []))
+      .catch(e => toast.error(e.message));
+  };
+
   useEffect(() => { load(); }, []);
+  useEffect(() => { loadContractTemplates(); }, []);
 
   const openNew = () => {
     setEditing('new');
@@ -71,27 +82,69 @@ export default function TemplatesPage() {
     }
   };
 
+  const handleContractUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => setContractForm(f => ({ ...f, body_html: r.result || '' }));
+    r.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleSaveContractTemplate = async (e) => {
+    e.preventDefault();
+    setContractSaving(true);
+    try {
+      await api.createContractTemplate({ name: contractForm.name, body_html: contractForm.body_html || null });
+      toast.success('Contract template added');
+      setContractForm({ name: '', body_html: '' });
+      setShowContractForm(false);
+      loadContractTemplates();
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setContractSaving(false);
+    }
+  };
+
+  const handleDeleteContractTemplate = async (id) => {
+    if (!confirm('Delete this contract template?')) return;
+    try {
+      await api.deleteContractTemplate(id);
+      toast.info('Contract template deleted');
+      loadContractTemplates();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
   if (loading) return <div className="empty-state"><div className="spinner" /></div>;
 
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>Email templates</h1>
-        <p className={styles.sub}>Templates for sending quotes to clients. Choose a default to pre-fill the send modal.</p>
-        <button type="button" className="btn btn-primary btn-sm" onClick={openNew}>+ New template</button>
-      </div>
+      <h1 className={styles.pageTitle}>Templates</h1>
+      <p className={styles.pageSub}>Email templates for sending quotes and contract templates for quote settings.</p>
 
-      <div className={`card ${styles.card}`}>
+      <section className={`card ${styles.card}`}>
+        <div className={styles.cardHeader}>
+          <div>
+            <h2 className={styles.sectionTitle}>Email templates</h2>
+            <p className={styles.sub}>Templates for sending quotes to clients. Choose a default to pre-fill the send modal.</p>
+          </div>
+          <button type="button" className="btn btn-primary btn-sm" onClick={openNew}>+ New template</button>
+        </div>
         {templates.length === 0 && !editing && (
           <p className={styles.empty}>No templates yet. Create one to use when sending quotes.</p>
         )}
         <ul className={styles.list}>
           {templates.map(t => (
             <li key={t.id} className={styles.row}>
-              <span className={styles.name}>{t.name}</span>
-              <span className={styles.subject}>{t.subject || '(no subject)'}</span>
-              {t.is_default && <span className={styles.badge}>Default</span>}
-              <div className={styles.actions}>
+              <span className={styles.rowName}>{t.name}</span>
+              <span className={styles.rowDetail}>
+                <span className={styles.rowDetailText}>{t.subject || '(no subject)'}</span>
+                {t.is_default && <span className={styles.badge}>Default</span>}
+              </span>
+              <div className={styles.rowActions}>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(t)}>Edit</button>
                 {!t.is_default && (
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDefault(t.id)}>Set default</button>
@@ -129,7 +182,58 @@ export default function TemplatesPage() {
             </div>
           </form>
         )}
-      </div>
+      </section>
+
+      <section className={`card ${styles.card}`}>
+        <div className={styles.cardHeader}>
+          <div>
+            <h2 className={styles.sectionTitle}>Contract templates</h2>
+            <p className={styles.sub}>Upload or create contract templates. When editing a quote (click the quote title), you can apply a template to that quote&apos;s contract.</p>
+          </div>
+          {!showContractForm && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowContractForm(true)}>+ Add contract template</button>
+          )}
+        </div>
+        {contractTemplates.length === 0 && !showContractForm && (
+          <p className={styles.empty}>No contract templates yet.</p>
+        )}
+        <ul className={styles.list}>
+          {contractTemplates.map(ct => (
+            <li key={ct.id} className={styles.row}>
+              <span className={styles.rowName}>{ct.name}</span>
+              <span className={styles.rowDetail}>
+                <span className={styles.rowDetailText}>{(ct.body_html || '').slice(0, 60)}{(ct.body_html || '').length > 60 ? '…' : ''}</span>
+              </span>
+              <div className={styles.rowActions}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleDeleteContractTemplate(ct.id)}>Delete</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {showContractForm ? (
+          <form onSubmit={handleSaveContractTemplate} className={styles.form}>
+            <h3 className={styles.formTitle}>Add contract template</h3>
+            <div className="form-group">
+              <label>Name *</label>
+              <input required value={contractForm.name} onChange={e => setContractForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Standard event contract" />
+            </div>
+            <div className="form-group">
+              <label>Contract body (HTML or plain text)</label>
+              <textarea rows={8} value={contractForm.body_html} onChange={e => setContractForm(f => ({ ...f, body_html: e.target.value }))} placeholder="Paste or type contract text. Simple HTML allowed." />
+            </div>
+            <div className={styles.formRow}>
+              <label className={styles.fileLabel}>
+                Upload file (.html or .txt)
+                <input type="file" accept=".html,.htm,.txt,text/html,text/plain" onChange={handleContractUpload} className={styles.fileInput} />
+              </label>
+            </div>
+            <div className={styles.formActions}>
+              <button type="button" className="btn btn-ghost" onClick={() => { setShowContractForm(false); setContractForm({ name: '', body_html: '' }); }}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={contractSaving}>{contractSaving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </form>
+        ) : null}
+      </section>
     </div>
   );
 }

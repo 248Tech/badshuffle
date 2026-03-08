@@ -125,6 +125,9 @@ export default function DashboardPage() {
               const d = new Date(q.event_date + 'T00:00:00');
               const daysOut = Math.round((d - today) / 864e5);
               const status = q.status || 'draft';
+              const showUnsigned = status === 'approved' && q.has_unsigned_changes;
+              const displayStatus = showUnsigned ? 'Unsigned Changes' : status;
+              const statusClass = showUnsigned ? styles.status_unsigned_changes : styles['status_' + status];
               return (
                 <div
                   key={q.id}
@@ -142,8 +145,8 @@ export default function DashboardPage() {
                   {q.guest_count > 0 && (
                     <span className={styles.eventGuests}>👥 {q.guest_count}</span>
                   )}
-                  <span className={`${styles.eventStatus} ${styles['status_' + status]}`}>
-                    {status}
+                  <span className={`${styles.eventStatus} ${statusClass}`}>
+                    {displayStatus}
                   </span>
                 </div>
               );

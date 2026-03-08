@@ -3,9 +3,10 @@ import html2canvas from 'html2canvas';
 import { api } from '../api';
 import styles from './QuoteExport.module.css';
 
-export default function QuoteExport({ quote, settings = {}, totals = null, customItems = [] }) {
+export default function QuoteExport({ quote, settings = {}, totals = null, customItems = [], visibleItems = null }) {
   const ref = useRef(null);
   const [exporting, setExporting] = useState(false);
+  const itemsForExport = visibleItems ?? quote.items ?? [];
 
   const handleExport = async () => {
     if (!ref.current) return;
@@ -35,10 +36,19 @@ export default function QuoteExport({ quote, settings = {}, totals = null, custo
 
   const companyName = settings.company_name || '';
   const companyEmail = settings.company_email || '';
+  const companyLogo = settings.company_logo;
+  const companyLogoUrl = companyLogo
+    ? /^\d+$/.test(String(companyLogo))
+      ? `${window.location.origin}${api.fileServeUrl(companyLogo)}`
+      : String(companyLogo).startsWith('http')
+        ? api.proxyImageUrl(companyLogo)
+        : companyLogo
+    : null;
+  const hasClient = quote.client_first_name || quote.client_last_name || quote.client_email || quote.client_phone || quote.client_address;
   const hasVenue = quote.venue_name || quote.venue_email || quote.venue_phone || quote.venue_address || quote.venue_contact || quote.venue_notes;
   const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
-  const equipmentItems = (quote.items || []).filter(it => !isLogistics(it));
-  const logisticsItems = (quote.items || []).filter(it => isLogistics(it));
+  const equipmentItems = itemsForExport.filter(it => !isLogistics(it));
+  const logisticsItems = itemsForExport.filter(it => isLogistics(it));
   const showTotals = totals && (totals.subtotal > 0 || totals.deliveryTotal > 0 || (totals.customSubtotal || 0) > 0);
 
   const handlePrint = () => {
@@ -63,18 +73,41 @@ export default function QuoteExport({ quote, settings = {}, totals = null, custo
       {/* Hidden render target; shown when printing */}
       <div className={`${styles.exportTarget} quote-print-area`} ref={ref}>
         <div className={styles.exportHeader}>
-          {companyName && (
-            <div className={styles.companyInfo}>
-              <span className={styles.companyName}>{companyName}</span>
-              {companyEmail && <span className={styles.companyEmail}>{companyEmail}</span>}
-            </div>
-          )}
+          <div className={styles.exportHeaderTop}>
+            {(companyLogoUrl || companyName) && (
+              <div className={styles.companyBrand}>
+                {companyLogoUrl && (
+                  <img
+                    src={companyLogoUrl}
+                    alt=""
+                    className={styles.companyLogo}
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                )}
+                {companyName && <span className={styles.companyName}>{companyName}</span>}
+              </div>
+            )}
+            {companyEmail && <span className={styles.companyEmail}>{companyEmail}</span>}
+          </div>
           <h1 className={styles.exportTitle}>{quote.name}</h1>
           <div className={styles.exportMeta}>
             {date && <span>📅 {date}</span>}
             {quote.guest_count > 0 && <span>👥 {quote.guest_count} guests</span>}
           </div>
           {quote.notes && <p className={styles.exportNotes}>{quote.notes}</p>}
+          {hasClient && (
+            <div className={styles.exportClient}>
+              <h4 className={styles.exportBlockTitle}>Client</h4>
+              <div className={styles.exportBlockGrid}>
+                {(quote.client_first_name || quote.client_last_name) && (
+                  <span><strong>Name:</strong> {[quote.client_first_name, quote.client_last_name].filter(Boolean).join(' ')}</span>
+                )}
+                {quote.client_email && <span><strong>Email:</strong> {quote.client_email}</span>}
+                {quote.client_phone && <span><strong>Phone:</strong> {quote.client_phone}</span>}
+                {quote.client_address && <span><strong>Address:</strong> {quote.client_address}</span>}
+              </div>
+            </div>
+          )}
           {hasVenue && (
             <div className={styles.exportVenue}>
               <h4 className={styles.exportVenueTitle}>Venue information</h4>

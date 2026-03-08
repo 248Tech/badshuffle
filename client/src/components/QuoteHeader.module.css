@@ -6,6 +6,11 @@
 
 .topRow {
   flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .mainRow {
@@ -29,6 +34,28 @@
   font-weight: 700;
   margin: 0;
   line-height: 1.2;
+}
+
+.titleButton {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+.titleButton:hover {
+  color: #188ec5;
+}
+.titleButton:focus-visible {
+  outline: 2px solid #188ec5;
+  outline-offset: 2px;
 }
 
 .badge {
@@ -58,11 +85,36 @@
   color: #065f46;
 }
 
+.badge_unsigned_changes {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.actionsTint .btn-primary {
+  background: #188ec5;
+  border-color: #188ec5;
+  color: #fff;
+}
+.actionsTint .btn-primary:hover {
+  background: #1579ad;
+  border-color: #1579ad;
+  color: #fff;
+}
+.actionsTint .btn-ghost {
+  color: #188ec5;
+  border-color: #188ec5;
+}
+.actionsTint .btn-ghost:hover {
+  background: rgba(24, 142, 197, 0.1);
+  color: #188ec5;
+  border-color: #188ec5;
 }
 
 .btnDanger {
@@ -93,4 +145,20 @@
   color: var(--color-text-muted);
   line-height: 1.5;
   margin: 0;
+}
+
+@media (max-width: 768px) {
+  .header { gap: 10px; }
+  .mainRow { flex-direction: column; align-items: stretch; gap: 12px; }
+  .titleBlock { gap: 8px; }
+  .title, .titleButton { font-size: 20px; }
+  .meta { gap: 6px; }
+  .metaTag { font-size: 11px; padding: 2px 8px; }
+  .badge { font-size: 11px; padding: 3px 10px; }
+}
+
+@media (max-width: 640px) {
+  .title, .titleButton { font-size: 18px; }
+  .metaTag { font-size: 10px; }
+  .badge { font-size: 10px; padding: 2px 8px; }
 }

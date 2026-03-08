@@ -2,9 +2,12 @@ const express = require('express');
 const { encrypt, decrypt } = require('../lib/crypto');
 
 const ALLOWED_KEYS = [
-  'tax_rate', 'currency', 'company_name', 'company_email',
+  'tax_rate', 'currency', 'company_name', 'company_email', 'company_logo',
   'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass_enc', 'smtp_from',
   'imap_host', 'imap_port', 'imap_secure', 'imap_user', 'imap_pass_enc', 'imap_poll_enabled',
+  'quote_inventory_filter_mode', 'quote_inventory_max_categories', 'quote_inventory_manual_categories',
+  'recaptcha_enabled', 'recaptcha_site_key', 'recaptcha_secret_key',
+  'company_address', 'mapbox_access_token',
 ];
 
 module.exports = function makeRouter(db) {

@@ -28,9 +28,10 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 320px;
   overflow-y: auto;
 }
+.quoteList { max-height: 320px; }
+.pickerList { max-height: 640px; }
 
 .quoteItem, .pickerItem {
   display: flex;
@@ -40,6 +41,7 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-bg);
+  min-width: 0;
 }
 
 .pickerItem {
@@ -48,6 +50,13 @@
 }
 .pickerItem:hover { background: var(--color-surface); }
 
+.thumbWrap {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .thumb {
   width: 36px;
   height: 36px;
@@ -55,6 +64,71 @@
   border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
+.eyeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.eyeBtn:hover {
+  color: var(--color-primary);
+  background: var(--color-surface);
+}
+.quoteItemHidden .eyeBtn { color: var(--color-text-muted); }
+.quoteItemHidden .eyeIcon { opacity: 0.7; filter: brightness(0.7); }
+.quoteItemHidden {
+  opacity: 0.6;
+  background: var(--color-surface);
+  position: relative;
+}
+.quoteItemHidden::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 48%, rgba(0,0,0,0.08) 50%, transparent 52%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+.quoteItemHidden .itemTitle,
+.quoteItemHidden .itemTitleLink { text-decoration: line-through; color: var(--color-text-muted); }
+.quoteItemHidden .itemTitleLink:hover { color: var(--color-primary); }
+.hiddenBadge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--color-text-muted);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+}
+.sectionTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.addCustomBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.addCustomBtn:hover { filter: brightness(1.1); }
 
 .thumbPlaceholder {
   width: 36px;
@@ -70,10 +144,34 @@
 
 .itemTitle {
   flex: 1;
+  min-width: 0;
   font-size: 13px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.itemTitleLink {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  padding: 2px 0;
+  border-radius: var(--radius-sm);
+}
+.itemTitleLink:hover {
+  text-decoration: underline;
+  color: var(--color-primary);
+}
+
+.laborHours {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  min-width: 3.5em;
 }
 
 .qtyControl {
@@ -113,12 +211,6 @@
   white-space: nowrap;
 }
 .lineTotal { font-weight: 600; color: var(--color-text); }
-.taxDot {
-  font-size: 10px;
-  color: var(--color-accent);
-  font-weight: 700;
-  padding: 0 4px;
-}
 
 .removeBtn {
   background: none;
@@ -137,7 +229,46 @@
   white-space: nowrap;
 }
 
+.categoryRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.categoryBtn {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.categoryBtn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.categoryBtnActive {
+  background: #188ec5;
+  border-color: #188ec5;
+  color: #fff;
+}
+.categoryBtnActive:hover {
+  background: #1579ad;
+  border-color: #1579ad;
+  color: #fff;
+}
+
+.pickerToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .searchInput {
+  flex: 1;
+  min-width: 0;
   padding: 7px 10px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -146,3 +277,316 @@
   color: var(--color-text);
 }
 .searchInput:focus { border-color: var(--color-primary); }
+
+.pickerToolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.viewToggleBtn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.viewToggleBtn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.viewToggleActive {
+  background: #188ec5;
+  border-color: #188ec5;
+  color: #fff;
+}
+.viewToggleActive:hover {
+  background: #1579ad;
+  border-color: #1579ad;
+  color: #fff;
+}
+
+.pageSizeSelect {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.pickerItemInQuote {
+  opacity: 0.7;
+  cursor: default;
+  pointer-events: none;
+}
+.pickerItemInQuote .tileAddHint,
+.pickerItemInQuote .addHint { display: none; }
+
+.tileInQuoteHint {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.inQuoteBadge {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.pickerItemFading {
+  pointer-events: none;
+  animation: pickerFadeOut 0.5s ease-out forwards;
+}
+@keyframes pickerFadeOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.96); }
+}
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.paginationSummary {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.paginationControls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.pageBtn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  font-size: 14px;
+  line-height: 1;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pageBtn:hover:not(:disabled) {
+  background: var(--color-surface);
+  border-color: #188ec5;
+  color: #188ec5;
+}
+.pageBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pageNumbers {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pageNumBtn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pageNumBtn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+.pageNumBtnActive {
+  background: #188ec5;
+  border-color: #188ec5;
+  color: #fff;
+}
+.pageNumBtnActive:hover {
+  background: #1579ad;
+  border-color: #1579ad;
+  color: #fff;
+}
+
+.pageEllipsis {
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.pageJump {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.pageJump:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.pickerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+  max-height: 640px;
+  overflow-y: auto;
+}
+.pickerGrid .empty { grid-column: 1 / -1; }
+
+/* Desktop half-view: slightly smaller picker tiles */
+@media (max-width: 1024px) {
+  .pickerGrid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; max-height: 480px; }
+  .builder { gap: 18px; }
+}
+
+/* Tablet */
+@media (max-width: 768px) {
+  .pickerGrid { grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 8px; max-height: 400px; }
+  .categoryRow {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .categoryBtn { flex-shrink: 0; }
+  .pickerToolbar { flex-wrap: wrap; }
+  .quoteList { max-height: 280px; }
+  .section { gap: 8px; }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .builder { gap: 16px; }
+  .sectionTitle { font-size: 13px; }
+  .quoteList { max-height: 240px; gap: 2px; }
+  .quoteItem, .pickerItem {
+    padding: 6px 8px;
+    gap: 8px;
+  }
+  .thumb, .thumbPlaceholder { width: 32px; height: 32px; }
+  .itemTitle, .itemTitleLink { font-size: 12px; }
+  .unitPrice, .lineTotal, .laborHours { font-size: 11px; }
+  .qtyControl button { width: 28px; height: 28px; }
+  .qtyInput { width: 42px; padding: 6px 4px; font-size: 12px; }
+  .removeBtn { padding: 4px 6px; font-size: 16px; }
+  .pickerGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    max-height: 360px;
+  }
+  .pickerTile { padding: 6px; gap: 4px; }
+  .tileTitle { font-size: 11px; }
+  .pickerToolbar { gap: 6px; }
+  .searchInput { padding: 8px 10px; font-size: 16px; } /* avoid zoom on focus iOS */
+  .viewToggleBtn, .pageBtn, .pageNumBtn { min-width: 36px; height: 36px; }
+  .pageSizeSelect { padding: 6px 8px; }
+  .addCustomBtn { width: 36px; height: 36px; }
+  .pagination { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 10px; padding-top: 10px; }
+  .paginationControls { justify-content: center; }
+  .paginationSummary { text-align: center; }
+}
+
+@media (max-width: 480px) {
+  .pickerGrid { max-height: 320px; }
+  .quoteList { max-height: 200px; }
+}
+
+.pickerTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  cursor: pointer;
+  transition: background .1s;
+  min-width: 0;
+}
+.pickerTile:hover {
+  background: var(--color-surface);
+  border-color: #188ec5;
+}
+
+.tileThumbWrap {
+  position: relative;
+  width: 100%;
+  padding-top: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.tileThumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tileAddHint {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0,0,0,0.6);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.tileTitle {
+  font-size: 12px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  line-height: 1.2;
+}

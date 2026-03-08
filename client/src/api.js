@@ -44,6 +44,7 @@ export const api = {
   // Auth
   auth: {
     status: () => request('/auth/status'),
+    captchaConfig: () => publicRequest('/auth/captcha-config'),
     me: () => request('/auth/me'),
     setup: (body) => request('/auth/setup', { method: 'POST', body }),
     login: (body) => request('/auth/login', { method: 'POST', body }),
@@ -51,6 +52,12 @@ export const api = {
     reset: (body) => request('/auth/reset', { method: 'POST', body }),
     extensionToken: () => request('/auth/extension-token'),
     testMail: (body) => request('/auth/test-mail', { method: 'POST', body }),
+  },
+
+  // Presence (who's online, current page)
+  presence: {
+    update: (path) => request('/presence', { method: 'PUT', body: { path } }),
+    list: () => request('/presence'),
   },
 
   // Admin
@@ -76,6 +83,7 @@ export const api = {
   updateItem: (id, body) => request(`/items/${id}`, { method: 'PUT', body }),
   deleteItem: (id) => request(`/items/${id}`, { method: 'DELETE' }),
   getCategories: () => request('/items/categories'),
+  getPopularCategories: (limit = 15) => request(`/items/categories/popular?limit=${limit}`),
   getAssociations: (id) => request(`/items/${id}/associations`),
   addAssociation: (id, child_id) => request(`/items/${id}/associations`, { method: 'POST', body: { child_id } }),
   removeAssociation: (id, child_id) => request(`/items/${id}/associations/${child_id}`, { method: 'DELETE' }),
@@ -110,6 +118,7 @@ export const api = {
   updateQuote: (id, body) => request(`/quotes/${id}`, { method: 'PUT', body }),
   deleteQuote: (id) => request(`/quotes/${id}`, { method: 'DELETE' }),
   sendQuote: (id, body) => request(`/quotes/${id}/send`, { method: 'POST', body: body || {} }),
+  ensureQuotePublicToken: (id) => request(`/quotes/${id}/ensure-public-token`, { method: 'POST' }),
   approveQuote: (id) => request(`/quotes/${id}/approve`, { method: 'POST' }),
   revertQuote: (id) => request(`/quotes/${id}/revert`, { method: 'POST' }),
   getQuoteContract: (id) => request(`/quotes/${id}/contract`),
@@ -123,6 +132,8 @@ export const api = {
   removeQuoteFile: (quoteId, fileId) => request(`/quotes/${quoteId}/files/${fileId}`, { method: 'DELETE' }),
   getQuotePayments: (id) => request(`/quotes/${id}/payments`),
   addQuotePayment: (id, body) => request(`/quotes/${id}/payments`, { method: 'POST', body }),
+  removeQuotePayment: (quoteId, paymentId) => request(`/quotes/${quoteId}/payments/${paymentId}`, { method: 'DELETE' }),
+  recordRefund: (id, body) => request(`/quotes/${id}/refund`, { method: 'POST', body }),
   getQuoteActivity: (id) => request(`/quotes/${id}/activity`),
   addQuoteItem: (quoteId, body) => request(`/quotes/${quoteId}/items`, { method: 'POST', body }),
   updateQuoteItem: (quoteId, qitemId, body) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'PUT', body }),
@@ -138,6 +149,10 @@ export const api = {
   createTemplate: (body) => request('/templates', { method: 'POST', body }),
   updateTemplate: (id, body) => request(`/templates/${id}`, { method: 'PUT', body }),
   deleteTemplate: (id) => request(`/templates/${id}`, { method: 'DELETE' }),
+  // Contract templates
+  getContractTemplates: () => request('/templates/contract-templates'),
+  createContractTemplate: (body) => request('/templates/contract-templates', { method: 'POST', body }),
+  deleteContractTemplate: (id) => request(`/templates/contract-templates/${id}`, { method: 'DELETE' }),
 
   // Leads
   getLeads: (params = {}) => {
@@ -150,6 +165,9 @@ export const api = {
   updateLead: (id, body) => request(`/leads/${id}`, { method: 'PUT', body }),
   getLeadEvents: (id) => request(`/leads/${id}/events`),
   deleteLead: (id) => request(`/leads/${id}`, { method: 'DELETE' }),
+
+  // Billing (operator)
+  getBillingHistory: () => request('/billing/history'),
 
   // Stats
   getStats: () => request('/stats'),

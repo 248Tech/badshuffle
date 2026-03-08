@@ -100,3 +100,10 @@
   text-decoration: underline;
 }
 .link:hover { opacity: .8; }
+
+.recaptchaWrap {
+  display: flex;
+  justify-content: center;
+  min-height: 78px;
+  margin: 4px 0;
+}

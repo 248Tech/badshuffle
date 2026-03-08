@@ -15,6 +15,19 @@ Consequences for the system.
 
 ---
 
+## 2026-03-07 — Bun adopted as package manager and dev runtime; Node retained for packaging
+
+Decision:
+Adopt Bun in three layers: (1) `bun install` replaces `npm install` in all three workspaces, (2) `bun run` replaces `npm run` for root orchestration scripts, (3) `bun index.js` replaces `node index.js` for the dev server. The `pkg`-based Windows `.exe` packaging pipeline (`package:server`, `package:client`, `package:updater`) is left entirely unchanged and continues to use Node. The `start` script in `server/package.json` remains `node index.js` so the packaged binary context is unaffected.
+
+Reason:
+Bun's install step is significantly faster than npm for clean installs and handles lockfile migration automatically. Bun as a dev runtime is a drop-in for the server because the entire server codebase is CJS with no native addons — the only high-risk component (`sql.js`) loads its WASM binary via `fs.readFileSync` + raw `wasmBinary`, which bypasses any Bun-specific WASM loader. Keeping Node for `start` and `pkg` packaging preserves the existing Windows release path without any changes to scripts, targets, or tooling.
+
+Impact:
+Three `bun.lock` files added (root, `server/`, `client/`). Root `package.json` scripts updated: `--prefix` (npm flag) replaced with `--cwd` (Bun flag). `server/package.json` `dev` script changed from `node` to `bun`. Windows user PATH entry for `C:\Users\hangu\AppData\Roaming\npm` added permanently. No business logic, no DB schema, no API surface, and no client code changed.
+
+---
+
 ## 2026-03-04 — Single-instance detection via lockfile + PID
 
 Decision:

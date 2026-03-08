@@ -1,6 +1,53 @@
 # STATUS
 
 ## Current Task
+Completed: Bun adoption (Phases 0–3); previously: Quote Client Info + Send Flow + Layout.
+
+## Bun Adoption — v0.4.1 prep
+
+### Phase 0 — Baseline inspection
+Confirmed stack before touching anything: Node v24.14.0, npm as package manager, no `.nvmrc`, no Bun installed. Three workspaces: root (orchestration only), `server/` (CJS, `node index.js`), `client/` (ESM, Vite). Identified key risks: `sql.js` WASM loading under Bun, `--prefix` vs `--cwd` flag mismatch, `pkg`-based `.exe` packaging left untouched.
+
+### Phase 1 — `bun install`
+Installed Bun 1.3.10 globally via `npm install -g bun`. Ran `bun install` in all three workspaces. Bun migrated each `package-lock.json` and wrote `bun.lock` (text format, Bun 1.1+) next to each `package-lock.json`. All original lockfiles preserved. No node_modules changes. All key server deps (`express`, `sql.js`, `bcryptjs`, `jsonwebtoken`) still resolved correctly under Node after install.
+
+### Phase 2 — `bun run` for scripts
+Discovered that Bun rewrites `npm run` → `bun run` inside scripts, but npm's `--prefix` flag has no Bun equivalent (`--cwd` is the Bun form). Updated root `package.json` scripts:
+- `dev`: `concurrently "npm run dev --prefix server" "npm run dev --prefix client"` → `concurrently "bun run --cwd server dev" "bun run --cwd client dev"`
+- `build:client`: `npm run build --prefix client` → `bun run --cwd client build`
+- `install:all`: `npm install && npm install --prefix server && npm install --prefix client` → `bun install && bun install --cwd server && bun install --cwd client`
+
+Also discovered `C:\Users\hangu\AppData\Roaming\npm` (npm global bin where `bun.cmd` lives) was missing from the Windows user PATH. Added it permanently via `[Environment]::SetEnvironmentVariable`. **Requires opening a new terminal to take effect.**
+
+### Phase 3 — Bun as server runtime
+The anticipated `sql.js` WASM risk did not materialise. `db.js` loads the WASM binary via `fs.readFileSync` and passes raw bytes as `wasmBinary` — no Bun-specific loader path involved. All CJS `require` calls, `__dirname`, `process.pkg`, and `child_process.spawnSync` (used in `singleInstance.js`) worked correctly under Bun.
+
+Updated `server/package.json`:
+- `dev`: `node index.js` → `bun index.js`
+- `start`: `node index.js` ← kept as `node` (used by pkg-packaged `.exe` context)
+
+Test results under Bun runtime:
+- DB initialized (`sql.js` WASM loaded)
+- `singleInstance` detected and cleared stale lockfile
+- `GET /api/health` → `{"ok":true}`
+- `GET /api/auth/status` → `{"setup":true}` (DB query executed)
+- `GET /api/items` (no token) → `{"error":"Unauthorized"}` (auth middleware working)
+
+### Files changed
+- `package.json` — `dev`, `build:client`, `install:all` scripts
+- `server/package.json` — `dev` script
+- `bun.lock` (new) — repo root
+- `server/bun.lock` (new)
+- `client/bun.lock` (new)
+- Windows user PATH — `C:\Users\hangu\AppData\Roaming\npm` added
+
+### What's left / not changed
+- `pkg`-based packaging scripts (`package:server`, `package:client`, `package:updater`, `package`, `release`) — left untouched; `start` script remains `node index.js` for pkg context
+- No architecture changes; no business logic touched
+
+---
+
+## Current Task (previous)
 Completed: Quote Client Info + Send Flow + Layout; previously: CLI admin, auth fix, lead import, quotes.
 
 ## Quote Client Info + Send Flow + Layout

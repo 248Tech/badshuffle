@@ -1,10 +1,16 @@
-# BadShuffle v0.4.0
+# BadShuffle v0.4.1
 
 A self-hosted inventory and quoting tool for event rental businesses. Manage your catalog, build quotes, track usage stats, and sync items directly from Goodshuffle Pro — all running locally on your machine with no subscription required.
 
 *Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history.*
 
 ---
+
+## What's New in v0.4.1
+
+- **Bun as dev runtime** — Server now runs under [Bun](https://bun.sh/) in development (`bun index.js`). Startup is faster; `pkg`-based Windows packaging is unchanged and still uses Node
+- **Bun install** — All three workspaces (root, `server/`, `client/`) use `bun install` for faster dependency installs; `bun.lock` files added alongside existing `package-lock.json` files
+- **Script cleanup** — Root `package.json` scripts updated to use `bun run --cwd` (Bun equivalent of npm's `--prefix`) so `bun run dev` and `bun run build:client` work without shims
 
 ## What's New in v0.4.0
 
@@ -107,11 +113,11 @@ badshuffle/
 
 | Requirement | Version |
 |---|---|
-| Node.js | 14.x (tested on 14.15.5) |
-| npm | 6+ |
+| Node.js | 14.x (for building `.exe` packages only) |
+| Bun | 1.1+ (dev server and installs) |
 | Chrome | any modern version |
 
-> Node 14 is required if you want to **build the executables** (pkg targets node14). The dev server itself runs fine on Node 18+ too.
+> Node 14 is only required if you want to **build the executables** (`pkg` targets node14). The dev server runs under Bun (1.1+). If Bun is not installed, `npm install` and `node index.js` still work as fallbacks.
 
 ---
 
@@ -320,7 +326,7 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 
 | Layer | Technology |
 |---|---|
-| Server | Node.js, Express |
+| Server | Bun (dev) / Node.js (packaged), Express |
 | Database | SQLite via [sql.js](https://github.com/sql-js/sql.js) (pure WASM — no native build) |
 | Client | React 18, React Router 6, Vite 3 |
 | Email send | [nodemailer](https://nodemailer.com/) |

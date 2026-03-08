@@ -221,6 +221,7 @@ async function initDb() {
     'ALTER TABLE items ADD COLUMN category TEXT',
     'ALTER TABLE items ADD COLUMN description TEXT',
     'ALTER TABLE items ADD COLUMN taxable INTEGER DEFAULT 1',
+    'ALTER TABLE items ADD COLUMN labor_hours REAL DEFAULT 0',
   ]) {
     try { db.exec(col); } catch {}
   }
@@ -256,6 +257,7 @@ async function initDb() {
   for (const sql of quoteCols2) {
     try { db.exec(sql); } catch (e) {}
   }
+  try { db.exec("ALTER TABLE quotes ADD COLUMN has_unsigned_changes INTEGER DEFAULT 0"); } catch (e) {}
   // Quote client info
   const quoteClientCols = [
     'ALTER TABLE quotes ADD COLUMN client_first_name TEXT',
@@ -267,6 +269,7 @@ async function initDb() {
   for (const sql of quoteClientCols) {
     try { db.exec(sql); } catch (e) {}
   }
+  try { db.exec('ALTER TABLE quote_items ADD COLUMN hidden_from_quote INTEGER DEFAULT 0'); } catch (e) {}
   // Email templates (admin/operator)
   try {
     db.exec(`
@@ -282,6 +285,17 @@ async function initDb() {
       )
     `);
   } catch (e) {}
+  // Contract templates (reusable contract body for quotes)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS contract_templates (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT NOT NULL,
+        body_html   TEXT,
+        created_at  TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
   // leads — back-reference to quote
   try { db.exec("ALTER TABLE leads ADD COLUMN quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL"); } catch (e) {}
   try {
@@ -294,7 +308,7 @@ async function initDb() {
   ).run();
 
   // Seed default settings
-  const defaults = { tax_rate: '0', currency: 'USD', company_name: '', company_email: '' };
+  const defaults = { tax_rate: '0', currency: 'USD', company_name: '', company_email: '', company_logo: '', company_address: '', mapbox_access_token: '' };
   for (const [k, v] of Object.entries(defaults)) {
     db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
   }
@@ -317,6 +331,12 @@ async function initDb() {
     smtp_user: '', smtp_pass_enc: '', smtp_from: '',
   };
   for (const [k, v] of Object.entries(smtpDefaults)) {
+    db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
+  }
+
+  // Login protection: math question always on; reCAPTCHA v2 optional
+  const recaptchaDefaults = { recaptcha_enabled: '0', recaptcha_site_key: '', recaptcha_secret_key: '' };
+  for (const [k, v] of Object.entries(recaptchaDefaults)) {
     db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
   }
 
@@ -423,6 +443,21 @@ async function initDb() {
         note        TEXT,
         created_at  TEXT DEFAULT (datetime('now')),
         created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+  } catch (e) {}
+
+  // Billing history (payments received, removed, refunded) for Billing page
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS billing_history (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id    INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        event_type  TEXT NOT NULL,
+        amount      REAL NOT NULL,
+        note        TEXT,
+        created_at  TEXT DEFAULT (datetime('now')),
+        user_email  TEXT
       )
     `);
   } catch (e) {}

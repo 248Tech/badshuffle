@@ -90,36 +90,41 @@ export default function App() {
   return (
     <ToastProvider>
       <BrowserRouter>
-        <AuthGate setRole={setRole}>
-          <Routes>
-            {/* Public auth routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/setup" element={<SetupPage />} />
-            <Route path="/forgot" element={<ForgotPage />} />
-            <Route path="/reset" element={<ResetPage />} />
-            <Route path="/quote/public/:token" element={<PublicQuotePage />} />
+        <Routes>
+          {/* Client-viewable quote (no auth required) — must be outside AuthGate so link works in new tab */}
+          <Route path="/quote/public/:token" element={<PublicQuotePage />} />
 
-            {/* Protected app routes */}
-            <Route path="/" element={<ProtectedRoute><Layout role={role} /></ProtectedRoute>}>
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="inventory" element={<InventoryPage />} />
-              <Route path="inventory/:id" element={<ItemDetailPage />} />
-              <Route path="import" element={<ImportPage />} />
-              <Route path="quotes" element={<QuotePage />} />
-              <Route path="quotes/:id" element={<QuoteDetailPage />} />
-              <Route path="billing" element={<BillingPage />} />
-              <Route path="stats" element={<StatsPage />} />
-              <Route path="extension" element={<ExtensionPage />} />
-              <Route path="leads" element={<LeadsPage />} />
-              <Route path="files" element={<FilesPage />} />
-              <Route path="messages" element={<MessagesPage />} />
-              <Route path="admin" element={<AdminPage />} />
-              <Route path="templates" element={<TemplatesPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
-          </Routes>
-        </AuthGate>
+          {/* App routes (auth required except login/setup) */}
+          <Route path="*" element={
+            <AuthGate setRole={setRole}>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/setup" element={<SetupPage />} />
+                <Route path="/forgot" element={<ForgotPage />} />
+                <Route path="/reset" element={<ResetPage />} />
+
+                <Route path="/" element={<ProtectedRoute><Layout role={role} /></ProtectedRoute>}>
+                  <Route index element={<Navigate to="/dashboard" replace />} />
+                  <Route path="dashboard" element={<DashboardPage />} />
+                  <Route path="inventory" element={<InventoryPage />} />
+                  <Route path="inventory/:id" element={<ItemDetailPage />} />
+                  <Route path="import" element={<ImportPage />} />
+                  <Route path="quotes" element={<QuotePage />} />
+                  <Route path="quotes/:id" element={<QuoteDetailPage />} />
+                  <Route path="billing" element={<BillingPage />} />
+                  <Route path="stats" element={<StatsPage />} />
+                  <Route path="extension" element={<ExtensionPage />} />
+                  <Route path="leads" element={<LeadsPage />} />
+                  <Route path="files" element={<FilesPage />} />
+                  <Route path="messages" element={<MessagesPage />} />
+                  <Route path="admin" element={<AdminPage />} />
+                  <Route path="templates" element={<TemplatesPage />} />
+                  <Route path="settings" element={<SettingsPage />} />
+                </Route>
+              </Routes>
+            </AuthGate>
+          } />
+        </Routes>
       </BrowserRouter>
     </ToastProvider>
   );

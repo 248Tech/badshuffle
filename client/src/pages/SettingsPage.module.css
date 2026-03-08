@@ -35,3 +35,123 @@
 
 .link { color: var(--color-primary); text-decoration: none; }
 .link:hover { text-decoration: underline; }
+
+.categoryFilterInput {
+  width: 100%;
+  max-width: 280px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.categoryFilterInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.categoryTagGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.categoryTag {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.categoryTag:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+.categoryTagSelected {
+  background: #188ec5;
+  border-color: #188ec5;
+  color: #fff;
+}
+.categoryTagSelected:hover {
+  background: #1579ad;
+  border-color: #1579ad;
+  color: #fff;
+}
+
+.logoRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.logoUrlInput {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.logoOr {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.uploadLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.uploadLabel:hover { background: var(--color-border); }
+.logoPreviewWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+.logoPreview {
+  max-height: 40px;
+  max-width: 160px;
+  object-fit: contain;
+}
+
+.mapboxInstructions {
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+.mapboxStepsTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 8px 0;
+}
+.mapboxSteps {
+  font-size: 13px;
+  color: var(--color-text);
+  margin: 0 0 10px 0;
+  padding-left: 20px;
+  line-height: 1.5;
+}
+.mapboxSteps li { margin-bottom: 4px; }
+.mapboxSteps code {
+  font-size: 12px;
+  background: var(--color-bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+}

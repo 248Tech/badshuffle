@@ -99,3 +99,15 @@
   border: 1px solid #f59e0b;
   border-radius: 999px;
 }
+
+.remainingBalance { color: #c00; font-weight: 500; }
+.remainingOverpaid { color: #b45309; font-weight: 500; }
+
+.sectionTitle { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.sectionSub { font-size: 13px; color: var(--color-text-muted); margin-bottom: 14px; }
+.historyLoading { padding: 16px; color: var(--color-text-muted); }
+.emptyHistory { padding: 16px; color: var(--color-text-muted); font-size: 14px; }
+.userCell { font-size: 12px; color: var(--color-text-muted); }
+.eventReceived { color: #059669; font-weight: 500; }
+.eventRemoved { color: var(--color-text-muted); }
+.eventRefunded { color: #b45309; font-weight: 500; }

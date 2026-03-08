@@ -1,21 +1,68 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { api } from '../api';
+import s from './PublicQuotePage.module.css';
 
 const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
 
-function computeTotals(items, taxRate) {
+function computeTotals(items, customItems, taxRate) {
   const list = items || [];
   const equipment = list.filter(it => !isLogistics(it));
   const logistics = list.filter(it => isLogistics(it));
   const subtotal = equipment.reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
   const deliveryTotal = logistics.reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
+  const ciList = customItems || [];
+  const customSubtotal = ciList.reduce((sum, ci) => sum + (ci.unit_price || 0) * (ci.quantity || 1), 0);
   const taxableEquipment = equipment.filter(it => it.taxable !== 0).reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
   const taxableDelivery = logistics.filter(it => it.taxable !== 0).reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
+  const taxableCustom = ciList.filter(ci => ci.taxable !== 0).reduce((sum, ci) => sum + (ci.unit_price || 0) * (ci.quantity || 1), 0);
   const rate = parseFloat(taxRate) || 0;
-  const tax = (taxableEquipment + taxableDelivery) * (rate / 100);
-  const grandTotal = subtotal + deliveryTotal + tax;
-  return { subtotal, deliveryTotal, tax, total: grandTotal, rate };
+  const tax = (taxableEquipment + taxableDelivery + taxableCustom) * (rate / 100);
+  const grandTotal = subtotal + deliveryTotal + customSubtotal + tax;
+  return { subtotal, deliveryTotal, customSubtotal, tax, total: grandTotal, rate };
+}
+
+function fmt(n) {
+  return '$' + (n || 0).toFixed(2);
+}
+
+function ItemDetailModal({ item, resolveImageUrl, onClose }) {
+  if (!item) return null;
+  const name = item.label || item.title;
+  const unitPrice = item.unit_price != null ? item.unit_price : 0;
+  const qty = item.quantity ?? 1;
+  const lineTotal = unitPrice * qty;
+  const imgUrl = resolveImageUrl(item.photo_url, item.signed_photo_url);
+  const description = item.description || null;
+
+  return (
+    <div className={s.detailOverlay} onClick={onClose} role="dialog" aria-modal="true" aria-label="Item details">
+      <div className={s.detailCard} onClick={e => e.stopPropagation()}>
+        <button type="button" className={s.detailClose} onClick={onClose} aria-label="Close">&times;</button>
+        <div className={s.detailImageWrap}>
+          {imgUrl ? (
+            <img src={imgUrl} alt="" className={s.detailImage} onError={e => { e.target.style.display = 'none'; }} />
+          ) : (
+            <div className={s.detailImagePlaceholder} aria-hidden>&#128230;</div>
+          )}
+        </div>
+        <h2 className={s.detailTitle}>{name}</h2>
+        <div className={s.detailPriceBlock}>
+          <span className={s.detailUnitPrice}>{fmt(unitPrice)}</span>
+          <span className={s.detailPerUnit}>per unit</span>
+          {qty > 1 && (
+            <span className={s.detailLine}>
+              {qty} &times; {fmt(unitPrice)} = {fmt(lineTotal)}
+            </span>
+          )}
+        </div>
+        {description && (
+          <p className={s.detailDescription}>{description}</p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function PublicQuotePage() {
@@ -29,15 +76,23 @@ export default function PublicQuotePage() {
   const [agreeChecked, setAgreeChecked] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signSuccess, setSignSuccess] = useState(false);
+  const [detailItem, setDetailItem] = useState(null);
 
-  const loadQuote = () => {
+  useEffect(() => {
+    if (!token) return;
     setLoading(true);
+    setError(null);
     api.getPublicQuote(token)
       .then(data => { setQuote(data); setLoading(false); })
-      .catch(err => { setError(err.message); setLoading(false); });
-  };
+      .catch(err => { setError(err.message || 'Not found'); setLoading(false); });
+  }, [token]);
 
-  useEffect(() => { loadQuote(); }, [token]);
+  useEffect(() => {
+    if (!detailItem) return;
+    const onKeyDown = (e) => { if (e.key === 'Escape') setDetailItem(null); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [detailItem]);
 
   const handleApprove = () => {
     setApproving(true);
@@ -59,166 +114,376 @@ export default function PublicQuotePage() {
       .finally(() => setSigning(false));
   };
 
-  if (loading) return <p>Loading quote…</p>;
-  if (error) return <p>Error: {error}</p>;
+  if (!token) {
+    return (
+      <div className={s.statePage}>
+        <div className={s.stateCard}>
+          <div className={s.errorIcon}>&#9888;</div>
+          <p className={s.stateTitle}>Invalid quote link</p>
+          <p className={s.stateSub}>This link does not appear to be valid.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className={s.statePage}>
+        <div className={s.stateCard}>
+          <div className={s.spinner} />
+          <p className={s.stateTitle}>Loading quote&hellip;</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={s.statePage}>
+        <div className={s.stateCard}>
+          <div className={s.errorIcon}>&#9888;</div>
+          <p className={s.stateTitle}>Could not load quote</p>
+          <p className={s.stateSub}>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   const taxRate = quote.tax_rate != null ? quote.tax_rate : 0;
-  const totals = computeTotals(quote.items, taxRate);
+  const totals = computeTotals(quote.items, quote.customItems, taxRate);
   const equipmentItems = (quote.items || []).filter(it => !isLogistics(it));
   const logisticsItems = (quote.items || []).filter(it => isLogistics(it));
-  const date = quote.event_date ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString() : null;
+  const customItems = quote.customItems || [];
+  const eventDate = quote.event_date
+    ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    : null;
+  const isApproved = quote.status === 'approved';
+  const hasClient = quote.client_first_name || quote.client_last_name || quote.client_email || quote.client_phone || quote.client_address;
+  const hasVenue = quote.venue_name || quote.venue_email || quote.venue_phone || quote.venue_address;
 
-  const s = (obj) => ({ ...obj, fontFamily: 'sans-serif' });
-  const section = { marginTop: 24 };
-  const grid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12 };
-  const card = { padding: 12, border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb' };
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  function resolveImageUrl(value, signedUrl) {
+    if (signedUrl) return `${origin}${signedUrl}`;
+    if (value === undefined || value === null || value === '') return null;
+    const str = String(value).trim();
+    if (!str) return null;
+    if (/^\d+$/.test(str)) return `${origin}${api.fileServeUrl(str)}`;
+    if (str.startsWith('http://') || str.startsWith('https://')) return str;
+    return `${origin}${api.proxyImageUrl(str)}`;
+  }
+  const companyLogoUrl = resolveImageUrl(quote.company_logo, quote.signed_company_logo);
 
   return (
-    <div style={{ maxWidth: 720, margin: '40px auto', padding: '0 16px', ...s({}) }}>
-      <h1 style={{ marginBottom: 4 }}>{quote.name}</h1>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
-        {date && <span>Event date: {date}</span>}
-        {quote.guest_count > 0 && <span>Guests: {quote.guest_count}</span>}
+    <div className={s.page}>
+
+      {/* ── Hero ─────────────────────────────────────────── */}
+      <div className={s.hero}>
+        <div className={s.heroInner}>
+          {(companyLogoUrl || quote.company_name) && (
+            <div className={s.companyBrand}>
+              {companyLogoUrl && (
+                <img
+                  src={companyLogoUrl}
+                  alt={quote.company_name ? `${quote.company_name} logo` : 'Company logo'}
+                  className={s.companyLogo}
+                  onError={e => { e.target.style.display = 'none'; }}
+                />
+              )}
+              {quote.company_name && (
+                <span className={s.companyNameText}>{quote.company_name}</span>
+              )}
+            </div>
+          )}
+          <div className={s.companyLabel}>Quote</div>
+          <h1 className={s.quoteTitle}>{quote.name}</h1>
+          <div className={s.heroBadges}>
+            <span className={`${s.statusBadge} ${isApproved ? s.approved : s.pending}`}>
+              {isApproved ? '✓ Approved' : 'Pending approval'}
+            </span>
+            {eventDate && <span className={s.heroPill}>&#128197; {eventDate}</span>}
+            {quote.guest_count > 0 && <span className={s.heroPill}>&#128101; {quote.guest_count} guests</span>}
+          </div>
+        </div>
       </div>
 
-      {quote.notes && <div style={section}><p style={{ margin: 0 }}>{quote.notes}</p></div>}
+      <div className={s.inner}>
 
-      <div style={{ ...section, ...grid }}>
-        {(quote.client_first_name || quote.client_last_name || quote.client_email || quote.client_phone || quote.client_address) && (
-          <div style={card}>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#6b7280', marginBottom: 8 }}>Client</div>
-            <div style={{ fontSize: 14 }}>
-              {(quote.client_first_name || quote.client_last_name) && <div>{[quote.client_first_name, quote.client_last_name].filter(Boolean).join(' ')}</div>}
-              {quote.client_email && <div>{quote.client_email}</div>}
-              {quote.client_phone && <div>{quote.client_phone}</div>}
-              {quote.client_address && <div>{quote.client_address}</div>}
+        {/* ── Client / Venue ─────────────────────────────── */}
+        {(hasClient || hasVenue) && (
+          <div className={s.section}>
+            <div className={s.infoGrid}>
+              {hasClient && (
+                <div className={s.infoCard}>
+                  <div className={s.infoLabel}>Client</div>
+                  {(quote.client_first_name || quote.client_last_name) && (
+                    <div className={s.infoName}>
+                      {[quote.client_first_name, quote.client_last_name].filter(Boolean).join(' ')}
+                    </div>
+                  )}
+                  {quote.client_email && <div className={s.infoLine}>{quote.client_email}</div>}
+                  {quote.client_phone && <div className={s.infoLine}>{quote.client_phone}</div>}
+                  {quote.client_address && <div className={s.infoLine}>{quote.client_address}</div>}
+                </div>
+              )}
+              {hasVenue && (
+                <div className={s.infoCard}>
+                  <div className={s.infoLabel}>Venue</div>
+                  {quote.venue_name && <div className={s.infoName}>{quote.venue_name}</div>}
+                  {quote.venue_email && <div className={s.infoLine}>{quote.venue_email}</div>}
+                  {quote.venue_phone && <div className={s.infoLine}>{quote.venue_phone}</div>}
+                  {quote.venue_address && <div className={s.infoLine}>{quote.venue_address}</div>}
+                </div>
+              )}
             </div>
           </div>
         )}
-        {(quote.venue_name || quote.venue_email || quote.venue_phone || quote.venue_address) && (
-          <div style={card}>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#6b7280', marginBottom: 8 }}>Venue</div>
-            <div style={{ fontSize: 14 }}>
-              {quote.venue_name && <div>{quote.venue_name}</div>}
-              {quote.venue_email && <div>{quote.venue_email}</div>}
-              {quote.venue_phone && <div>{quote.venue_phone}</div>}
-              {quote.venue_address && <div>{quote.venue_address}</div>}
-            </div>
-          </div>
-        )}
-      </div>
 
-      <div style={section}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', borderBottom: '2px solid #e5e7eb', padding: '8px 0' }}>Item</th>
-              <th style={{ textAlign: 'right', borderBottom: '2px solid #e5e7eb', padding: '8px 0' }}>Qty</th>
-              <th style={{ textAlign: 'right', borderBottom: '2px solid #e5e7eb', padding: '8px 0' }}>Unit</th>
-              <th style={{ textAlign: 'right', borderBottom: '2px solid #e5e7eb', padding: '8px 0' }}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {equipmentItems.map(item => (
-              <tr key={item.qitem_id}>
-                <td style={{ padding: '8px 0' }}>{item.label || item.title}</td>
-                <td style={{ textAlign: 'right' }}>{item.quantity ?? 1}</td>
-                <td style={{ textAlign: 'right' }}>${(item.unit_price || 0).toFixed(2)}</td>
-                <td style={{ textAlign: 'right' }}>${((item.unit_price || 0) * (item.quantity || 1)).toFixed(2)}</td>
-              </tr>
-            ))}
-            {logisticsItems.length > 0 && (
-              <>
-                <tr><td colSpan={4} style={{ paddingTop: 12, fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Delivery / Pickup</td></tr>
-                {logisticsItems.map(item => (
-                  <tr key={item.qitem_id}>
-                    <td style={{ padding: '4px 0' }}>{item.label || item.title}</td>
-                    <td style={{ textAlign: 'right' }}>{item.quantity ?? 1}</td>
-                    <td style={{ textAlign: 'right' }}>${(item.unit_price || 0).toFixed(2)}</td>
-                    <td style={{ textAlign: 'right' }}>${((item.unit_price || 0) * (item.quantity || 1)).toFixed(2)}</td>
+        {/* ── Line Items ─────────────────────────────────── */}
+        {(equipmentItems.length > 0 || logisticsItems.length > 0 || customItems.length > 0) && (
+          <div className={s.section}>
+            <div className={s.itemsCard}>
+              <div className={s.sectionHeader}>Items</div>
+              <table className={s.table}>
+                <thead>
+                  <tr>
+                    <th className={s.thImg}></th>
+                    <th>Item</th>
+                    <th className={s.right}>Qty</th>
+                    <th className={s.right}>Unit price</th>
+                    <th className={s.right}>Total</th>
                   </tr>
-                ))}
-              </>
-            )}
-          </tbody>
-        </table>
-      </div>
+                </thead>
+                <tbody>
+                  {equipmentItems.map(item => {
+                    const itemImgUrl = resolveImageUrl(item.photo_url, item.signed_photo_url);
+                    return (
+                      <tr key={item.qitem_id}>
+                        <td className={s.tdImg}>
+                          <button type="button" className={s.itemThumbBtn} onClick={() => setDetailItem(item)}>
+                            {itemImgUrl ? (
+                              <img src={itemImgUrl} alt="" className={s.itemThumb} onError={e => { e.target.style.display = 'none'; }} />
+                            ) : (
+                              <span className={s.itemThumbPlaceholder} aria-hidden>&#128230;</span>
+                            )}
+                          </button>
+                        </td>
+                        <td>
+                          <button type="button" className={s.itemNameBtn} onClick={() => setDetailItem(item)}>
+                            <span className={s.itemName}>{item.label || item.title}</span>
+                          </button>
+                        </td>
+                        <td className={s.right}>{item.quantity ?? 1}</td>
+                        <td className={s.right}>{fmt(item.unit_price)}</td>
+                        <td className={s.right}>{fmt((item.unit_price || 0) * (item.quantity || 1))}</td>
+                      </tr>
+                    );
+                  })}
 
-      <div style={{ ...section, padding: 12, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, maxWidth: 280, marginLeft: 'auto' }}>
-        {totals.subtotal > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Subtotal</span><span>${totals.subtotal.toFixed(2)}</span></div>}
-        {totals.deliveryTotal > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Delivery</span><span>${totals.deliveryTotal.toFixed(2)}</span></div>}
-        {totals.rate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Tax ({totals.rate}%)</span><span>${totals.tax.toFixed(2)}</span></div>}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 16, marginTop: 8, paddingTop: 8, borderTop: '1px solid #e5e7eb' }}><span>Total</span><span>${totals.total.toFixed(2)}</span></div>
-      </div>
+                  {logisticsItems.length > 0 && (
+                    <>
+                      <tr className={s.groupDivider}>
+                        <td colSpan={5}>Delivery &amp; Pickup</td>
+                      </tr>
+                      {logisticsItems.map(item => {
+                        const itemImgUrl = resolveImageUrl(item.photo_url, item.signed_photo_url);
+                        return (
+                          <tr key={item.qitem_id}>
+                            <td className={s.tdImg}>
+                              <button type="button" className={s.itemThumbBtn} onClick={() => setDetailItem(item)}>
+                                {itemImgUrl ? (
+                                  <img src={itemImgUrl} alt="" className={s.itemThumb} onError={e => { e.target.style.display = 'none'; }} />
+                                ) : (
+                                  <span className={s.itemThumbPlaceholder} aria-hidden>&#128230;</span>
+                                )}
+                              </button>
+                            </td>
+                            <td>
+                              <button type="button" className={s.itemNameBtn} onClick={() => setDetailItem(item)}>
+                                <span className={s.itemName}>{item.label || item.title}</span>
+                              </button>
+                            </td>
+                            <td className={s.right}>{item.quantity ?? 1}</td>
+                            <td className={s.right}>{fmt(item.unit_price)}</td>
+                            <td className={s.right}>{fmt((item.unit_price || 0) * (item.quantity || 1))}</td>
+                          </tr>
+                        );
+                      })}
+                    </>
+                  )}
 
-      {quote.quote_notes && <div style={{ ...section, fontSize: 13, color: '#6b7280' }}><strong>Notes:</strong> {quote.quote_notes}</div>}
-
-      {quote.contract && (quote.contract.body_html || quote.contract.signed_at) && (
-        <div style={{ ...section, padding: 16, border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#6b7280', marginBottom: 12 }}>Contract</div>
-          {quote.contract.body_html && (
-            <div
-              style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}
-              dangerouslySetInnerHTML={{ __html: quote.contract.body_html }}
-            />
-          )}
-          {quote.contract.signed_at ? (
-            <p style={{ margin: 0, fontSize: 13, color: '#065f46' }}>
-              Signed {new Date(quote.contract.signed_at).toLocaleString()}
-              {quote.contract.signer_name && ` by ${quote.contract.signer_name}`}.
-            </p>
-          ) : (
-            <>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer', fontSize: 14 }}>
-                <input type="checkbox" checked={agreeChecked} onChange={e => setAgreeChecked(e.target.checked)} />
-                I agree to the terms above
-              </label>
-              <input
-                type="text"
-                placeholder="Full name (signature)"
-                value={signerName}
-                onChange={e => setSignerName(e.target.value)}
-                style={{ display: 'block', width: '100%', maxWidth: 280, padding: '8px 12px', marginBottom: 10, border: '1px solid #e5e7eb', borderRadius: 6 }}
-              />
-              <button
-                type="button"
-                onClick={handleSignContract}
-                disabled={signing || !agreeChecked || !signerName.trim()}
-                style={{ padding: '10px 20px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, cursor: signing ? 'wait' : 'pointer' }}
-              >
-                {signing ? 'Signing…' : 'Sign contract'}
-              </button>
-            </>
-          )}
-          {signSuccess && <p style={{ margin: '10px 0 0', fontSize: 13, color: '#065f46' }}>Contract signed. Thank you!</p>}
-        </div>
-      )}
-
-      {approveSuccess && (
-        <div style={{ ...section, padding: 12, background: '#d1fae5', border: '1px solid #10b981', borderRadius: 8, color: '#065f46' }}>
-          Quote approved. Thank you!
-        </div>
-      )}
-
-      <div style={{ marginTop: 32, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        {quote.status !== 'approved' && (
-          <button
-            onClick={handleApprove}
-            disabled={approving}
-            style={{ padding: '10px 20px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, cursor: approving ? 'wait' : 'pointer' }}
-          >
-            {approving ? 'Approving…' : 'Approve this Quote'}
-          </button>
+                  {customItems.length > 0 && (
+                    <>
+                      <tr className={s.groupDivider}>
+                        <td colSpan={5}>Other</td>
+                      </tr>
+                      {customItems.map(ci => {
+                        const ciImgUrl = resolveImageUrl(ci.photo_url, ci.signed_photo_url);
+                        return (
+                          <tr key={ci.id}>
+                            <td className={s.tdImg}>
+                              <button type="button" className={s.itemThumbBtn} onClick={() => setDetailItem(ci)}>
+                                {ciImgUrl ? (
+                                  <img src={ciImgUrl} alt="" className={s.itemThumb} onError={e => { e.target.style.display = 'none'; }} />
+                                ) : (
+                                  <span className={s.itemThumbPlaceholder} aria-hidden>&#128230;</span>
+                                )}
+                              </button>
+                            </td>
+                            <td>
+                              <button type="button" className={s.itemNameBtn} onClick={() => setDetailItem(ci)}>
+                                <span className={s.itemName}>{ci.title}</span>
+                              </button>
+                            </td>
+                            <td className={s.right}>{ci.quantity ?? 1}</td>
+                            <td className={s.right}>{fmt(ci.unit_price)}</td>
+                            <td className={s.right}>{fmt((ci.unit_price || 0) * (ci.quantity || 1))}</td>
+                          </tr>
+                        );
+                      })}
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
-        <button
-          onClick={() => window.print()}
-          style={{ padding: '10px 20px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-        >
-          Print / Save PDF
-        </button>
+
+        {/* ── Totals ─────────────────────────────────────── */}
+        <div className={s.section}>
+          <div className={s.totalsWrap}>
+            <div className={s.totalsCard}>
+              {totals.subtotal > 0 && (
+                <div className={s.totalsRow}>
+                  <span>Equipment subtotal</span>
+                  <span>{fmt(totals.subtotal)}</span>
+                </div>
+              )}
+              {totals.deliveryTotal > 0 && (
+                <div className={s.totalsRow}>
+                  <span>Delivery &amp; pickup</span>
+                  <span>{fmt(totals.deliveryTotal)}</span>
+                </div>
+              )}
+              {totals.customSubtotal > 0 && (
+                <div className={s.totalsRow}>
+                  <span>Other items</span>
+                  <span>{fmt(totals.customSubtotal)}</span>
+                </div>
+              )}
+              {totals.rate > 0 && (
+                <div className={s.totalsRow}>
+                  <span>Tax ({totals.rate}%)</span>
+                  <span>{fmt(totals.tax)}</span>
+                </div>
+              )}
+              <hr className={s.totalsDivider} />
+              <div className={s.totalRow}>
+                <span>Total</span>
+                <span>{fmt(totals.total)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Quote notes ────────────────────────────────── */}
+        {quote.quote_notes && (
+          <div className={s.section}>
+            <div className={s.notes}><strong>Notes:&nbsp;</strong>{quote.quote_notes}</div>
+          </div>
+        )}
+
+        {/* ── Contract ───────────────────────────────────── */}
+        {quote.contract && (quote.contract.body_html || quote.contract.signed_at) && (
+          <div className={s.section}>
+            <div className={s.contractCard}>
+              <div className={s.sectionHeader}>Contract</div>
+
+              {quote.contract.body_html && (
+                <div
+                  className={s.contractBody}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(quote.contract.body_html, { ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'span', 'div'], ALLOWED_ATTR: ['href', 'target', 'rel'] }) }}
+                />
+              )}
+
+              {quote.contract.signed_at ? (
+                <div className={s.signedBanner}>
+                  <div className={s.signIcon}>&#10003;</div>
+                  <span>
+                    Signed {new Date(quote.contract.signed_at).toLocaleString()}
+                    {quote.contract.signer_name && ` by ${quote.contract.signer_name}`}.
+                  </span>
+                </div>
+              ) : (
+                <div className={s.signForm}>
+                  <label className={s.agreeLabel}>
+                    <input
+                      type="checkbox"
+                      checked={agreeChecked}
+                      onChange={e => setAgreeChecked(e.target.checked)}
+                    />
+                    I have read and agree to the terms above
+                  </label>
+                  <input
+                    type="text"
+                    className={s.signInput}
+                    placeholder="Full name (acts as your signature)"
+                    value={signerName}
+                    onChange={e => setSignerName(e.target.value)}
+                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <button
+                      type="button"
+                      className={s.signBtn}
+                      onClick={handleSignContract}
+                      disabled={signing || !agreeChecked || !signerName.trim()}
+                    >
+                      {signing ? 'Signing\u2026' : 'Sign contract'}
+                    </button>
+                    {signSuccess && <span className={s.signSuccess}>Contract signed. Thank you!</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Approve success banner ──────────────────────── */}
+        {approveSuccess && (
+          <div className={s.section}>
+            <div className={s.approveBanner}>
+              <div className={s.signIcon}>&#10003;</div>
+              Quote approved — thank you! We look forward to working with you.
+            </div>
+          </div>
+        )}
+
+      </div>{/* /inner */}
+
+      {/* ── Sticky action bar ──────────────────────────────── */}
+      <div className={s.actionBar}>
+        <div className={s.actionBarInner}>
+          <button className={s.btnPrint} onClick={() => window.print()}>
+            Print / Save PDF
+          </button>
+          {!isApproved && (
+            <button
+              className={s.btnApprove}
+              onClick={handleApprove}
+              disabled={approving}
+            >
+              {approving ? 'Approving\u2026' : 'Approve this Quote'}
+            </button>
+          )}
+        </div>
       </div>
 
-      <style>{`@media print { button { display: none !important; } }`}</style>
+      {detailItem && (
+        <ItemDetailModal
+          item={detailItem}
+          resolveImageUrl={resolveImageUrl}
+          onClose={() => setDetailItem(null)}
+        />
+      )}
     </div>
   );
 }

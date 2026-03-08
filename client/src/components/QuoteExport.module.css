@@ -22,94 +22,138 @@
 }
 
 .exportHeader {
-  margin-bottom: 24px;
-  padding-bottom: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
   border-bottom: 2px solid #1a8fc1;
 }
 
+.exportHeaderTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.companyBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.companyLogo {
+  height: 36px;
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+  display: block;
+}
+
 .exportTitle {
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
   color: #1a1a2e;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .exportMeta {
   display: flex;
-  gap: 16px;
-  font-size: 14px;
+  gap: 12px;
+  font-size: 12px;
   color: #637080;
   margin-bottom: 8px;
 }
 
-.exportNotes {
-  font-size: 13px;
+.exportBlockTitle {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: #637080;
-  margin-top: 8px;
+  margin: 10px 0 4px;
+}
+
+.exportBlockGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 11px;
+  color: #1a1a2e;
+}
+
+.exportClient {
+  margin-top: 6px;
+}
+
+.exportNotes {
+  font-size: 11px;
+  color: #637080;
+  margin-top: 6px;
 }
 
 .exportVenue {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px solid #e8eef2;
 }
 .exportVenueTitle {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   color: #637080;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .exportVenueGrid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
-  font-size: 13px;
+  gap: 6px 12px;
+  font-size: 11px;
   color: #1a1a2e;
 }
 
 .exportLogistics {
-  margin-bottom: 16px;
-  padding: 12px 0;
+  margin-bottom: 10px;
+  padding: 8px 0;
   border-top: 1px solid #e8eef2;
 }
 .exportLogisticsTitle {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   color: #637080;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 .exportLogisticsList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 .exportLogisticsItem {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .exportGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .exportItem {
-  border: 1px solid #dce8f0;
-  border-radius: 8px;
+  border: 1px solid #e5eef4;
+  border-radius: 4px;
   overflow: hidden;
   background: #fff;
 }
 
 .exportImgWrapper {
   width: 100%;
-  padding-top: 70%;
+  padding-top: 60%;
   position: relative;
   background: #f4f8fb;
 }
@@ -128,30 +172,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
+  font-size: 20px;
   color: #ccc;
 }
 
 .exportItemBody {
-  padding: 8px;
+  padding: 4px 6px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .exportItemTitle {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: #1a1a2e;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  line-height: 1.2;
 }
 
 .exportQty {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   color: #1a8fc1;
   white-space: nowrap;
@@ -176,45 +221,45 @@
 }
 
 .exportItemPrice {
-  padding: 2px 8px 6px;
-  font-size: 11px;
+  padding: 0 6px 4px;
+  font-size: 10px;
   font-weight: 600;
   color: #1a8fc1;
   text-align: right;
 }
 
 .exportTotals {
-  margin: 16px 0;
-  padding: 12px 16px;
-  border: 1px solid #dce8f0;
-  border-radius: 6px;
-  max-width: 280px;
+  margin: 12px 0;
+  padding: 8px 12px;
+  border: 1px solid #e5eef4;
+  border-radius: 4px;
+  max-width: 240px;
   margin-left: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .exportTotalsRow {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: 11px;
   color: #637080;
 }
 
 .exportTotalsTotal {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   color: #1a1a2e;
-  border-top: 1px solid #dce8f0;
-  padding-top: 6px;
-  margin-top: 4px;
+  border-top: 1px solid #e5eef4;
+  padding-top: 4px;
+  margin-top: 2px;
 }
 
 .exportFooter {
   text-align: right;
-  font-size: 11px;
+  font-size: 10px;
   color: #aaa;
   border-top: 1px solid #eee;
-  padding-top: 12px;
+  padding-top: 8px;
 }
