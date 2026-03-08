@@ -11,7 +11,7 @@ BadShuffle is a **self-hosted inventory and quoting application** for event rent
 - **Billing** — payments on quotes, billing history, refunds
 - **Communications** — send quote to client via email (SMTP), templates, message thread (outbound + IMAP inbound replies)
 - **Files** — media library; attach files to quotes; signed URLs for public quote images
-- **Operations** — roles (admin/operator/user), presence (who’s online), settings (SMTP/IMAP, company, tax)
+- **Operations** — roles (admin/operator/user), presence (who’s online), settings (SMTP/IMAP, company, tax); availability/conflict detection (reserved vs stock, subrental needs); vendors for subrental sourcing; rental date fields on quotes (rental_start/end, delivery_date, pickup_date)
 
 There is **no pull-sheet or warehouse-fulfillment module** in the codebase; operations workflow (pull sheet → load → delivery) is conceptual only and not implemented.
 
@@ -30,7 +30,9 @@ There is **no pull-sheet or warehouse-fulfillment module** in the codebase; oper
 | **Files**      | Upload/list/delete files; attach to quotes; serve with auth or signed URL |
 | **Messages**   | Outbound emails logged; inbound replies via IMAP poll; thread view per quote |
 | **Templates**  | Email templates (CRUD, default); contract templates (reusable contract body) |
-| **Settings**   | Company, tax, currency, SMTP/IMAP (operator-only) |
+| **Settings**   | Company, tax, currency, SMTP/IMAP, count_oos_oversold (operator-only) |
+| **Availability** | Conflicts (reserved > stock), subrental-needs, per-quote conflict check; dashboard panels; quote builder conflict icons |
+| **Vendors**    | CRUD vendors; items can have is_subrental and vendor_id; Vendors page |
 | **Admin**      | Users, roles, approval, system settings (autokill, update check) (admin-only) |
 | **Presence**   | In-memory “who’s online” and current path (PUT/GET /api/presence) |
 

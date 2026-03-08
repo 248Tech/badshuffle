@@ -21,7 +21,7 @@ Areas that are incomplete, stubbed, or represent technical debt. Use this to kno
 
 ### Delivery/return tracking
 
-- **Status:** Not implemented. Logistics is category-based (display and totals only). No delivery date, return date, or status (e.g. out/returned).
+- **Status:** Partial. Quotes have `delivery_date` and `pickup_date` (and rental_start/rental_end) used for availability overlap. Logistics is category-based (display and totals). No delivery/return status workflow (e.g. out/returned) or fulfillment state machine.
 
 ---
 

@@ -1,16 +1,23 @@
-# Cursor Briefing — BadShuffle (as of 2026-03-06)
+# Cursor Briefing — BadShuffle (as of 2026-03-07)
 
 ## What this project is
 
 BadShuffle is a self-hosted inventory and quoting tool for event rental businesses. It runs as two local Windows executables (server + client). Stack: Node/Express + sql.js SQLite on the back end, React + Vite on the front end.
 
-## Current state: v0.3.2 (latest release)
+## Current state: v0.4.1 (latest release)
 
-All planned phases (A, B, C from HANDOFF.md) are complete. Latest release:
+Latest release:
 
 ```
-release: v0.3.2 — Quote detail header refactor, button hierarchy, status badge, UI redesign strategy, Billing page, version history correction
+release: v0.4.1 — Availability detection, vendor support, rental date fields, dashboard conflict/subrental panels, quote builder conflict indicators, count_oos_oversold setting, Bun support testing
 ```
+
+### What was built in v0.4.1
+- **Availability & conflict detection** — GET `/api/availability/conflicts`, `/availability/subrental-needs`, `/availability/quote/:id`; considers quote status and rental date ranges (delivery → pickup). Dashboard: Conflicts and Subrental Needs panels. Quote builder: conflict indicator icon on line items.
+- **Vendors / subrental** — `vendors` table and CRUD API; items have `is_subrental` and `vendor_id`; Vendors page; vendor selection in item editor. Client helpers: getVendors, createVendor, updateVendor, deleteVendor, getConflicts, getSubrentalNeeds, getQuoteConflicts.
+- **Rental date fields** — Quotes: rental_start, rental_end, delivery_date, pickup_date; editable in quote editor.
+- **Settings** — `count_oos_oversold` (whether out-of-stock items count toward dashboard conflict detection).
+- **Dev** — Initial Bun support testing (non-breaking).
 
 ### What was built in v0.3.2
 - **QuoteHeader component** — Extracted from QuoteDetailPage: title, metadata, status badge, and all quote actions in one component; flex layout with space-between and responsive wrapping
@@ -62,7 +69,9 @@ server/
     settings.js         — SMTP/IMAP config
     auth.js             — Login, logout, /me, extension-token, forgot/reset
     admin.js            — User management, role change, system settings
-    items.js            — Inventory CRUD
+    items.js            — Inventory CRUD (is_subrental, vendor_id)
+    availability.js     — Conflicts, subrental-needs, quote conflict
+    vendors.js          — Vendors CRUD
     sheets.js           — Google Sheets scrape
     stats.js            — Usage stats
     ai.js               — GPT-4o-mini item suggestions
@@ -101,7 +110,7 @@ client/src/
 - `badshuffle.lock` deleted (runtime lock file, ignored going forward)
 - `badshuffle/` untracked — this is the extracted/packaged executable directory, not source
 
-Working tree is committed; canonical version is v0.3.2 (0.x pre-release until 1.0).
+Working tree is committed; canonical version is v0.4.1 (0.x pre-release until 1.0).
 
 ## Known stubs / incomplete items
 

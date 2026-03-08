@@ -1,6 +1,100 @@
 # STATUS
 
+**Released v0.4.1** (2026-03-07): Availability & conflict detection, vendor/subrental system, rental date fields on quotes, dashboard Conflicts/Subrental panels, quote builder conflict indicators, setting `count_oos_oversold`, API and client helpers. Bun support testing in dev (non-breaking).
+
 ## Current Task
+Completed: Per-line price overrides + quote-level adjustments; previously: Availability & Conflict Detection (shipped in v0.4.1).
+
+## Per-line Price Overrides & Quote Adjustments — v0.5.0 prep
+
+### Feature 7 — `unit_price_override` on `quote_items`
+- **DB:** `ALTER TABLE quote_items ADD COLUMN unit_price_override REAL` (try/catch migration, nullable; NULL = use items.unit_price).
+- **Server:** `quotes.js` GET /:id now includes `qi.unit_price_override` in items SELECT. PUT /:id/items/:qitem_id accepts `unit_price_override` (null clears it; explicit null reverts to base price). GET / (list totals) and GET /summary revenue now use `COALESCE(qi.unit_price_override, i.unit_price)`. Public quote route in `index.js` also includes the field.
+- **Effective price helper:** `effectivePrice(it)` in QuoteDetailPage — `unit_price_override ?? unit_price`.
+- **Frontend:** `computeTotals` uses `effectivePrice` for all line items. QuoteBuilder renders unit price as a clickable field: click → inline input → Enter/✓ saves override, Esc cancels. Override shown in purple with a ✕ reset button. Logistics display in QuoteDetailPage also uses effective price.
+
+### Feature 8 — `quote_adjustments` (discounts / surcharges)
+- **DB:** New `quote_adjustments` table: `id, quote_id, label TEXT, type TEXT (discount|surcharge), value_type TEXT (percent|fixed), amount REAL, sort_order INTEGER, created_at TEXT`.
+- **Server:** `quotes.js` GET /:id now includes `adjustments` in response. New routes: `GET/POST/PUT/DELETE /:id/adjustments`. POST validates type, value_type, amount ≥ 0, percent ≤ 100. Public quote route includes adjustments. Adjustment add/remove logs to `quote_activity_log`. Add/remove/update also calls `markUnsignedChangesIfApproved`.
+- **Total computation:** `computeAdjustmentsTotal(adjustments, preTaxBase)` — percent adjustments apply to `subtotal + delivery + customSubtotal`; fixed adjustments are flat. Discounts are negative, surcharges positive. Tax is NOT recalculated (remains on raw taxable line items).
+- **Frontend:** `computeTotals` now accepts `adjustments` param and returns `adjTotal`. QuoteBuilder has an "Discounts & Surcharges" section below quote items: inline form (label, type dropdown, percent/fixed dropdown, amount), adjustment list with type badge and remove button. QuoteDetailPage Summary card renders each adjustment as a row (green for discounts, amber for surcharges) between delivery and tax lines.
+- **api.js:** `getAdjustments`, `addAdjustment`, `updateAdjustment`, `removeAdjustment`.
+
+### Files changed
+- `server/db.js` — `unit_price_override` column migration; `quote_adjustments` table
+- `server/routes/quotes.js` — override in GET /:id, list, summary; PUT item accepts override; adjustment CRUD routes
+- `server/index.js` — public quote includes `unit_price_override` and `adjustments`
+- `client/src/api.js` — 4 new adjustment API calls
+- `client/src/components/QuoteBuilder.jsx` — override inline edit UI; adjustments section
+- `client/src/components/QuoteBuilder.module.css` — override and adjustment styles
+- `client/src/pages/QuoteDetailPage.jsx` — `effectivePrice`, `computeAdjustmentsTotal`, `computeTotals` update; adjustments state; adjustment rows in Summary card; logistics display uses effective price
+- `client/src/pages/QuoteDetailPage.module.css` — `.totalsRowDiscount`, `.totalsRowSurcharge` color styles
+
+---
+
+## Current Task (previous)
+Completed: Availability & Conflict Detection (v0.5.0 prep); previously: Bun adoption.
+
+## Availability & Conflict Detection — v0.5.0 prep
+
+### Backend: schema additions (`server/db.js`)
+- **`vendors` table**: `id`, `name`, `contact_name`, `contact_email`, `contact_phone`, `notes`
+- **`items` columns**: `is_subrental INTEGER DEFAULT 0`, `vendor_id INTEGER REFERENCES vendors(id)`
+- **`quotes` columns**: `rental_start TEXT`, `rental_end TEXT`, `delivery_date TEXT`, `pickup_date TEXT`
+- **`settings` key**: `count_oos_oversold` (controls whether out-of-stock items count toward conflicts on the dashboard)
+
+### New routes
+- **`server/routes/vendors.js`** — full CRUD: `GET /api/vendors`, `POST /api/vendors`, `PUT /api/vendors/:id`, `DELETE /api/vendors/:id`
+- **`server/routes/availability.js`** — three endpoints:
+  - `GET /api/availability/conflicts` — returns all items with reserved+potential quantities exceeding stock; reserved = quotes where signed contract or has_unsigned_changes; potential = all other active quotes; date range spans delivery→pickup
+  - `GET /api/availability/subrental-needs` — items where demand > stock and `is_subrental = 0`, returns shortfall quantities per item per date range
+  - `GET /api/availability/quote/:id` — per-quote conflict check: which items in this quote conflict with other reservations
+
+### Other server changes
+- **`server/index.js`**: mounted `vendorsRouter` and `availabilityRouter` under auth middleware
+- **`server/routes/settings.js`** `ALLOWED_KEYS`: added `count_oos_oversold`
+- **`server/routes/items.js`**: `GET /api/items` and `GET /api/items/:id` now return `is_subrental`, `vendor_id`; `POST`/`PUT` accept and persist them
+- **`server/routes/quotes.js`**: `POST`/`PUT` accept and persist `rental_start`, `rental_end`, `delivery_date`, `pickup_date`; `GET /:id` returns them
+
+### Frontend
+- **`VendorsPage.jsx` + `VendorsPage.module.css`** (new): list of vendors with inline add/edit/delete; linked from Sidebar
+- **`DashboardPage.jsx`**: new "Conflicts" panel (items with reservations exceeding stock) and "Subrental Needs" panel (shortfall items); respects `count_oos_oversold` setting
+- **`DashboardPage.module.css`**: conflict and subrental panel styles
+- **`QuoteDetailPage.jsx`**: rental period fields (rental start/end, delivery date, pickup date) in edit form and view mode
+- **`QuoteBuilder.jsx`**: frown icon (☹) on line items that have a conflict with another quote
+- **`QuoteBuilder.module.css`**: conflict icon style
+- **`SettingsPage.jsx`**: "Count out-of-stock items as conflicts" checkbox bound to `count_oos_oversold`
+- **`SettingsPage.module.css`**: checkbox row style
+- **`ItemEditModal.jsx`**: is_subrental toggle + vendor_id dropdown (populated from `GET /api/vendors`)
+- **`App.jsx`**: `/vendors` route added
+- **`Sidebar.jsx`**: Vendors nav link added
+- **`api.js`**: `getVendors`, `createVendor`, `updateVendor`, `deleteVendor`, `getConflicts`, `getSubrentalNeeds`, `getQuoteConflicts`
+
+### Files changed
+- `server/db.js` — vendors table; items.is_subrental, items.vendor_id; quotes rental period columns
+- `server/index.js` — mount vendors + availability routers
+- `server/routes/vendors.js` — new
+- `server/routes/availability.js` — new
+- `server/routes/settings.js` — ALLOWED_KEYS addition
+- `server/routes/items.js` — is_subrental, vendor_id fields
+- `server/routes/quotes.js` — rental period fields
+- `client/src/pages/VendorsPage.jsx` — new
+- `client/src/pages/VendorsPage.module.css` — new
+- `client/src/pages/DashboardPage.jsx` — conflicts + subrental panels
+- `client/src/pages/DashboardPage.module.css` — panel styles
+- `client/src/pages/QuoteDetailPage.jsx` — rental period fields
+- `client/src/pages/SettingsPage.jsx` — count_oos_oversold checkbox
+- `client/src/pages/SettingsPage.module.css` — checkbox row
+- `client/src/components/QuoteBuilder.jsx` — conflict frown icons
+- `client/src/components/QuoteBuilder.module.css` — conflict icon style
+- `client/src/components/ItemEditModal.jsx` — is_subrental + vendor_id
+- `client/src/App.jsx` — /vendors route
+- `client/src/components/Sidebar.jsx` — Vendors link
+- `client/src/api.js` — vendor + availability API calls
+
+---
+
+## Current Task (previous)
 Completed: Bun adoption (Phases 0–3); previously: Quote Client Info + Send Flow + Layout.
 
 ## Bun Adoption — v0.4.1 prep

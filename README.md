@@ -8,9 +8,14 @@ A self-hosted inventory and quoting tool for event rental businesses. Manage you
 
 ## What's New in v0.4.1
 
-- **Bun as dev runtime** — Server now runs under [Bun](https://bun.sh/) in development (`bun index.js`). Startup is faster; `pkg`-based Windows packaging is unchanged and still uses Node
-- **Bun install** — All three workspaces (root, `server/`, `client/`) use `bun install` for faster dependency installs; `bun.lock` files added alongside existing `package-lock.json` files
-- **Script cleanup** — Root `package.json` scripts updated to use `bun run --cwd` (Bun equivalent of npm's `--prefix`) so `bun run dev` and `bun run build:client` work without shims
+- **Inventory availability & conflict detection** — Backend and frontend detect when reserved quantities exceed stock. New `/api/availability` endpoints: conflicts (items over-reserved), subrental-needs (shortfall items), and per-quote conflict check. Conflicts consider quote status and rental date ranges (delivery → pickup).
+- **Vendor / subrental system** — New `vendors` table and CRUD API. Inventory items support `is_subrental` and `vendor_id`. Vendor management page in the UI; vendor selection in the item editor.
+- **Rental date fields** — Quotes now have `rental_start`, `rental_end`, `delivery_date`, and `pickup_date`; editable and visible in the quote editor.
+- **Dashboard improvements** — Conflicts panel (items with reserved quantities exceeding stock) and Subrental Needs panel (items that must be sourced externally).
+- **Quote builder** — Conflict indicator icon next to line items that overlap with other reservations.
+- **Settings** — New option `count_oos_oversold`: controls whether out-of-stock items count toward dashboard conflict detection.
+- **API additions** — Client helpers: `getVendors`, `createVendor`, `updateVendor`, `deleteVendor`, `getConflicts`, `getSubrentalNeeds`, `getQuoteConflicts`.
+- **Dev infrastructure** — Initial Bun support testing in the dev workflow (non-breaking); server can run under Bun in development; `npm install` and `node index.js` still work as fallbacks.
 
 ## What's New in v0.4.0
 
@@ -56,12 +61,14 @@ A self-hosted inventory and quoting tool for event rental businesses. Manage you
 
 ## Features
 
-- **Inventory management** — Add, edit, hide, and search rental items with photos
-- **Quote builder** — Create event quotes, add items with quantities and labels, custom one-off line items, export to PDF/image
+- **Inventory management** — Add, edit, hide, and search rental items with photos; optional subrental flag and vendor link
+- **Quote builder** — Create event quotes, add items with quantities and labels, custom one-off line items, conflict indicators for over-reserved items, export to PDF/image
 - **Files / media library** — Upload images and documents; serve them inline for use in quotes and emails
 - **Messages** — Full outbound + inbound email log linked to quotes; IMAP polling for client replies
 - **AI suggestions** — GPT-4o-mini recommends items for a quote based on guest count and event type (optional; falls back gracefully without an API key)
 - **Usage stats** — See which items are quoted most often and track per-guest-count brackets
+- **Availability & conflicts** — Dashboard panels for items over-reserved (conflicts) and items needing subrental; per-quote conflict check; rental date fields on quotes (rental_start/end, delivery_date, pickup_date)
+- **Vendors** — Manage subrental vendors; link items to vendors; Vendors page in the UI
 - **Google Sheets import** — Bulk-import inventory from a published Sheet URL
 - **Chrome extension** — One-click sync of items from your Goodshuffle Pro catalog page directly into BadShuffle
 - **Standalone executables** — Package into two Windows `.exe` files that run without Node.js installed
@@ -88,13 +95,13 @@ badshuffle/
 ├── server/          Express API + sql.js SQLite (port 3001)
 │   ├── index.js
 │   ├── db.js        sql.js shim that mirrors better-sqlite3's API
-│   ├── routes/      items, quotes, sheets, stats, ai, files, messages, settings
+│   ├── routes/      items, quotes, sheets, stats, ai, files, messages, settings, vendors, availability
 │   ├── services/    singleInstance, updateCheck, emailPoller (IMAP)
 │   └── lib/         authMiddleware, crypto, imageProxy
 ├── client/          React + Vite SPA (port 5173 in dev)
 │   ├── src/
 │   │   ├── pages/   Dashboard, Inventory, Import, Quotes, QuoteDetail,
-│   │   │            Stats, Files, Messages, Settings, Leads, Templates
+│   │   │            Stats, Files, Messages, Settings, Leads, Templates, Vendors
 │   │   └── components/
 │   └── serve.js     Zero-dep static server used by the packaged exe
 ├── extension/       Chrome MV3 extension (load unpacked)
@@ -189,6 +196,12 @@ BadShuffle can poll your inbox for client replies and automatically link them to
 Only emails that are direct replies to a sent quote (`In-Reply-To` header match) are ingested.
 
 > **Gmail users:** Create an [App Password](https://myaccount.google.com/apppasswords) — regular passwords are blocked by Google for SMTP/IMAP access.
+
+### Conflict detection
+
+| Setting | Description |
+|---|---|
+| Count out-of-stock as conflicts | `count_oos_oversold` — When enabled, out-of-stock items are included in dashboard conflict detection (Conflicts and Subrental Needs panels). Configure in **Settings**. |
 
 ---
 
@@ -305,6 +318,23 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | PUT | `/messages/:id/read` | Mark message as read |
 | DELETE | `/messages/:id` | Delete message |
 
+### Availability
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/availability/conflicts` | Items where reserved quantities exceed stock |
+| GET | `/availability/subrental-needs` | Items requiring subrental due to shortfall |
+| GET | `/availability/quote/:id` | Conflict check for a specific quote |
+
+### Vendors
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/vendors` | List vendors |
+| POST | `/vendors` | Create vendor |
+| PUT | `/vendors/:id` | Update vendor |
+| DELETE | `/vendors/:id` | Delete vendor |
+
 ### Other
 
 | Method | Path | Description |
@@ -319,6 +349,8 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | GET | `/settings` | Get all settings |
 | PUT | `/settings` | Update settings |
 | POST | `/settings/test-imap` | Test IMAP connection |
+
+Client helpers in `client/src/api.js`: `getVendors`, `createVendor`, `updateVendor`, `deleteVendor`, `getConflicts`, `getSubrentalNeeds`, `getQuoteConflicts`.
 
 ---
 
@@ -348,6 +380,7 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 - All DB migrations use `try/catch` + `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE` so they're safe to run on every startup against existing databases
 - Uploaded files are stored in `uploads/` next to the project root (dev) or next to the server exe (packaged); the directory is auto-created on startup
 - The IMAP poller only runs when `imap_host`, `imap_user`, and `imap_poll_enabled=1` are all set
+- Initial Bun support has been tested in the dev workflow (server runs under `bun index.js` in dev); packaging and production continue to use Node
 
 ---
 

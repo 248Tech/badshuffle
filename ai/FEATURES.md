@@ -73,15 +73,36 @@ All features below are implemented unless marked as stub or partial.
 
 - **Not implemented.** No pull_sheets table, no routes, no UI. Operations workflow (order → pull sheet → warehouse → load → delivery) is not in the codebase.
 
+## Availability & Conflict Detection
+
+- **Conflicts:** GET `/api/availability/conflicts` — items where reserved quantities exceed stock; considers quote status and rental date ranges (delivery_date → pickup_date, or rental_start → rental_end).
+- **Subrental needs:** GET `/api/availability/subrental-needs` — items requiring subrental (demand > stock, `is_subrental = 0`).
+- **Per-quote conflict:** GET `/api/availability/quote/:id` — which items on this quote conflict with other reservations.
+- **Dashboard:** Conflicts panel and Subrental Needs panel; respect setting `count_oos_oversold`.
+- **Quote builder:** Conflict indicator icon (☹) next to line items that overlap with other reservations.
+- **Logic location:** `server/routes/availability.js`, DashboardPage (panels), QuoteBuilder (icon), SettingsPage (`count_oos_oversold`).
+
+## Vendors / Subrental
+
+- **Vendors table:** id, name, contact_name, contact_email, contact_phone, notes. CRUD: GET/POST/PUT/DELETE `/api/vendors`.
+- **Items:** `is_subrental` (integer), `vendor_id` (FK to vendors). Item editor: subrental toggle and vendor dropdown.
+- **Vendors page:** List, add, edit, delete vendors; linked from Sidebar.
+- **Logic location:** `server/routes/vendors.js`, `server/db.js` (vendors table, items columns), VendorsPage, ItemEditModal, `client/src/api.js` (getVendors, createVendor, updateVendor, deleteVendor).
+
+## Quote Rental Dates
+
+- **Fields on quotes:** `rental_start`, `rental_end`, `delivery_date`, `pickup_date` (all TEXT). Editable and visible in quote editor (QuoteDetailPage). Used by availability engine for date-range overlap.
+- **Logic location:** `server/routes/quotes.js` (accept/return in GET/PUT), QuoteDetailPage (form and display).
+
 ## Other Features
 
-- **Dashboard:** GET `/api/quotes/summary` (byStatus, revenueByStatus, upcoming, byMonth). DashboardPage.
+- **Dashboard:** GET `/api/quotes/summary` (byStatus, revenueByStatus, upcoming, byMonth). DashboardPage. Also Conflicts and Subrental Needs panels (see Availability & Conflict Detection).
 - **Presence:** PUT/GET `/api/presence` — in-memory “who’s online” and path. Client reports path on route change; Sidebar can show team online.
 - **AI suggest:** POST `/api/ai/suggest` (OpenAI) for item suggestions; AISuggestModal on quote.
 - **Extension:** Download extension ZIP (public); extension tokens for API (admin). ExtensionPage.
 - **Import:** Inventory from CSV/XLSX/Sheets (sheets.js); leads from CSV/XLSX/Sheets with column mapping (leads preview/import). ImportPage.
 - **Stats:** Item usage (times quoted, etc.); StatsPage, ItemDetailPage.
-- **Settings:** Company, tax, currency, SMTP/IMAP. SettingsPage (operator).
+- **Settings:** Company, tax, currency, SMTP/IMAP; `count_oos_oversold` (whether out-of-stock items count toward dashboard conflict detection). SettingsPage (operator).
 - **Admin:** Users, approve/reject, roles, system settings (autokill, update check). AdminPage (admin).
 
 Where a feature is only partially implemented or has known gaps, see **KNOWN_GAPS.md**.

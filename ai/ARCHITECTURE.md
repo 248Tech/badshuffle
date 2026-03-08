@@ -21,7 +21,9 @@ badshuffle/
 │   ├── routes/
 │   │   ├── auth.js        # Login, logout, setup, forgot, reset, /me, extension-token, test-mail
 │   │   ├── quotes.js      # Quote CRUD, send/approve/revert, contract, files, payments, activity, custom items
-│   │   ├── items.js       # Items CRUD, categories, associations (bundles)
+│   │   ├── items.js       # Items CRUD, categories, associations (bundles), is_subrental, vendor_id
+│   │   ├── availability.js # Conflicts, subrental-needs, quote conflict check
+│   │   ├── vendors.js     # Vendors CRUD
 │   │   ├── leads.js       # Leads CRUD, preview/import (CSV/XLSX/Sheets), events
 │   │   ├── templates.js   # Email + contract templates
 │   │   ├── files.js       # Upload, list, delete; stored in uploads/
@@ -83,8 +85,8 @@ badshuffle/
 
 ## How Inventory, Quotes, and Operations Connect
 
-- **Inventory:** Items are the catalog. Quote line items reference items (quote_items.item_id). Item has unit_price, taxable, category (logistics vs equipment), quantity_in_stock (informational only — no reservation or pull logic).
-- **Quotes:** Consume items as line items; status draft/sent/approved. No separate "order" table; approved quote is the order. Totals: equipment subtotal, logistics/delivery subtotal, tax, grand total.
-- **Operations:** Only role-based (admin/operator/user) and presence. No pull sheet, no warehouse steps, no load/delivery/return state machine. Logistics is purely a category filter for display and totals.
+- **Inventory:** Items are the catalog; optional is_subrental and vendor_id for subrental sourcing. Quote line items reference items (quote_items.item_id). Item has unit_price, taxable, category (logistics vs equipment), quantity_in_stock. Availability engine compares reserved+potential quantities (by quote status and date range delivery→pickup) to stock; conflicts and subrental-needs surfaced on dashboard and in quote builder.
+- **Quotes:** Consume items as line items; status draft/sent/approved. Rental date fields: rental_start, rental_end, delivery_date, pickup_date (used for conflict overlap). No separate "order" table; approved quote is the order. Totals: equipment subtotal, logistics/delivery subtotal, tax, grand total.
+- **Operations:** Role-based (admin/operator/user) and presence. Availability/conflict detection (no pull sheet). No warehouse steps or load/delivery/return state machine. Logistics is a category filter for display and totals.
 
 For data model details see **DATA_MODELS.md**; for user-facing flows see **WORKFLOWS.md**.
