@@ -34,6 +34,7 @@ const NAV = [
   { to: '/messages',  label: 'Messages',  icon: '💬' },
   { to: '/stats',     label: 'Stats',     icon: '📊' },
   { to: '/extension', label: 'Extension', icon: '🧩' },
+  { to: '/vendors',   label: 'Vendors',   icon: '🏭', role: 'operator' },
   { to: '/admin',     label: 'Admin',     icon: '👥', role: 'admin' },
   { to: '/templates', label: 'Templates',  icon: '✉️', role: 'operator' },
   { to: '/settings',  label: 'Settings',  icon: '⚙️', role: 'operator' },

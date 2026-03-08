@@ -121,6 +121,11 @@ export const api = {
   ensureQuotePublicToken: (id) => request(`/quotes/${id}/ensure-public-token`, { method: 'POST' }),
   approveQuote: (id) => request(`/quotes/${id}/approve`, { method: 'POST' }),
   revertQuote: (id) => request(`/quotes/${id}/revert`, { method: 'POST' }),
+  confirmQuote: (id) => request(`/quotes/${id}/confirm`, { method: 'POST' }),
+  closeQuote: (id) => request(`/quotes/${id}/close`, { method: 'POST' }),
+  getDamageCharges: (id) => request(`/quotes/${id}/damage-charges`),
+  addDamageCharge: (id, body) => request(`/quotes/${id}/damage-charges`, { method: 'POST', body }),
+  removeDamageCharge: (id, cid) => request(`/quotes/${id}/damage-charges/${cid}`, { method: 'DELETE' }),
   getQuoteContract: (id) => request(`/quotes/${id}/contract`),
   getQuoteContractLogs: (id) => request(`/quotes/${id}/contract/logs`),
   updateQuoteContract: (id, body) => request(`/quotes/${id}/contract`, { method: 'PUT', body }),
@@ -196,6 +201,12 @@ export const api = {
   deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
   fileServeUrl: (id) => `/api/files/${id}/serve`,
 
+  // Quote adjustments (discounts / surcharges)
+  getAdjustments:    (qid)           => request(`/quotes/${qid}/adjustments`),
+  addAdjustment:     (qid, body)     => request(`/quotes/${qid}/adjustments`, { method: 'POST', body }),
+  updateAdjustment:  (qid, aid, body) => request(`/quotes/${qid}/adjustments/${aid}`, { method: 'PUT', body }),
+  removeAdjustment:  (qid, aid)      => request(`/quotes/${qid}/adjustments/${aid}`, { method: 'DELETE' }),
+
   // Custom quote items
   addCustomItem:    (qid, body)       => request(`/quotes/${qid}/custom-items`, { method: 'POST', body }),
   updateCustomItem: (qid, cid, body)  => request(`/quotes/${qid}/custom-items/${cid}`, { method: 'PUT', body }),
@@ -209,4 +220,15 @@ export const api = {
   getUnreadCount:    () => request('/messages/unread-count'),
   markMessageRead:   (id) => request('/messages/' + id + '/read', { method: 'PUT' }),
   deleteMessage:     (id) => request('/messages/' + id, { method: 'DELETE' }),
+
+  // Vendors
+  getVendors:    ()           => request('/vendors'),
+  createVendor:  (body)       => request('/vendors', { method: 'POST', body }),
+  updateVendor:  (id, body)   => request(`/vendors/${id}`, { method: 'PUT', body }),
+  deleteVendor:  (id)         => request(`/vendors/${id}`, { method: 'DELETE' }),
+
+  // Availability
+  getQuoteAvailability: (quoteId) => request(`/availability/quote/${quoteId}`),
+  getConflicts:         ()        => request('/availability/conflicts'),
+  getSubrentals:        ()        => request('/availability/subrentals'),
 };

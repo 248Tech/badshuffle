@@ -205,6 +205,17 @@
 }
 .emptyHint { font-size: 13px; color: var(--color-text-muted); font-style: italic; margin: 0; }
 
+.damageSection { margin-top: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1rem; }
+.damageSectionHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.damageSectionHeader h4 { margin: 0; font-size: 0.95rem; }
+.damageForm { background: var(--color-surface); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; }
+.damageList { list-style: none; padding: 0; margin: 0 0 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.damageItem { display: flex; gap: 0.75rem; align-items: center; padding: 0.45rem 0.75rem; background: var(--color-surface); border-radius: 6px; border-left: 3px solid #ef4444; }
+.damageTitle { flex: 1; font-weight: 500; font-size: 0.9rem; }
+.damageAmount { font-weight: 600; color: #ef4444; white-space: nowrap; font-size: 0.9rem; }
+.damageNote { font-size: 0.8rem; color: var(--color-text-muted); flex: 1; }
+.damageTotalRow { display: flex; justify-content: space-between; padding: 0.4rem 0.75rem; font-size: 0.9rem; font-weight: 600; }
+
 .modalOverlay {
   position: fixed;
   inset: 0;
@@ -285,6 +296,8 @@
   padding-top: 12px;
   border-top: 1px solid var(--color-border);
 }
+.totalsRowDiscount .totalsValue { color: #059669; }
+.totalsRowSurcharge .totalsValue { color: #d97706; }
 
 .totalsValueGrand {
   font-size: 18px;

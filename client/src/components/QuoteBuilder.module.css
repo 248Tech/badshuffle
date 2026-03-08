@@ -205,12 +205,13 @@
 }
 .qtyInput:focus { outline: none; border-color: var(--color-primary); }
 
-.unitPrice, .lineTotal {
+.lineTotal {
   font-size: 12px;
   color: var(--color-text-muted);
   white-space: nowrap;
+  font-weight: 600;
+  color: var(--color-text);
 }
-.lineTotal { font-weight: 600; color: var(--color-text); }
 
 .removeBtn {
   background: none;
@@ -590,3 +591,171 @@
   width: 100%;
   line-height: 1.2;
 }
+
+.conflictRed { margin-left: 5px; font-size: 14px; cursor: default; }
+.conflictYellow { margin-left: 5px; font-size: 14px; cursor: default; }
+
+/* Per-item price override */
+.unitPrice {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+}
+.unitPrice:hover { background: var(--color-surface); color: var(--color-primary); }
+.unitPriceOverride { color: #8b5cf6; font-weight: 600; }
+.clearOverrideBtn {
+  font-size: 10px;
+  line-height: 1;
+  padding: 0 2px;
+  background: none;
+  border: none;
+  color: #8b5cf6;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.clearOverrideBtn:hover { opacity: 1; }
+.priceEditWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.priceInput {
+  width: 64px;
+  padding: 2px 5px;
+  font-size: 12px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  text-align: right;
+}
+.priceInput:focus { outline: none; }
+.priceEditSave {
+  font-size: 12px;
+  padding: 2px 5px;
+  background: #22c55e;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1;
+}
+.priceEditCancel {
+  font-size: 12px;
+  padding: 2px 5px;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* Adjustments section */
+.adjHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.adjAddBtn {
+  font-size: 12px;
+  padding: 3px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.adjAddBtn:hover { background: var(--color-surface); color: var(--color-text); }
+.adjForm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+.adjLabelInput {
+  flex: 1;
+  min-width: 140px;
+  padding: 5px 8px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+.adjSelect {
+  padding: 5px 6px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+.adjAmountInput {
+  width: 72px;
+  padding: 5px 6px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  text-align: right;
+}
+.adjSaveBtn {
+  padding: 5px 12px;
+  font-size: 13px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.adjSaveBtn:hover { filter: brightness(1.1); }
+.adjList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.adjItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  font-size: 13px;
+}
+.adjBadge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.adjBadgeDiscount { background: #d1fae5; color: #065f46; }
+.adjBadgeSurcharge { background: #fef3c7; color: #92400e; }
+.adjLabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adjValue { font-weight: 600; white-space: nowrap; font-size: 12px; }
+.adjRemoveBtn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.adjRemoveBtn:hover { color: var(--color-danger); background: #fee; }

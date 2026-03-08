@@ -15,6 +15,45 @@ Consequences for the system.
 
 ---
 
+## 2026-03-07 — Price overrides stored on quote_items; tax not rescaled for adjustments
+
+Decision:
+`unit_price_override REAL` column on `quote_items` (nullable). Effective price = `COALESCE(unit_price_override, items.unit_price)`. Quote adjustments (discounts/surcharges) are stored in a separate `quote_adjustments` table and applied to the pre-tax base total. Tax is computed on raw taxable line-item amounts and is NOT rescaled when adjustments are applied.
+
+Reason:
+Storing the override on `quote_items` (not on `items`) keeps the master inventory price clean — an override is intentionally scoped to one booking. Nullable means "use base price" without an extra flag. For tax: applying tax on the original line-item amounts avoids the complexity of allocating fixed-amount discounts across taxable vs. non-taxable items. Operators who need precise tax-inclusive discounts can adjust the override prices directly.
+
+Impact:
+`COALESCE(qi.unit_price_override, i.unit_price)` used everywhere totals are computed (list, summary, detail, public quote). Clearing an override (setting null) reverts to base price on next load. Adjustments are order-independent (all percent adjustments share the same base), which is consistent and predictable for multi-adjustment quotes.
+
+---
+
+## 2026-03-07 — Quote lifecycle extended to confirmed + closed; damage charges on closed quotes
+
+Decision:
+Add two new status values to `quotes.status`: `confirmed` (approved → confirmed by operator action) and `closed` (post-event). Both are stored as plain strings in the existing column — no new DB columns. `confirmed` requires explicit operator intent and acts as a hard inventory reservation in the availability engine. `closed` releases inventory from availability calculations and unlocks damage charge entry. Reverting from `closed` is intentionally blocked (irreversible by design). A new `quote_damage_charges` table (quote_id, title, amount, note, created_by) holds post-event damage charges; only accessible when `status = 'closed'`.
+
+Reason:
+`confirmed` cannot be derived from existing fields (signed contract / has_unsigned_changes) without adding a dedicated column — so using the status string is cleaner and consistent. `closed` formalizes the post-event state that rental companies actually track: inventory is back in stock, client contract is closed, and any damage billing happens separately from the original quote total. Damage charges are stored as a separate table (not as custom line items) to keep the contract total immutable post-event and give operators a clear audit trail.
+
+Impact:
+Availability engine's `isReserved()` now returns `true` for `confirmed` unconditionally, `false` for `closed` unconditionally, and falls back to contract/flag logic for all other statuses. Both conflict endpoints exclude `closed` quotes from their queries. `markUnsignedChangesIfApproved` now fires for `confirmed` status too (item edits on a confirmed booking still flag unsigned changes). Frontend: status transition buttons on QuoteDetailPage (Approve / Confirm Booking / Close Quote / Revert to Draft); Billing tab shows damage charge section when closed; Dashboard adds Confirmed stat card, two new status colors.
+
+---
+
+## 2026-03-07 — Availability engine uses reserved/potential distinction; no new status column
+
+Decision:
+Conflicts are computed by classifying quotes into two buckets without adding any new column or status value. **Reserved** = quotes where `signed_contract IS NOT NULL OR has_unsigned_changes = 1`. **Potential** = all other active quotes that have items and at least one date field set. The availability engine counts both buckets against item `quantity_in_stock`; the dashboard surfaces conflicts when reserved+potential demand exceeds stock. The date range used for overlap is delivery_date → pickup_date (falling back to rental_start → rental_end).
+
+Reason:
+Adding a "soft-hold" or "tentative" status column would impose workflow semantics (users must explicitly set the status) and risk status drift (quotes left in wrong states). Using existing fields — contract presence and the unsigned-changes flag — lets the engine classify quotes automatically with no additional user action. Keeping the engine as a pure read-only computation over existing data means no write path changes and no migration risk.
+
+Impact:
+Availability is always computed on the fly (no materialized conflict table). Performance is acceptable at current scale (SQLite with indexed quote_items). If quote volume grows, a denormalized availability cache can be added without changing the classification logic. No changes to the quote status lifecycle (`draft`, `sent`, `approved`).
+
+---
+
 ## 2026-03-07 — Bun adopted as package manager and dev runtime; Node retained for packaging
 
 Decision:

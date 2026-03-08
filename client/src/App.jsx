@@ -21,6 +21,7 @@ import DashboardPage from './pages/DashboardPage.jsx';
 import FilesPage from './pages/FilesPage.jsx';
 import MessagesPage from './pages/MessagesPage.jsx';
 import BillingPage from './pages/BillingPage.jsx';
+import VendorsPage from './pages/VendorsPage.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import { api, getToken } from './api';
 
@@ -119,6 +120,7 @@ export default function App() {
                   <Route path="messages" element={<MessagesPage />} />
                   <Route path="admin" element={<AdminPage />} />
                   <Route path="templates" element={<TemplatesPage />} />
+                  <Route path="vendors" element={<VendorsPage />} />
                   <Route path="settings" element={<SettingsPage />} />
                 </Route>
               </Routes>

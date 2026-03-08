@@ -49,7 +49,7 @@ function EyeIcon({ hidden, className }) {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 75, 100, 250, 500];
 
-export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCustomItem, settings = {} }) {
+export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCustomItem, settings = {}, availability = {}, adjustments = [], onAdjustmentsChange }) {
   const toast = useToast();
   const [inventory, setInventory] = useState([]);
   const [inventoryTotal, setInventoryTotal] = useState(0);
@@ -63,6 +63,13 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
   const [localQty, setLocalQty] = useState({});
   const debounceRef = useRef(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  // Per-item price override inline editing
+  const [editingPriceId, setEditingPriceId] = useState(null);
+  const [priceInput, setPriceInput] = useState('');
+  // Adjustments form
+  const [showAdjForm, setShowAdjForm] = useState(false);
+  const [adjForm, setAdjForm] = useState({ label: '', type: 'discount', value_type: 'percent', amount: '' });
+  const [adjSaving, setAdjSaving] = useState(false);
 
   const filterMode = settings.quote_inventory_filter_mode || 'popular';
   const maxCategories = Math.max(1, Math.min(15, parseInt(settings.quote_inventory_max_categories, 10) || 10));
@@ -221,6 +228,73 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
     return String(item.quantity ?? 1);
   };
 
+  const startPriceEdit = (item) => {
+    const current = item.unit_price_override != null ? item.unit_price_override : (item.unit_price ?? 0);
+    setEditingPriceId(item.qitem_id);
+    setPriceInput(String(current));
+  };
+
+  const commitPriceEdit = async (item) => {
+    const raw = priceInput.trim();
+    const val = raw === '' ? null : parseFloat(raw);
+    if (raw !== '' && (isNaN(val) || val < 0)) {
+      toast.error('Invalid price');
+      return;
+    }
+    setEditingPriceId(null);
+    const isSameAsBase = val !== null && Math.abs(val - (item.unit_price ?? 0)) < 0.001;
+    const override = (val === null || isSameAsBase) ? null : val;
+    try {
+      await api.updateQuoteItem(quoteId, item.qitem_id, { unit_price_override: override });
+      onItemsChange();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
+  const clearPriceOverride = async (item) => {
+    try {
+      await api.updateQuoteItem(quoteId, item.qitem_id, { unit_price_override: null });
+      onItemsChange();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleAddAdjustment = async (e) => {
+    e.preventDefault();
+    const amt = parseFloat(adjForm.amount);
+    if (!adjForm.label || isNaN(amt) || amt < 0) return;
+    setAdjSaving(true);
+    try {
+      const d = await api.addAdjustment(quoteId, {
+        label: adjForm.label,
+        type: adjForm.type,
+        value_type: adjForm.value_type,
+        amount: amt,
+        sort_order: adjustments.length
+      });
+      if (onAdjustmentsChange) onAdjustmentsChange(d.adjustments || []);
+      setAdjForm({ label: '', type: 'discount', value_type: 'percent', amount: '' });
+      setShowAdjForm(false);
+      toast.success('Adjustment added');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setAdjSaving(false);
+    }
+  };
+
+  const handleRemoveAdjustment = async (adjId) => {
+    try {
+      const d = await api.removeAdjustment(quoteId, adjId);
+      if (onAdjustmentsChange) onAdjustmentsChange(d.adjustments || []);
+      toast.info('Adjustment removed');
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
   return (
     <div className={styles.builder}>
       {/* Current items */}
@@ -232,10 +306,14 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
         <div className={styles.quoteList}>
           {(items || []).map(item => {
             const qty = item.quantity ?? 1;
-            const unitPrice = item.unit_price ?? 0;
+            const basePrice = item.unit_price ?? 0;
+            const hasOverride = item.unit_price_override != null;
+            const unitPrice = hasOverride ? item.unit_price_override : basePrice;
             const lineTotal = unitPrice * qty;
             const lineLabor = (Number(item.labor_hours) || 0) * qty;
             const itemId = item.id ?? item.item_id;
+            const avail = itemId != null ? availability[itemId] : null;
+            const isEditingPrice = editingPriceId === item.qitem_id;
             return (
               <div key={item.qitem_id} className={`${styles.quoteItem} ${item.hidden_from_quote ? styles.quoteItemHidden : ''}`}>
                 <div className={styles.thumbWrap}>
@@ -266,8 +344,49 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
                   role={itemId != null ? 'button' : undefined}
                 >
                   {item.label || item.title}
+                  {avail && avail.status === 'reserved' && (
+                    <span className={styles.conflictRed} title={`Confirmed oversold (${avail.my_qty} needed / ${avail.stock} in stock)`}>😢</span>
+                  )}
+                  {avail && avail.status === 'potential' && (
+                    <span className={styles.conflictYellow} title={`Potential oversold (${avail.my_qty} needed / ${avail.stock} in stock)`}>🙁</span>
+                  )}
                 </span>
-                <span className={styles.unitPrice}>${unitPrice.toFixed(2)}</span>
+                {isEditingPrice ? (
+                  <span className={styles.priceEditWrap} onClick={e => e.stopPropagation()}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className={styles.priceInput}
+                      value={priceInput}
+                      onChange={e => setPriceInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') commitPriceEdit(item);
+                        if (e.key === 'Escape') setEditingPriceId(null);
+                      }}
+                      autoFocus
+                    />
+                    <button type="button" className={styles.priceEditSave} onClick={() => commitPriceEdit(item)} title="Save">✓</button>
+                    <button type="button" className={styles.priceEditCancel} onClick={() => setEditingPriceId(null)} title="Cancel">✕</button>
+                  </span>
+                ) : (
+                  <span
+                    className={`${styles.unitPrice} ${hasOverride ? styles.unitPriceOverride : ''}`}
+                    onClick={e => { e.stopPropagation(); startPriceEdit(item); }}
+                    title={hasOverride ? `Override: $${unitPrice.toFixed(2)} (base: $${basePrice.toFixed(2)}). Click to edit.` : `$${basePrice.toFixed(2)} — click to override for this quote`}
+                    role="button"
+                  >
+                    ${unitPrice.toFixed(2)}
+                    {hasOverride && (
+                      <button
+                        type="button"
+                        className={styles.clearOverrideBtn}
+                        onClick={e => { e.stopPropagation(); clearPriceOverride(item); }}
+                        title="Reset to base price"
+                      >✕</button>
+                    )}
+                  </span>
+                )}
                 <span className={styles.laborHours} title="Labor hours (this line)">{lineLabor > 0 ? `${lineLabor.toFixed(1)} hrs` : '—'}</span>
                 <div className={styles.qtyControl} onClick={e => e.stopPropagation()}>
                   <button type="button" onClick={() => updateQty(item.qitem_id, qty - 1)} aria-label="Decrease">−</button>
@@ -294,6 +413,68 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
             );
           })}
         </div>
+      </div>
+
+      {/* Adjustments */}
+      <div className={styles.section}>
+        <div className={styles.adjHeader}>
+          <h3 className={styles.sectionTitle}>Discounts &amp; Surcharges</h3>
+          <button type="button" className={styles.adjAddBtn} onClick={() => setShowAdjForm(v => !v)}>
+            {showAdjForm ? 'Cancel' : '+ Add'}
+          </button>
+        </div>
+        {showAdjForm && (
+          <form onSubmit={handleAddAdjustment} className={styles.adjForm}>
+            <input
+              required
+              placeholder="Label (e.g. Loyalty discount)"
+              value={adjForm.label}
+              onChange={e => setAdjForm(f => ({ ...f, label: e.target.value }))}
+              className={styles.adjLabelInput}
+            />
+            <select value={adjForm.type} onChange={e => setAdjForm(f => ({ ...f, type: e.target.value }))} className={styles.adjSelect}>
+              <option value="discount">Discount</option>
+              <option value="surcharge">Surcharge</option>
+            </select>
+            <select value={adjForm.value_type} onChange={e => setAdjForm(f => ({ ...f, value_type: e.target.value }))} className={styles.adjSelect}>
+              <option value="percent">%</option>
+              <option value="fixed">$</option>
+            </select>
+            <input
+              required
+              type="number"
+              min="0"
+              step="0.01"
+              max={adjForm.value_type === 'percent' ? 100 : undefined}
+              placeholder={adjForm.value_type === 'percent' ? '10' : '50.00'}
+              value={adjForm.amount}
+              onChange={e => setAdjForm(f => ({ ...f, amount: e.target.value }))}
+              className={styles.adjAmountInput}
+            />
+            <button type="submit" className={styles.adjSaveBtn} disabled={adjSaving}>
+              {adjSaving ? '…' : 'Add'}
+            </button>
+          </form>
+        )}
+        {adjustments.length > 0 ? (
+          <ul className={styles.adjList}>
+            {adjustments.map(adj => {
+              const typeBadge = adj.type === 'discount' ? styles.adjBadgeDiscount : styles.adjBadgeSurcharge;
+              return (
+                <li key={adj.id} className={styles.adjItem}>
+                  <span className={`${styles.adjBadge} ${typeBadge}`}>{adj.type}</span>
+                  <span className={styles.adjLabel}>{adj.label}</span>
+                  <span className={styles.adjValue}>
+                    {adj.value_type === 'percent' ? `${adj.amount}%` : `$${Number(adj.amount).toFixed(2)}`}
+                  </span>
+                  <button type="button" className={styles.adjRemoveBtn} onClick={() => handleRemoveAdjustment(adj.id)} title="Remove">✕</button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          !showAdjForm && <p className={styles.empty}>No adjustments.</p>
+        )}
       </div>
 
       {/* Inventory picker */}

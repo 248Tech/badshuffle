@@ -17,7 +17,8 @@ export default function SettingsPage() {
   const [quoteInventory, setQuoteInventory] = useState({
     quote_inventory_filter_mode: 'popular',
     quote_inventory_max_categories: '10',
-    quote_inventory_manual_categories: ''
+    quote_inventory_manual_categories: '',
+    count_oos_oversold: '0'
   });
   const [smtp, setSmtp] = useState({
     smtp_host: '', smtp_port: '587', smtp_secure: 'false',
@@ -59,7 +60,8 @@ export default function SettingsPage() {
         setQuoteInventory({
           quote_inventory_filter_mode: s.quote_inventory_filter_mode || 'popular',
           quote_inventory_max_categories: s.quote_inventory_max_categories || '10',
-          quote_inventory_manual_categories: s.quote_inventory_manual_categories || ''
+          quote_inventory_manual_categories: s.quote_inventory_manual_categories || '',
+          count_oos_oversold: s.count_oos_oversold || '0'
         });
         setSmtp({
           smtp_host: s.smtp_host || '',
@@ -520,6 +522,18 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </div>
+
+        <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>
+          <h3 className={styles.section}>Availability &amp; Conflicts</h3>
+          <label className={styles.checkRow}>
+            <input
+              type="checkbox"
+              checked={quoteInventory.count_oos_oversold === '1'}
+              onChange={e => setQuoteInventory(q => ({ ...q, count_oos_oversold: e.target.checked ? '1' : '0' }))}
+            />
+            <span>Count out-of-stock items (quantity = 0) as oversold in conflict detection</span>
+          </label>
         </div>
 
         <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>

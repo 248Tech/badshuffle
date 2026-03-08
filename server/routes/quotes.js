@@ -30,14 +30,16 @@ module.exports = function makeRouter(db, uploadsDir) {
       let taxableAmount = 0;
       try {
         const rows = db.prepare(`
-          SELECT qi.quantity, qi.hidden_from_quote, i.unit_price, i.taxable, i.category
+          SELECT qi.quantity, qi.hidden_from_quote, qi.unit_price_override,
+                 i.unit_price, i.taxable, i.category
           FROM quote_items qi
           JOIN items i ON i.id = qi.item_id
           WHERE qi.quote_id = ?
         `).all(q.id);
         rows.forEach(r => {
           if (r.hidden_from_quote) return;
-          const line = (r.quantity || 1) * (r.unit_price || 0);
+          const effectivePrice = r.unit_price_override != null ? r.unit_price_override : (r.unit_price || 0);
+          const line = (r.quantity || 1) * effectivePrice;
           subtotal += line;
           if (r.taxable) taxableAmount += line;
         });
@@ -63,7 +65,7 @@ module.exports = function makeRouter(db, uploadsDir) {
   router.get('/summary', (req, res) => {
     const allQuotes = db.prepare('SELECT id, name, status, event_date, guest_count, created_at, has_unsigned_changes FROM quotes').all();
 
-    const byStatus = { draft: 0, sent: 0, approved: 0 };
+    const byStatus = { draft: 0, sent: 0, approved: 0, confirmed: 0, closed: 0 };
     allQuotes.forEach(q => {
       const s = q.status || 'draft';
       byStatus[s] = (byStatus[s] || 0) + 1;
@@ -71,7 +73,7 @@ module.exports = function makeRouter(db, uploadsDir) {
 
     const revRows = db.prepare(`
       SELECT COALESCE(q.status, 'draft') AS status,
-             COALESCE(SUM(qi.quantity * i.unit_price), 0) AS revenue
+             COALESCE(SUM(qi.quantity * COALESCE(qi.unit_price_override, i.unit_price)), 0) AS revenue
       FROM quotes q
       LEFT JOIN quote_items qi ON qi.quote_id = q.id
       LEFT JOIN items i ON i.id = qi.item_id
@@ -323,6 +325,7 @@ module.exports = function makeRouter(db, uploadsDir) {
 
     const items = db.prepare(`
       SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote,
+             qi.unit_price_override,
              i.id, i.title, i.photo_url, i.source, i.hidden,
              i.unit_price, i.taxable, i.category, i.labor_hours
       FROM quote_items qi
@@ -335,7 +338,12 @@ module.exports = function makeRouter(db, uploadsDir) {
       'SELECT * FROM quote_custom_items WHERE quote_id = ? ORDER BY sort_order ASC, id ASC'
     ).all(req.params.id);
 
-    res.json({ ...quote, items, customItems });
+    let adjustments = [];
+    try {
+      adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(req.params.id);
+    } catch (e) {}
+
+    res.json({ ...quote, items, customItems, adjustments });
   });
 
   // POST /api/quotes
@@ -343,16 +351,18 @@ module.exports = function makeRouter(db, uploadsDir) {
     const body = req.body || {};
     const { name, guest_count = 0, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate } = body;
     const { client_first_name, client_last_name, client_email, client_phone, client_address } = body;
+    const { rental_start, rental_end, delivery_date, pickup_date } = body;
     if (!name) return res.status(400).json({ error: 'name required' });
 
     const result = db.prepare(
-      `INSERT INTO quotes (name, guest_count, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate, client_first_name, client_last_name, client_email, client_phone, client_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO quotes (name, guest_count, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate, client_first_name, client_last_name, client_email, client_phone, client_address, rental_start, rental_end, delivery_date, pickup_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       name, guest_count, event_date || null, notes || null,
       venue_name || null, venue_email || null, venue_phone || null, venue_address || null, venue_contact || null, venue_notes || null, quote_notes || null,
       tax_rate != null ? Number(tax_rate) : null,
-      client_first_name || null, client_last_name || null, client_email || null, client_phone || null, client_address || null
+      client_first_name || null, client_last_name || null, client_email || null, client_phone || null, client_address || null,
+      rental_start || null, rental_end || null, delivery_date || null, pickup_date || null
     );
 
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(result.lastInsertRowid);
@@ -364,30 +374,35 @@ module.exports = function makeRouter(db, uploadsDir) {
     const body = req.body || {};
     const { name, guest_count, event_date, notes, lead_id, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate } = body;
     const { client_first_name, client_last_name, client_email, client_phone, client_address } = body;
+    const { rental_start, rental_end, delivery_date, pickup_date } = body;
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     if (!quote) return res.status(404).json({ error: 'Not found' });
 
     db.prepare(`
       UPDATE quotes SET
-        name         = COALESCE(?, name),
-        guest_count  = COALESCE(?, guest_count),
-        event_date   = COALESCE(?, event_date),
-        notes        = COALESCE(?, notes),
-        lead_id      = COALESCE(?, lead_id),
-        venue_name   = COALESCE(?, venue_name),
-        venue_email  = COALESCE(?, venue_email),
-        venue_phone  = COALESCE(?, venue_phone),
-        venue_address= COALESCE(?, venue_address),
-        venue_contact= COALESCE(?, venue_contact),
-        venue_notes  = COALESCE(?, venue_notes),
-        quote_notes  = COALESCE(?, quote_notes),
-        tax_rate     = ?,
+        name          = COALESCE(?, name),
+        guest_count   = COALESCE(?, guest_count),
+        event_date    = COALESCE(?, event_date),
+        notes         = COALESCE(?, notes),
+        lead_id       = COALESCE(?, lead_id),
+        venue_name    = COALESCE(?, venue_name),
+        venue_email   = COALESCE(?, venue_email),
+        venue_phone   = COALESCE(?, venue_phone),
+        venue_address = COALESCE(?, venue_address),
+        venue_contact = COALESCE(?, venue_contact),
+        venue_notes   = COALESCE(?, venue_notes),
+        quote_notes   = COALESCE(?, quote_notes),
+        tax_rate      = ?,
         client_first_name = COALESCE(?, client_first_name),
         client_last_name  = COALESCE(?, client_last_name),
         client_email      = COALESCE(?, client_email),
         client_phone      = COALESCE(?, client_phone),
         client_address    = COALESCE(?, client_address),
-        updated_at   = datetime('now')
+        rental_start  = COALESCE(?, rental_start),
+        rental_end    = COALESCE(?, rental_end),
+        delivery_date = COALESCE(?, delivery_date),
+        pickup_date   = COALESCE(?, pickup_date),
+        updated_at    = datetime('now')
       WHERE id = ?
     `).run(
       name !== undefined ? name : null,
@@ -408,6 +423,10 @@ module.exports = function makeRouter(db, uploadsDir) {
       client_email !== undefined ? client_email : null,
       client_phone !== undefined ? client_phone : null,
       client_address !== undefined ? client_address : null,
+      rental_start !== undefined ? (rental_start || null) : null,
+      rental_end !== undefined ? (rental_end || null) : null,
+      delivery_date !== undefined ? (delivery_date || null) : null,
+      pickup_date !== undefined ? (pickup_date || null) : null,
       req.params.id
     );
 
@@ -508,10 +527,152 @@ module.exports = function makeRouter(db, uploadsDir) {
 
   function markUnsignedChangesIfApproved(quoteId) {
     const q = db.prepare('SELECT status FROM quotes WHERE id = ?').get(quoteId);
-    if (q && (q.status || '') === 'approved') {
+    if (q && (q.status === 'approved' || q.status === 'confirmed')) {
       db.prepare('UPDATE quotes SET has_unsigned_changes = 1, updated_at = datetime(\'now\') WHERE id = ?').run(quoteId);
     }
   }
+
+  // POST /api/quotes/:id/confirm — transition approved → confirmed (hard inventory reservation)
+  router.post('/:id/confirm', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    if ((quote.status || 'draft') !== 'approved') {
+      return res.status(400).json({ error: 'Quote must be in "approved" status to confirm' });
+    }
+    db.prepare("UPDATE quotes SET status = 'confirmed', has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?")
+      .run(req.params.id);
+    logActivity(req.params.id, 'status_changed', 'Quote confirmed — inventory reserved', 'approved', 'confirmed', req);
+    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    res.json({ quote: updated });
+  });
+
+  // POST /api/quotes/:id/close — transition confirmed → closed (post-event, releases inventory)
+  router.post('/:id/close', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    if ((quote.status || 'draft') !== 'confirmed') {
+      return res.status(400).json({ error: 'Quote must be in "confirmed" status to close' });
+    }
+    db.prepare("UPDATE quotes SET status = 'closed', updated_at = datetime('now') WHERE id = ?")
+      .run(req.params.id);
+    logActivity(req.params.id, 'status_changed', 'Quote closed — inventory released, damage charges enabled', 'confirmed', 'closed', req);
+    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    res.json({ quote: updated });
+  });
+
+  // GET /api/quotes/:id/damage-charges
+  router.get('/:id/damage-charges', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    let charges = [];
+    try {
+      charges = db.prepare('SELECT * FROM quote_damage_charges WHERE quote_id = ? ORDER BY created_at DESC').all(req.params.id);
+    } catch (e) {}
+    res.json({ charges });
+  });
+
+  // POST /api/quotes/:id/damage-charges — add a damage charge (closed quotes only)
+  router.post('/:id/damage-charges', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    if ((quote.status || 'draft') !== 'closed') {
+      return res.status(400).json({ error: 'Damage charges can only be added to closed quotes' });
+    }
+    const { title, amount, note } = req.body || {};
+    if (!title) return res.status(400).json({ error: 'title required' });
+    const amt = parseFloat(amount);
+    if (isNaN(amt) || amt <= 0) return res.status(400).json({ error: 'amount must be a positive number' });
+    const userId = req.user && req.user.sub;
+    try {
+      db.prepare(
+        'INSERT INTO quote_damage_charges (quote_id, title, amount, note, created_by) VALUES (?, ?, ?, ?, ?)'
+      ).run(req.params.id, title, amt, note || null, userId || null);
+      logActivity(req.params.id, 'damage_charge_added', `Damage charge added: ${title} ($${amt.toFixed(2)})`, null, amt.toFixed(2), req);
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+    const charges = db.prepare('SELECT * FROM quote_damage_charges WHERE quote_id = ? ORDER BY created_at DESC').all(req.params.id);
+    res.status(201).json({ charges });
+  });
+
+  // DELETE /api/quotes/:id/damage-charges/:cid
+  router.delete('/:id/damage-charges/:cid', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    const charge = db.prepare('SELECT * FROM quote_damage_charges WHERE id = ? AND quote_id = ?').get(req.params.cid, req.params.id);
+    if (!charge) return res.status(404).json({ error: 'Charge not found' });
+    db.prepare('DELETE FROM quote_damage_charges WHERE id = ?').run(req.params.cid);
+    logActivity(req.params.id, 'damage_charge_removed', `Damage charge removed: ${charge.title} ($${Number(charge.amount).toFixed(2)})`, Number(charge.amount).toFixed(2), null, req);
+    const charges = db.prepare('SELECT * FROM quote_damage_charges WHERE quote_id = ? ORDER BY created_at DESC').all(req.params.id);
+    res.json({ deleted: true, charges });
+  });
+
+  // GET /api/quotes/:id/adjustments
+  router.get('/:id/adjustments', (req, res) => {
+    const quote = db.prepare('SELECT id FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    let adjustments = [];
+    try {
+      adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(req.params.id);
+    } catch (e) {}
+    res.json({ adjustments });
+  });
+
+  // POST /api/quotes/:id/adjustments
+  router.post('/:id/adjustments', (req, res) => {
+    const quote = db.prepare('SELECT id FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    const { label, type, value_type, amount, sort_order } = req.body || {};
+    if (!label) return res.status(400).json({ error: 'label required' });
+    if (!['discount', 'surcharge'].includes(type)) return res.status(400).json({ error: 'type must be discount or surcharge' });
+    if (!['percent', 'fixed'].includes(value_type)) return res.status(400).json({ error: 'value_type must be percent or fixed' });
+    const amt = parseFloat(amount);
+    if (isNaN(amt) || amt < 0) return res.status(400).json({ error: 'amount must be a non-negative number' });
+    if (value_type === 'percent' && amt > 100) return res.status(400).json({ error: 'percent amount cannot exceed 100' });
+    try {
+      db.prepare(
+        'INSERT INTO quote_adjustments (quote_id, label, type, value_type, amount, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(req.params.id, label, type, value_type, amt, sort_order != null ? sort_order : 0);
+      logActivity(req.params.id, 'adjustment_added', `${type === 'discount' ? 'Discount' : 'Surcharge'} added: ${label} (${value_type === 'percent' ? amt + '%' : '$' + amt.toFixed(2)})`, null, null, req);
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+    const adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(req.params.id);
+    markUnsignedChangesIfApproved(req.params.id);
+    res.status(201).json({ adjustments });
+  });
+
+  // PUT /api/quotes/:id/adjustments/:aid
+  router.put('/:id/adjustments/:aid', (req, res) => {
+    const adj = db.prepare('SELECT * FROM quote_adjustments WHERE id = ? AND quote_id = ?').get(req.params.aid, req.params.id);
+    if (!adj) return res.status(404).json({ error: 'Adjustment not found' });
+    const { label, type, value_type, amount, sort_order } = req.body || {};
+    const newLabel = label !== undefined ? label : adj.label;
+    const newType = type !== undefined ? type : adj.type;
+    const newValueType = value_type !== undefined ? value_type : adj.value_type;
+    const newAmt = amount !== undefined ? parseFloat(amount) : adj.amount;
+    const newSort = sort_order !== undefined ? sort_order : adj.sort_order;
+    if (!['discount', 'surcharge'].includes(newType)) return res.status(400).json({ error: 'type must be discount or surcharge' });
+    if (!['percent', 'fixed'].includes(newValueType)) return res.status(400).json({ error: 'value_type must be percent or fixed' });
+    if (isNaN(newAmt) || newAmt < 0) return res.status(400).json({ error: 'amount must be a non-negative number' });
+    db.prepare(
+      'UPDATE quote_adjustments SET label=?, type=?, value_type=?, amount=?, sort_order=? WHERE id=?'
+    ).run(newLabel, newType, newValueType, newAmt, newSort, req.params.aid);
+    markUnsignedChangesIfApproved(req.params.id);
+    const adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(req.params.id);
+    res.json({ adjustments });
+  });
+
+  // DELETE /api/quotes/:id/adjustments/:aid
+  router.delete('/:id/adjustments/:aid', (req, res) => {
+    const adj = db.prepare('SELECT * FROM quote_adjustments WHERE id = ? AND quote_id = ?').get(req.params.aid, req.params.id);
+    if (!adj) return res.status(404).json({ error: 'Adjustment not found' });
+    db.prepare('DELETE FROM quote_adjustments WHERE id = ?').run(req.params.aid);
+    logActivity(req.params.id, 'adjustment_removed', `Adjustment removed: ${adj.label}`, null, null, req);
+    markUnsignedChangesIfApproved(req.params.id);
+    const adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(req.params.id);
+    res.json({ deleted: true, adjustments });
+  });
 
   // POST /api/quotes/:id/approve — set status to 'approved'
   router.post('/:id/approve', (req, res) => {
@@ -648,27 +809,35 @@ module.exports = function makeRouter(db, uploadsDir) {
 
   // PUT /api/quotes/:id/items/:qitem_id
   router.put('/:id/items/:qitem_id', (req, res) => {
-    const { quantity, label, sort_order, hidden_from_quote } = req.body;
+    const { quantity, label, sort_order, hidden_from_quote, unit_price_override } = req.body;
     const oldRow = db.prepare(`
-      SELECT qi.quantity, qi.label, i.title as item_title, i.unit_price
+      SELECT qi.quantity, qi.label, qi.unit_price_override, i.title as item_title, i.unit_price
       FROM quote_items qi
       JOIN items i ON i.id = qi.item_id
       WHERE qi.id = ? AND qi.quote_id = ?
     `).get(req.params.qitem_id, req.params.id);
     if (!oldRow) return res.status(404).json({ error: 'Not found' });
 
+    // unit_price_override: explicit null clears it, a number sets it, undefined leaves unchanged
+    let newOverride = oldRow.unit_price_override;
+    if (unit_price_override !== undefined) {
+      newOverride = unit_price_override === null ? null : parseFloat(unit_price_override);
+    }
+
     db.prepare(`
       UPDATE quote_items SET
-        quantity   = COALESCE(?, quantity),
-        label      = COALESCE(?, label),
-        sort_order = COALESCE(?, sort_order),
-        hidden_from_quote = COALESCE(?, hidden_from_quote)
+        quantity           = COALESCE(?, quantity),
+        label              = COALESCE(?, label),
+        sort_order         = COALESCE(?, sort_order),
+        hidden_from_quote  = COALESCE(?, hidden_from_quote),
+        unit_price_override = ?
       WHERE id = ? AND quote_id = ?
     `).run(
       quantity !== undefined ? quantity : null,
       label !== undefined ? label : null,
       sort_order !== undefined ? sort_order : null,
       hidden_from_quote !== undefined ? (hidden_from_quote ? 1 : 0) : null,
+      newOverride !== undefined ? newOverride : null,
       req.params.qitem_id,
       req.params.id
     );

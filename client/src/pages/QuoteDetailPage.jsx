@@ -12,23 +12,35 @@ import styles from './QuoteDetailPage.module.css';
 
 const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
 
-function computeTotals(items, customItems, taxRate) {
+function effectivePrice(it) {
+  return it.unit_price_override != null ? it.unit_price_override : (it.unit_price || 0);
+}
+
+function computeAdjustmentsTotal(adjustments, preTaxBase) {
+  return (adjustments || []).reduce((sum, adj) => {
+    const val = adj.value_type === 'percent' ? preTaxBase * (adj.amount / 100) : adj.amount;
+    return sum + (adj.type === 'discount' ? -val : val);
+  }, 0);
+}
+
+function computeTotals(items, customItems, adjustments, taxRate) {
   const list = items || [];
   const equipment = list.filter(it => !isLogistics(it));
   const logistics = list.filter(it => isLogistics(it));
   const laborHours = list.reduce((sum, it) => sum + (Number(it.labor_hours) || 0) * (it.quantity || 1), 0);
-  const subtotal = equipment.reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
-  const deliveryTotal = logistics.reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
-  const taxableEquipment = equipment.filter(it => it.taxable !== 0).reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
-  const taxableDelivery = logistics.filter(it => it.taxable !== 0).reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
-  // Custom items
+  const subtotal = equipment.reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
+  const deliveryTotal = logistics.reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
+  const taxableEquipment = equipment.filter(it => it.taxable !== 0).reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
+  const taxableDelivery = logistics.filter(it => it.taxable !== 0).reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
   const ciList = customItems || [];
   const customSubtotal = ciList.reduce((sum, ci) => sum + (ci.unit_price || 0) * (ci.quantity || 1), 0);
   const taxableCustom = ciList.filter(ci => ci.taxable !== 0).reduce((sum, ci) => sum + (ci.unit_price || 0) * (ci.quantity || 1), 0);
+  const preTaxBase = subtotal + deliveryTotal + customSubtotal;
+  const adjTotal = computeAdjustmentsTotal(adjustments, preTaxBase);
   const rate = parseFloat(taxRate) || 0;
   const tax = (taxableEquipment + taxableDelivery + taxableCustom) * (rate / 100);
-  const grandTotal = subtotal + deliveryTotal + customSubtotal + tax;
-  return { laborHours, subtotal, deliveryTotal, customSubtotal, tax, total: grandTotal, rate };
+  const grandTotal = preTaxBase + adjTotal + tax;
+  return { laborHours, subtotal, deliveryTotal, customSubtotal, adjTotal, tax, total: grandTotal, rate };
 }
 
 export default function QuoteDetailPage() {
@@ -73,16 +85,32 @@ export default function QuoteDetailPage() {
   const [showFilePicker, setShowFilePicker] = useState(false);
   // Logs tab
   const [activity, setActivity] = useState([]);
+  // Availability
+  const [availability, setAvailability] = useState({});
+  // Adjustments
+  const [adjustments, setAdjustments] = useState([]);
+  // Status transitions
+  const [transitioning, setTransitioning] = useState(false);
+  // Damage charges (closed quotes)
+  const [damageCharges, setDamageCharges] = useState([]);
+  const [showDamageForm, setShowDamageForm] = useState(false);
+  const [damageForm, setDamageForm] = useState({ title: '', amount: '', note: '' });
+  const [damageSaving, setDamageSaving] = useState(false);
 
   const load = useCallback(() => {
     api.getQuote(id)
       .then(data => {
         setQuote(data);
         setCustomItems(data.customItems || []);
+        setAdjustments(data.adjustments || []);
         setForm({
           name: data.name,
           guest_count: data.guest_count || '',
           event_date: data.event_date || '',
+          rental_start: data.rental_start || '',
+          rental_end: data.rental_end || '',
+          delivery_date: data.delivery_date || '',
+          pickup_date: data.pickup_date || '',
           notes: data.notes || '',
           venue_name: data.venue_name || '',
           venue_email: data.venue_email || '',
@@ -109,6 +137,10 @@ export default function QuoteDetailPage() {
   }, []);
   useEffect(() => {
     if (!id) return;
+    api.getQuoteAvailability(id).then(d => setAvailability(d.conflicts || {})).catch(() => {});
+  }, [id, quote?.items?.length]);
+  useEffect(() => {
+    if (!id) return;
     api.getQuoteFiles(id).then(d => setQuoteFiles(d.files || [])).catch(() => setQuoteFiles([]));
   }, [id]);
 
@@ -133,6 +165,11 @@ export default function QuoteDetailPage() {
     if (detailTab !== 'billing' || !id) return;
     api.getQuotePayments(id).then(d => setPayments(d.payments || [])).catch(() => setPayments([]));
   }, [detailTab, id]);
+
+  useEffect(() => {
+    if (!id || !quote || (quote.status || 'draft') !== 'closed') return;
+    api.getDamageCharges(id).then(d => setDamageCharges(d.charges || [])).catch(() => {});
+  }, [id, quote?.status]);
 
   useEffect(() => {
     if (detailTab !== 'logs' || !id) return;
@@ -222,6 +259,10 @@ export default function QuoteDetailPage() {
         name: (quote.name || 'Quote') + ' (copy)',
         guest_count: quote.guest_count ?? 0,
         event_date: quote.event_date || null,
+        rental_start: quote.rental_start || null,
+        rental_end: quote.rental_end || null,
+        delivery_date: quote.delivery_date || null,
+        pickup_date: quote.pickup_date || null,
         notes: quote.notes || null,
         venue_name: quote.venue_name || null,
         venue_email: quote.venue_email || null,
@@ -274,6 +315,10 @@ export default function QuoteDetailPage() {
         name: form.name,
         guest_count: Number(form.guest_count) || 0,
         event_date: form.event_date || null,
+        rental_start: form.rental_start || null,
+        rental_end: form.rental_end || null,
+        delivery_date: form.delivery_date || null,
+        pickup_date: form.pickup_date || null,
         notes: null,
         venue_name: form.venue_name || null,
         venue_email: form.venue_email || null,
@@ -394,6 +439,89 @@ export default function QuoteDetailPage() {
     }
   };
 
+  const handleApprove = async () => {
+    setTransitioning(true);
+    try {
+      const d = await api.approveQuote(id);
+      setQuote(d.quote);
+      toast.success('Quote approved');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  const handleRevert = async () => {
+    if (!window.confirm('Revert this quote to draft?')) return;
+    setTransitioning(true);
+    try {
+      const d = await api.revertQuote(id);
+      setQuote(d.quote);
+      toast.success('Quote reverted to draft');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!window.confirm('Confirm this quote? This creates a hard inventory reservation.')) return;
+    setTransitioning(true);
+    try {
+      const d = await api.confirmQuote(id);
+      setQuote(d.quote);
+      toast.success('Quote confirmed — inventory reserved');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  const handleClose = async () => {
+    if (!window.confirm('Close this quote? This marks the event as complete and releases inventory.')) return;
+    setTransitioning(true);
+    try {
+      const d = await api.closeQuote(id);
+      setQuote(d.quote);
+      toast.success('Quote closed');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  const handleAddDamageCharge = async (e) => {
+    e.preventDefault();
+    const amt = parseFloat(damageForm.amount);
+    if (!damageForm.title || isNaN(amt) || amt <= 0) return;
+    setDamageSaving(true);
+    try {
+      const d = await api.addDamageCharge(id, { title: damageForm.title, amount: amt, note: damageForm.note || null });
+      setDamageCharges(d.charges || []);
+      setDamageForm({ title: '', amount: '', note: '' });
+      setShowDamageForm(false);
+      toast.success('Damage charge added');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setDamageSaving(false);
+    }
+  };
+
+  const handleRemoveDamageCharge = async (cid) => {
+    try {
+      const d = await api.removeDamageCharge(id, cid);
+      setDamageCharges(d.charges || []);
+      toast.info('Damage charge removed');
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
   const handleAddCustomItem = async (e) => {
     e.preventDefault();
     try {
@@ -428,7 +556,7 @@ export default function QuoteDetailPage() {
 
   const taxRate = quote.tax_rate != null ? quote.tax_rate : settings.tax_rate;
   const visibleItems = (quote.items || []).filter(i => !i.hidden_from_quote);
-  const totals = computeTotals(visibleItems, customItems, taxRate);
+  const totals = computeTotals(visibleItems, customItems, adjustments, taxRate);
   const logisticsItems = (quote.items || []).filter(it => (it.category || '').toLowerCase().includes('logistics'));
 
   return (
@@ -458,6 +586,26 @@ export default function QuoteDetailPage() {
             </div>
           </div>
           <div className={styles.topDivActions}>
+            {(quote.status || 'draft') === 'sent' && (
+              <button type="button" className="btn btn-primary btn-sm" disabled={transitioning} onClick={handleApprove}>
+                {transitioning ? '…' : 'Mark Approved'}
+              </button>
+            )}
+            {(quote.status || 'draft') === 'approved' && (
+              <button type="button" className="btn btn-primary btn-sm" disabled={transitioning} onClick={handleConfirm}>
+                {transitioning ? '…' : 'Confirm Booking'}
+              </button>
+            )}
+            {(quote.status || 'draft') === 'confirmed' && (
+              <button type="button" className="btn btn-primary btn-sm" disabled={transitioning} onClick={handleClose}>
+                {transitioning ? '…' : 'Close Quote'}
+              </button>
+            )}
+            {['sent', 'approved', 'confirmed'].includes(quote.status || 'draft') && (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={transitioning} onClick={handleRevert}>
+                {transitioning ? '…' : 'Revert to Draft'}
+              </button>
+            )}
             <button type="button" className="btn btn-primary btn-sm" onClick={handleSendClick} title="Email quote link to client">
               Send to Client
             </button>
@@ -521,6 +669,27 @@ export default function QuoteDetailPage() {
                 <label>Event date</label>
                 <input type="date" value={form.event_date}
                   onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} />
+              </div>
+            </div>
+            <div className={styles.formSection}>
+              <h4 className={styles.formSectionTitle}>Rental period</h4>
+              <div className={styles.formRow}>
+                <div className="form-group">
+                  <label>Delivery date</label>
+                  <input type="date" value={form.delivery_date || ''} onChange={e => setForm(f => ({ ...f, delivery_date: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label>Rental start</label>
+                  <input type="date" value={form.rental_start || ''} onChange={e => setForm(f => ({ ...f, rental_start: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label>Rental end</label>
+                  <input type="date" value={form.rental_end || ''} onChange={e => setForm(f => ({ ...f, rental_end: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label>Pickup date</label>
+                  <input type="date" value={form.pickup_date || ''} onChange={e => setForm(f => ({ ...f, pickup_date: e.target.value }))} />
+                </div>
               </div>
             </div>
             <div className="form-group">
@@ -720,6 +889,9 @@ export default function QuoteDetailPage() {
             onItemsChange={load}
             onAddCustomItem={() => setShowCustomForm(true)}
             settings={settings}
+            availability={availability}
+            adjustments={adjustments}
+            onAdjustmentsChange={setAdjustments}
           />
           {showCustomForm && (
             <form onSubmit={handleAddCustomItem} className={styles.customItemForm}>
@@ -810,6 +982,17 @@ export default function QuoteDetailPage() {
                     <span className={styles.totalsValue}>${totals.deliveryTotal.toFixed(2)}</span>
                   </div>
                 )}
+                {adjustments.map(adj => {
+                  const preTax = totals.subtotal + totals.deliveryTotal + totals.customSubtotal;
+                  const val = adj.value_type === 'percent' ? preTax * (adj.amount / 100) : adj.amount;
+                  const sign = adj.type === 'discount' ? '-' : '+';
+                  return (
+                    <div key={adj.id} className={`${styles.totalsRow} ${adj.type === 'discount' ? styles.totalsRowDiscount : styles.totalsRowSurcharge}`}>
+                      <span className={styles.totalsLabel}>{adj.label} {adj.value_type === 'percent' ? `(${adj.amount}%)` : ''}</span>
+                      <span className={styles.totalsValue}>{sign}${val.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
                 {totals.rate > 0 && (
                   <div className={styles.totalsRow}>
                     <span className={styles.totalsLabel}>Tax ({totals.rate}%)</span>
@@ -838,7 +1021,7 @@ export default function QuoteDetailPage() {
                 {logisticsItems.map(it => (
                   <li key={it.qitem_id} className={styles.logisticsItem}>
                     <span className={styles.logisticsItemName}>{it.label || it.title} ×{it.quantity || 1}</span>
-                    {it.unit_price > 0 && <span>${(it.unit_price * (it.quantity || 1)).toFixed(2)}</span>}
+                    {(it.unit_price_override != null ? it.unit_price_override : it.unit_price) > 0 && <span>${((it.unit_price_override != null ? it.unit_price_override : it.unit_price) * (it.quantity || 1)).toFixed(2)}</span>}
                     <button type="button" className={styles.logRemoveBtn} onClick={() => handleRemoveLogisticsItem(it.qitem_id, it.label || it.title)}>✕</button>
                   </li>
                 ))}
@@ -942,6 +1125,69 @@ export default function QuoteDetailPage() {
                 </table>
               ) : (
                 <p className={styles.emptyHint}>No payments recorded yet.</p>
+              )}
+              {quote.status === 'closed' && (
+                <div className={styles.damageSection}>
+                  <div className={styles.damageSectionHeader}>
+                    <h4>Damage Charges</h4>
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowDamageForm(v => !v)}>
+                      {showDamageForm ? 'Cancel' : '+ Add Damage Charge'}
+                    </button>
+                  </div>
+                  {showDamageForm && (
+                    <form onSubmit={handleAddDamageCharge} className={styles.damageForm}>
+                      <div className={styles.formRow}>
+                        <div className="form-group" style={{ flex: 2 }}>
+                          <label>Description *</label>
+                          <input required value={damageForm.title}
+                            onChange={e => setDamageForm(f => ({ ...f, title: e.target.value }))}
+                            placeholder="e.g. Broken chair leg" />
+                        </div>
+                        <div className="form-group">
+                          <label>Amount ($) *</label>
+                          <input type="number" min="0.01" step="0.01" required
+                            value={damageForm.amount}
+                            onChange={e => setDamageForm(f => ({ ...f, amount: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="form-group">
+                        <label>Note (optional)</label>
+                        <input value={damageForm.note}
+                          onChange={e => setDamageForm(f => ({ ...f, note: e.target.value }))}
+                          placeholder="Internal note" />
+                      </div>
+                      <div className={styles.formActions}>
+                        <button type="submit" className="btn btn-primary btn-sm" disabled={damageSaving}>
+                          {damageSaving ? 'Saving…' : 'Add Charge'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                  {damageCharges.length === 0 ? (
+                    <p className={styles.emptyHint}>No damage charges recorded.</p>
+                  ) : (
+                    <ul className={styles.damageList}>
+                      {damageCharges.map(c => (
+                        <li key={c.id} className={styles.damageItem}>
+                          <span className={styles.damageTitle}>{c.title}</span>
+                          <span className={styles.damageAmount}>${Number(c.amount).toFixed(2)}</span>
+                          {c.note && <span className={styles.damageNote}>{c.note}</span>}
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleRemoveDamageCharge(c.id)}>
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {damageCharges.length > 0 && (
+                    <div className={styles.damageTotalRow}>
+                      <span>Total damage charges</span>
+                      <span className={styles.damageAmount}>
+                        ${damageCharges.reduce((s, c) => s + Number(c.amount), 0).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

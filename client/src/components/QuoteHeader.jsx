@@ -15,7 +15,7 @@ export default function QuoteHeader({
   showTopRow = true,
 }) {
   const status = quote.status || 'draft';
-  const showUnsignedChanges = status === 'approved' && quote.has_unsigned_changes;
+  const showUnsignedChanges = (status === 'approved' || status === 'confirmed') && quote.has_unsigned_changes;
   const displayStatus = showUnsignedChanges ? 'Unsigned Changes' : status;
   const badgeClass = showUnsignedChanges ? styles.badge_unsigned_changes : styles['badge_' + status];
   const date = quote.event_date

@@ -7,7 +7,7 @@ const ALLOWED_KEYS = [
   'imap_host', 'imap_port', 'imap_secure', 'imap_user', 'imap_pass_enc', 'imap_poll_enabled',
   'quote_inventory_filter_mode', 'quote_inventory_max_categories', 'quote_inventory_manual_categories',
   'recaptcha_enabled', 'recaptcha_site_key', 'recaptcha_secret_key',
-  'company_address', 'mapbox_access_token',
+  'company_address', 'mapbox_access_token', 'count_oos_oversold',
 ];
 
 module.exports = function makeRouter(db) {

@@ -121,6 +121,7 @@ async function start() {
     if (!quote) return res.status(404).json({ error: 'Not found' });
     const allItems = db.prepare(`
       SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote,
+             qi.unit_price_override,
              i.id, i.title, i.photo_url, i.unit_price, i.taxable, i.category, i.description
       FROM quote_items qi
       JOIN items i ON i.id = qi.item_id
@@ -152,7 +153,11 @@ async function start() {
     let company_logo = company.company_logo ?? '';
     const signed_company_logo = (company_logo && /^\d+$/.test(String(company_logo).trim()))
       ? getSignedFileServePath(String(company_logo).trim(), '/api/files') : null;
-    res.json({ ...quote, items, customItems, contract, company_name, company_email, company_logo, signed_company_logo });
+    let adjustments = [];
+    try {
+      adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(quote.id);
+    } catch (e) {}
+    res.json({ ...quote, items, customItems, contract, adjustments, company_name, company_email, company_logo, signed_company_logo });
   });
 
   // Public quote approve by token (no auth)
@@ -210,8 +215,10 @@ async function start() {
   app.use('/api/leads',       auth, require('./routes/leads')(db));
   app.use('/api/messages',    auth, require('./routes/messages')(db));
   app.use('/api/admin',       requireAdminDb, require('./routes/admin')(db));
-  app.use('/api/billing',    auth, requireOperatorDb, require('./routes/billing')(db));
-  app.use('/api/presence',   auth, require('./routes/presence')());
+  app.use('/api/billing',       auth, requireOperatorDb, require('./routes/billing')(db));
+  app.use('/api/presence',      auth, require('./routes/presence')());
+  app.use('/api/vendors',       auth, require('./routes/vendors')(db));
+  app.use('/api/availability',  auth, require('./routes/availability')(db));
 
   // API 404 — return JSON so clients get a consistent error shape
   app.use('/api', (req, res) => {

@@ -154,18 +154,20 @@ module.exports = function makeRouter(db) {
   router.post('/', (req, res) => {
     const {
       title, photo_url, source = 'manual', hidden = 0,
-      quantity_in_stock = 0, unit_price = 0, category, description, taxable = 1, labor_hours = 0
+      quantity_in_stock = 0, unit_price = 0, category, description, taxable = 1, labor_hours = 0,
+      is_subrental = 0, vendor_id
     } = req.body;
     if (!title) return res.status(400).json({ error: 'title required' });
 
     try {
       const result = db.prepare(`
-        INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, taxable, labor_hours)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, taxable, labor_hours, is_subrental, vendor_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         title, photo_url || null, source, hidden ? 1 : 0,
         quantity_in_stock, unit_price, category || null, description || null, taxable ? 1 : 0,
-        labor_hours != null ? labor_hours : 0
+        labor_hours != null ? labor_hours : 0,
+        is_subrental ? 1 : 0, vendor_id != null ? vendor_id : null
       );
       const item = db.prepare('SELECT * FROM items WHERE id = ?').get(result.lastInsertRowid);
       res.status(201).json({ item });
@@ -179,7 +181,8 @@ module.exports = function makeRouter(db) {
   router.put('/:id', (req, res) => {
     const {
       title, photo_url, source, hidden,
-      quantity_in_stock, unit_price, category, description, taxable, labor_hours
+      quantity_in_stock, unit_price, category, description, taxable, labor_hours,
+      is_subrental, vendor_id
     } = req.body;
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
     if (!item) return res.status(404).json({ error: 'Not found' });
@@ -196,6 +199,8 @@ module.exports = function makeRouter(db) {
         description       = COALESCE(?, description),
         taxable           = COALESCE(?, taxable),
         labor_hours       = COALESCE(?, labor_hours),
+        is_subrental      = COALESCE(?, is_subrental),
+        vendor_id         = COALESCE(?, vendor_id),
         updated_at        = datetime('now')
       WHERE id = ?
     `).run(
@@ -209,6 +214,8 @@ module.exports = function makeRouter(db) {
       description !== undefined ? (description || null) : null,
       taxable != null ? (taxable ? 1 : 0) : null,
       labor_hours !== undefined ? (labor_hours != null ? labor_hours : 0) : null,
+      is_subrental !== undefined ? (is_subrental ? 1 : 0) : null,
+      vendor_id !== undefined ? (vendor_id != null ? vendor_id : null) : null,
       req.params.id
     );
 

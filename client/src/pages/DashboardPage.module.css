@@ -112,3 +112,72 @@
 .status_sent     { background: #fef3c7; color: #92400e; }
 .status_approved { background: #d1fae5; color: #065f46; }
 .status_unsigned_changes { background: #fee2e2; color: #991b1b; }
+.status_confirmed { background: #ede9fe; color: #5b21b6; }
+.status_closed    { background: #f3f4f6; color: #374151; }
+
+/* Inventory Conflicts */
+.conflictsCard { padding: 20px; }
+.conflictList { display: flex; flex-direction: column; gap: 8px; }
+.conflictRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  flex-wrap: wrap;
+}
+.conflictRow:hover { border-color: var(--color-danger); }
+.conflictQuoteInfo { display: flex; flex-direction: column; gap: 2px; min-width: 140px; }
+.conflictQuoteName { font-size: 14px; font-weight: 600; }
+.conflictDate { font-size: 12px; color: var(--color-text-muted); }
+.conflictItems { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; align-items: center; }
+.conflictBadgeRed {
+  font-size: 12px; padding: 2px 8px; border-radius: 10px;
+  background: #fee2e2; color: #991b1b; white-space: nowrap;
+}
+.conflictBadgeYellow {
+  font-size: 12px; padding: 2px 8px; border-radius: 10px;
+  background: #fef3c7; color: #92400e; white-space: nowrap;
+}
+
+/* Subrentals */
+.subrentalsCard { padding: 20px; }
+.subrentalList { display: flex; flex-direction: column; }
+.subrentalHeader {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 60px 100px 2fr;
+  gap: 12px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+.subrentalRow {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 60px 100px 2fr;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s;
+  align-items: center;
+}
+.subrentalRow:hover { background: var(--color-hover, rgba(0,0,0,.04)); }
+.subrentalItem { font-weight: 500; }
+.subrentalVendor { color: var(--color-text-muted); }
+.subrentalQty { font-weight: 600; }
+.subrentalDate { color: var(--color-text-muted); }
+.subrentalQuote { color: var(--color-primary); }
+.noVendor { color: var(--color-text-muted); font-style: italic; }
+@media (max-width: 700px) {
+  .subrentalHeader, .subrentalRow { grid-template-columns: 1fr 1fr; }
+  .subrentalHeader span:nth-child(n+3), .subrentalRow span:nth-child(n+3) { display: none; }
+}

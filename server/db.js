@@ -511,6 +511,76 @@ async function initDb() {
     db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
   }
 
+  // Damage charges (added on closed quotes post-event)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS quote_damage_charges (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id    INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        title       TEXT NOT NULL,
+        amount      REAL NOT NULL DEFAULT 0,
+        note        TEXT,
+        created_at  TEXT DEFAULT (datetime('now')),
+        created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+  } catch (e) {}
+
+  // Vendors (subrental suppliers)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS vendors (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        email      TEXT,
+        phone      TEXT,
+        address    TEXT,
+        notes      TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
+
+  // Items: subrental flag + vendor link
+  for (const col of [
+    'ALTER TABLE items ADD COLUMN is_subrental INTEGER DEFAULT 0',
+    'ALTER TABLE items ADD COLUMN vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL',
+  ]) {
+    try { db.exec(col); } catch (e) {}
+  }
+
+  // Quotes: rental period
+  for (const col of [
+    'ALTER TABLE quotes ADD COLUMN rental_start TEXT',
+    'ALTER TABLE quotes ADD COLUMN rental_end TEXT',
+    'ALTER TABLE quotes ADD COLUMN delivery_date TEXT',
+    'ALTER TABLE quotes ADD COLUMN pickup_date TEXT',
+  ]) {
+    try { db.exec(col); } catch (e) {}
+  }
+
+  // Availability setting
+  db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run('count_oos_oversold', '0');
+
+  // quote_items: per-booking price override
+  try { db.exec('ALTER TABLE quote_items ADD COLUMN unit_price_override REAL'); } catch (e) {}
+
+  // Quote adjustments (discounts / surcharges at quote level)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS quote_adjustments (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id   INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        label      TEXT NOT NULL,
+        type       TEXT NOT NULL DEFAULT 'discount',
+        value_type TEXT NOT NULL DEFAULT 'percent',
+        amount     REAL NOT NULL DEFAULT 0,
+        sort_order INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
+
   return db;
 }
 

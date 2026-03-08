@@ -3,10 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import styles from './DashboardPage.module.css';
 
+function fmtDate(str) {
+  if (!str) return '';
+  const d = new Date(str + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 const STATUS_COLORS = {
-  draft: '#818cf8',
-  sent: '#fbbf24',
-  approved: '#34d399'
+  draft:     '#818cf8',
+  sent:      '#fbbf24',
+  approved:  '#34d399',
+  confirmed: '#8b5cf6',
+  closed:    '#6b7280'
 };
 
 function BarChart({ data, colorMap }) {
@@ -37,12 +45,16 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [conflicts, setConflicts] = useState([]);
+  const [subrentals, setSubrentals] = useState([]);
 
   useEffect(() => {
     api.getQuotesSummary()
       .then(data => setSummary(data))
       .catch(() => {})
       .finally(() => setLoading(false));
+    api.getConflicts().then(d => setConflicts(d.conflicts || [])).catch(() => {});
+    api.getSubrentals().then(d => setSubrentals(d.subrentals || [])).catch(() => {});
   }, []);
 
   if (loading) return <div className="empty-state"><div className="spinner" /></div>;
@@ -51,9 +63,11 @@ export default function DashboardPage() {
   const { total, byStatus = {}, revenueByStatus = {}, upcoming = [], byMonth = [] } = summary;
 
   const statusBars = [
-    { label: 'draft',    value: byStatus.draft    || 0 },
-    { label: 'sent',     value: byStatus.sent     || 0 },
-    { label: 'approved', value: byStatus.approved || 0 }
+    { label: 'draft',     value: byStatus.draft     || 0 },
+    { label: 'sent',      value: byStatus.sent      || 0 },
+    { label: 'approved',  value: byStatus.approved  || 0 },
+    { label: 'confirmed', value: byStatus.confirmed || 0 },
+    { label: 'closed',    value: byStatus.closed    || 0 }
   ];
 
   const monthBars = byMonth.map(m => ({
@@ -75,8 +89,12 @@ export default function DashboardPage() {
           <span className={styles.statValue}>{total}</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Signed (Approved)</span>
+          <span className={styles.statLabel}>Approved</span>
           <span className={styles.statValue} style={{ color: '#34d399' }}>{byStatus.approved || 0}</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Confirmed</span>
+          <span className={styles.statValue} style={{ color: '#8b5cf6' }}>{byStatus.confirmed || 0}</span>
         </div>
         <div className={styles.statCard}>
           <span className={styles.statLabel}>Sent to Client</span>
@@ -125,7 +143,7 @@ export default function DashboardPage() {
               const d = new Date(q.event_date + 'T00:00:00');
               const daysOut = Math.round((d - today) / 864e5);
               const status = q.status || 'draft';
-              const showUnsigned = status === 'approved' && q.has_unsigned_changes;
+              const showUnsigned = (status === 'approved' || status === 'confirmed') && q.has_unsigned_changes;
               const displayStatus = showUnsigned ? 'Unsigned Changes' : status;
               const statusClass = showUnsigned ? styles.status_unsigned_changes : styles['status_' + status];
               return (
@@ -151,6 +169,79 @@ export default function DashboardPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Inventory Conflicts */}
+      <div className={`card ${styles.conflictsCard}`}>
+        <h3 className={styles.chartTitle}>Inventory Conflicts</h3>
+        {conflicts.length === 0 ? (
+          <p className={styles.empty}>No inventory conflicts detected.</p>
+        ) : (
+          <div className={styles.conflictList}>
+            {conflicts.map(q => (
+              <div
+                key={q.quote_id}
+                className={styles.conflictRow}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/quotes/${q.quote_id}`)}
+                onKeyDown={e => e.key === 'Enter' && navigate(`/quotes/${q.quote_id}`)}
+              >
+                <div className={styles.conflictQuoteInfo}>
+                  <span className={styles.conflictQuoteName}>{q.quote_name}</span>
+                  {q.event_date && (
+                    <span className={styles.conflictDate}>{fmtDate(q.event_date)}</span>
+                  )}
+                </div>
+                <div className={styles.conflictItems}>
+                  {(q.items || []).map(item => (
+                    <span
+                      key={item.item_id}
+                      className={item.status === 'reserved' ? styles.conflictBadgeRed : styles.conflictBadgeYellow}
+                      title={item.status === 'reserved' ? 'Confirmed oversold' : 'Potential oversold'}
+                    >
+                      {item.status === 'reserved' ? '😢' : '🙁'} {item.title} ({item.quantity_needed}/{item.stock})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Subrentals */}
+      <div className={`card ${styles.subrentalsCard}`}>
+        <h3 className={styles.chartTitle}>Subrentals — next 90 days</h3>
+        {subrentals.length === 0 ? (
+          <p className={styles.empty}>No subrental items on upcoming quotes.</p>
+        ) : (
+          <div className={styles.subrentalList}>
+            <div className={styles.subrentalHeader}>
+              <span>Item</span>
+              <span>Vendor</span>
+              <span>Qty</span>
+              <span>Event Date</span>
+              <span>Quote</span>
+            </div>
+            {subrentals.map((s, i) => (
+              <div
+                key={i}
+                className={styles.subrentalRow}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/quotes/${s.quote_id}`)}
+                onKeyDown={e => e.key === 'Enter' && navigate(`/quotes/${s.quote_id}`)}
+              >
+                <span className={styles.subrentalItem}>{s.title}</span>
+                <span className={styles.subrentalVendor}>{s.vendor_name || <em className={styles.noVendor}>No vendor</em>}</span>
+                <span className={styles.subrentalQty}>{s.quantity}</span>
+                <span className={styles.subrentalDate}>{fmtDate(s.event_date)}</span>
+                <span className={styles.subrentalQuote}>{s.quote_name}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>

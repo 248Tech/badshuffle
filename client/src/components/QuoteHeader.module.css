@@ -90,6 +90,16 @@
   color: #991b1b;
 }
 
+.badge_confirmed {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.badge_closed {
+  background: #f3f4f6;
+  color: #374151;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

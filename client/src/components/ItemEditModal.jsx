@@ -10,6 +10,7 @@ export default function ItemEditModal({ itemId, onClose, onSaved }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [imgError, setImgError] = useState(false);
 
   const load = useCallback(() => {
@@ -27,7 +28,9 @@ export default function ItemEditModal({ itemId, onClose, onSaved }) {
           quantity_in_stock: data.quantity_in_stock != null ? String(data.quantity_in_stock) : '',
           labor_hours: data.labor_hours != null ? String(data.labor_hours) : '0',
           taxable: data.taxable !== 0,
-          hidden: !!data.hidden
+          hidden: !!data.hidden,
+          is_subrental: !!data.is_subrental,
+          vendor_id: data.vendor_id != null ? String(data.vendor_id) : ''
         });
       })
       .catch(() => {
@@ -40,6 +43,7 @@ export default function ItemEditModal({ itemId, onClose, onSaved }) {
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     api.getCategories().then(d => setCategories(d.categories || [])).catch(() => {});
+    api.getVendors().then(d => setVendors(d.vendors || [])).catch(() => {});
   }, []);
 
   const handleSave = async (e) => {
@@ -55,7 +59,9 @@ export default function ItemEditModal({ itemId, onClose, onSaved }) {
         quantity_in_stock: form.quantity_in_stock !== '' ? parseInt(form.quantity_in_stock, 10) : 0,
         labor_hours: form.labor_hours !== '' ? parseFloat(form.labor_hours) : 0,
         taxable: form.taxable ? 1 : 0,
-        hidden: form.hidden ? 1 : 0
+        hidden: form.hidden ? 1 : 0,
+        is_subrental: form.is_subrental ? 1 : 0,
+        vendor_id: form.vendor_id !== '' ? parseInt(form.vendor_id, 10) : null
       });
       toast.success('Item updated');
       if (typeof onSaved === 'function') onSaved();
@@ -141,7 +147,22 @@ export default function ItemEditModal({ itemId, onClose, onSaved }) {
                     <input type="checkbox" checked={form.hidden} onChange={e => setForm(f => ({ ...f, hidden: e.target.checked }))} />
                     Hidden
                   </label>
+                  <label className={styles.check}>
+                    <input type="checkbox" checked={form.is_subrental} onChange={e => setForm(f => ({ ...f, is_subrental: e.target.checked }))} />
+                    Subrental
+                  </label>
                 </div>
+                {form.is_subrental && (
+                  <div className="form-group">
+                    <label>Vendor</label>
+                    <select value={form.vendor_id} onChange={e => setForm(f => ({ ...f, vendor_id: e.target.value }))}>
+                      <option value="">— No vendor —</option>
+                      {vendors.map(v => (
+                        <option key={v.id} value={String(v.id)}>{v.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
             <div className={styles.formActions}>
