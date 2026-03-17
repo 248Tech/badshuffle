@@ -1,9 +1,16 @@
-.page { display: flex; flex-direction: column; gap: 20px; }
+.page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 .header { display: flex; flex-direction: column; gap: 4px; }
 .title { font-size: 22px; font-weight: 700; }
 .sub { font-size: 13px; color: var(--color-text-muted); }
 
 .card { padding: 24px; }
+
+@media (max-width: 768px) {
+  .page { gap: 14px; }
+  .title { font-size: 18px; }
+  .card { padding: 16px; }
+  .row > * { min-width: 0; }
+}
 
 .section {
   font-size: 12px;
@@ -156,3 +163,23 @@
   border-radius: 4px;
 }
 .checkRow { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
+
+.aiFeatureTable { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
+.aiFeatureRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+.aiFeatureRow:last-child { border-bottom: none; }
+.aiFeatureRow:nth-child(even) { background: var(--color-surface); }
+.aiFeatureInfo { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.aiFeatureLabel { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.aiModelSelect { min-width: 180px; }
+.aiModelSelect select { width: 100%; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text); font-size: 13px; }
+@media (max-width: 600px) {
+  .aiFeatureRow { flex-direction: column; align-items: flex-start; }
+  .aiModelSelect { width: 100%; }
+}

@@ -13,6 +13,22 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 
 ---
 
+## [0.4.3] - 2026-03-17
+
+### Added
+- **Public catalog** — No-auth catalog at `/catalog` and `/catalog/item/:id`, backed by `server/routes/publicCatalog.js`, `robots.txt`, `sitemap.xml`, and `/api/public/*` JSON endpoints for SEO-friendly browsing.
+- **Docker deployment** — `Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml`, and `docker-entrypoint.sh` for containerized local and production-style runs with persistent `/data` storage.
+- **AI integration settings** — Encrypted Claude, OpenAI, and Gemini API key fields plus per-feature enable/model controls in Settings.
+
+### Changed
+- **Development launch flow** — Added `npm run dev:host` and `npm run dev:docker`; server dev mode now sets `NODE_ENV=development`, and dev-only `/api/auth/dev-login` can seed a local admin automatically while developing.
+- **Runtime configurability** — `DB_PATH`, `UPLOADS_DIR`, and `APP_URL` are now respected so Docker and production builds can use external storage and correct canonical URLs.
+- **Operator UX** — Mobile sidebar/overlay, better touch targets, category chips on Inventory, quote item drag-and-drop reordering, and broader responsive layout cleanup across the client.
+- **Deployment behavior** — Production server can now serve the built React client from `client/dist`.
+- **Docs** — README and AI project docs updated for the `0.4.3` release line and current launch workflows.
+
+---
+
 ## [0.4.2] - 2026-03-07
 
 ### Added

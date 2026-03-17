@@ -1,11 +1,84 @@
 # STATUS
 
-**Released v0.4.1** (2026-03-07): Availability & conflict detection, vendor/subrental system, rental date fields on quotes, dashboard Conflicts/Subrental panels, quote builder conflict indicators, setting `count_oos_oversold`, API and client helpers. Bun support testing in dev (non-breaking).
+**Released v0.4.3** (2026-03-17): Public catalog, Docker deployment, `APP_URL`/`DB_PATH`/`UPLOADS_DIR` runtime support, dev launch improvements (`dev:host`, `dev:docker`, dev-only auto-login), encrypted AI settings, mobile shell polish, inventory category chips, and drag-and-drop quote item reordering.
 
 ## Current Task
-Completed: Per-line price overrides + quote-level adjustments; previously: Availability & Conflict Detection (shipped in v0.4.1).
+Completed: v0.4.3 release prep and docs alignment; previously: Public catalog, Docker deployment, dev login flow, AI settings, and drag-and-drop quote item reordering.
 
-## Per-line Price Overrides & Quote Adjustments — v0.5.0 prep
+## Public Catalog + Docker + Dev UX — v0.4.3
+
+### Public Catalog
+- **Server:** `server/routes/publicCatalog.js` — no-auth router factory. Endpoints:
+  - `GET /robots.txt` — SEO robots.txt (allows /catalog, disallows internal routes)
+  - `GET /sitemap.xml` — XML sitemap listing /catalog, category pages, and all item detail URLs
+  - `GET /api/public/catalog-meta` — company info, categories, counts, total item count
+  - `GET /api/public/items` — paginated item list with category/search filters (max 500)
+  - `GET /api/public/items/:id` — single public item detail
+  - `GET /catalog` — server-rendered HTML catalog page with full SEO (JSON-LD ItemList + LocalBusiness schemas, og: tags, canonical)
+  - `GET /catalog/item/:id` — server-rendered HTML item detail page (JSON-LD Product + BreadcrumbList schemas)
+  - All public item queries exclude `hidden=1` items; photo_url resolved to signed URL or full URL
+  - CSS is embedded inline in the server-rendered HTML for zero extra requests
+- **Client:** `PublicCatalogPage.jsx` + `PublicCatalogPage.module.css` (new) — React SPA version at `/catalog`; category sidebar, search bar, item grid, hero stats, CTA band
+- **Client:** `PublicItemPage.jsx` + `PublicItemPage.module.css` (new) — React SPA version at `/catalog/item/:id`; breadcrumb, product grid layout, price box, availability badge, CTA band
+- **API client:** `api.catalog.getMeta()`, `api.catalog.getItems(params)`, `api.catalog.getItem(id)`
+- **`APP_URL` env var:** Used by server-rendered routes for canonical URLs and sitemap. Defaults to `req.protocol + req.get('host')`.
+
+### Docker
+- **`Dockerfile`** — Multi-stage build: Stage 1 uses `oven/bun:1-alpine` to build React client; Stage 2 uses `node:20-alpine` for production server. Exposes port 3001. Entrypoint: `docker-entrypoint.sh`.
+- **`docker-compose.yml`** — Single service `badshuffle`; mounts named volume `badshuffle_data` at `/data`; DB and uploads persist via `DB_PATH=/data/badshuffle.db` and `UPLOADS_DIR=/data/uploads`. Port `${PORT:-3001}:3001`.
+- **`docker-compose.dev.yml`** — Dev compose variant.
+- **`docker-entrypoint.sh`** — Creates `/data/uploads` on container start, then execs CMD.
+- **`.dockerignore`** — Excludes node_modules, uploads, DB, and build artifacts.
+
+### Dev launch, auth, and runtime wiring
+- **Root scripts:** `package.json` adds `dev:host` and `dev:docker`.
+- **Server dev mode:** `server/package.json` uses `NODE_ENV=development bun index.js`.
+- **Dev-only auth shortcut:** `server/routes/auth.js` adds `POST /api/auth/dev-login`, which seeds `admin@admin.com` / `admin123` locally and is disabled in production.
+- **AuthGate behavior:** `client/src/App.jsx` now attempts dev login in Vite development, clears stale tokens more gracefully, and keeps public catalog routes outside the auth wall.
+- **Runtime config:** `server/index.js` and `server/db.js` now honor `APP_URL`, `DB_PATH`, and `UPLOADS_DIR`; the server also serves `client/dist` when present.
+
+### Settings / AI controls
+- **`server/db.js`** — Seeds AI-related settings defaults (`ai_*_key_enc`, enable flags, model selectors).
+- **`server/routes/settings.js`** — Encrypts/decrypts Claude, OpenAI, and Gemini keys and persists the new AI settings keys.
+- **`client/src/pages/SettingsPage.jsx`** — Adds AI provider key fields and per-feature enable/model selectors.
+
+### Responsive client polish
+- **Sidebar / shell:** `Layout.jsx`, `Sidebar.jsx`, and related CSS add a mobile menu button, overlay, close action, safer spacing, and larger touch targets.
+- **Inventory:** `InventoryPage.jsx` adds category chip filtering in the main page flow.
+- **Global UI:** Mobile layout cleanup touches Auth, Dashboard, Files, Leads, Messages, Quotes, Settings, and theme tokens.
+
+### Drag-and-drop quote item reordering
+- **QuoteBuilder.jsx** — Line items are now `draggable`; drag handle (⠿) shown on each row. `handleDragStart/Enter/Over/End` handlers. On drop, calls `api.reorderQuoteItems(quoteId, orderedIds)` then refreshes via `onItemsChange()`. Drop target highlighted via `quoteItemDragOver` CSS class.
+- **api.js** — `reorderQuoteItems(quoteId, ids)` → `PUT /api/quotes/:id/items/reorder`
+- **server/routes/quotes.js** — `PUT /:id/items/reorder` accepts `{ ids: [...] }` and updates `sort_order` for each qitem_id in one transaction.
+
+### Files changed
+- `server/routes/publicCatalog.js` — new
+- `server/index.js` — mount publicCatalogRouter (before auth middleware)
+- `client/src/pages/PublicCatalogPage.jsx` — new
+- `client/src/pages/PublicCatalogPage.module.css` — new
+- `client/src/pages/PublicItemPage.jsx` — new
+- `client/src/pages/PublicItemPage.module.css` — new
+- `client/src/api.js` — `api.catalog.*` helpers
+- `client/src/App.jsx` — `/catalog` and `/catalog/item/:id` routes
+- `Dockerfile` — new
+- `docker-compose.yml` — new
+- `docker-compose.dev.yml` — new
+- `docker-entrypoint.sh` — new
+- `.dockerignore` — new
+- `client/src/pages/SettingsPage.jsx` — AI integration controls
+- `server/routes/auth.js` — dev login route
+- `server/routes/settings.js` — encrypted AI key support
+- `server/db.js` — AI settings defaults + runtime DB path override
+- `client/src/components/QuoteBuilder.jsx` — drag handles + reorder
+- `server/routes/quotes.js` — `PUT /:id/items/reorder`
+
+---
+
+## Current Task (previous)
+Completed: Per-line price overrides + quote-level adjustments; previously: Availability & Conflict Detection (shipped in v0.4.2).
+
+## Per-line Price Overrides & Quote Adjustments — pre-v0.4.3 foundation
 
 ### Feature 7 — `unit_price_override` on `quote_items`
 - **DB:** `ALTER TABLE quote_items ADD COLUMN unit_price_override REAL` (try/catch migration, nullable; NULL = use items.unit_price).
@@ -33,9 +106,9 @@ Completed: Per-line price overrides + quote-level adjustments; previously: Avail
 ---
 
 ## Current Task (previous)
-Completed: Availability & Conflict Detection (v0.5.0 prep); previously: Bun adoption.
+Completed: Availability & Conflict Detection (shipped before v0.4.3); previously: Bun adoption.
 
-## Availability & Conflict Detection — v0.5.0 prep
+## Availability & Conflict Detection — pre-v0.4.3 foundation
 
 ### Backend: schema additions (`server/db.js`)
 - **`vendors` table**: `id`, `name`, `contact_name`, `contact_email`, `contact_phone`, `notes`

@@ -52,6 +52,7 @@ export const api = {
     reset: (body) => request('/auth/reset', { method: 'POST', body }),
     extensionToken: () => request('/auth/extension-token'),
     testMail: (body) => request('/auth/test-mail', { method: 'POST', body }),
+    devLogin: () => publicRequest('/auth/dev-login', { method: 'POST' }),
   },
 
   // Presence (who's online, current page)
@@ -143,6 +144,7 @@ export const api = {
   addQuoteItem: (quoteId, body) => request(`/quotes/${quoteId}/items`, { method: 'POST', body }),
   updateQuoteItem: (quoteId, qitemId, body) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'PUT', body }),
   removeQuoteItem: (quoteId, qitemId) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'DELETE' }),
+  reorderQuoteItems: (quoteId, order) => request(`/quotes/${quoteId}/items/reorder`, { method: 'PUT', body: { order } }),
 
   // Settings
   getSettings: () => request('/settings'),
@@ -231,4 +233,14 @@ export const api = {
   getQuoteAvailability: (quoteId) => request(`/availability/quote/${quoteId}`),
   getConflicts:         ()        => request('/availability/conflicts'),
   getSubrentals:        ()        => request('/availability/subrentals'),
+
+  // Public catalog (no auth)
+  catalog: {
+    getMeta:  ()           => publicRequest('/public/catalog-meta'),
+    getItems: (params = {}) => {
+      const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''));
+      return publicRequest(`/public/items?${qs}`);
+    },
+    getItem: (id) => publicRequest(`/public/items/${id}`),
+  },
 };

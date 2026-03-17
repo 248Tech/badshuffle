@@ -104,6 +104,34 @@ module.exports = function authRouter(db) {
     });
   });
 
+  // POST /api/auth/dev-login — dev-only auto-login (blocked in production)
+  router.post('/dev-login', async (req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const DEV_EMAIL = 'admin@admin.com';
+    const DEV_PASS  = 'admin123';
+    try {
+      let user = db.prepare('SELECT * FROM users WHERE email = ?').get(DEV_EMAIL);
+      if (!user) {
+        const hash = await bcrypt.hash(DEV_PASS, 10);
+        const result = db.prepare(
+          "INSERT INTO users (email, password_hash, role, approved) VALUES (?, ?, 'admin', 1)"
+        ).run(DEV_EMAIL, hash);
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+        // Ensure extension token exists
+        const hasExt = db.prepare('SELECT id FROM extension_tokens LIMIT 1').get();
+        if (!hasExt) {
+          db.prepare('INSERT INTO extension_tokens (token) VALUES (?)').run(crypto.randomBytes(32).toString('hex'));
+        }
+      }
+      res.json({ token: signToken(user) });
+    } catch (e) {
+      console.error('[auth/dev-login]', e);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
   // POST /api/auth/setup — create first admin (only if no users exist)
   router.post('/setup', async (req, res) => {
     try {
@@ -177,7 +205,15 @@ module.exports = function authRouter(db) {
       }
 
       const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-      const valid = user && await bcrypt.compare(password, user.password_hash);
+      let valid = false;
+      if (user && typeof user.password_hash === 'string' && user.password_hash.length > 0) {
+        try {
+          valid = await bcrypt.compare(password, user.password_hash);
+        } catch (bcryptErr) {
+          console.error('[auth/login] bcrypt.compare failed:', bcryptErr.message);
+          return res.status(500).json({ error: 'Server error during login' });
+        }
+      }
 
       db.prepare('INSERT INTO login_attempts (ip, success) VALUES (?, ?)').run(ip, valid ? 1 : 0);
 
@@ -185,9 +221,16 @@ module.exports = function authRouter(db) {
 
       if (!user.approved) return res.status(403).json({ error: 'Account pending admin approval' });
 
-      res.json({ token: signToken(user) });
+      const payload = { sub: user.id, email: user.email };
+      if (payload.sub == null || payload.email == null) {
+        console.error('[auth/login] User row missing id or email:', Object.keys(user));
+        return res.status(500).json({ error: 'Server error' });
+      }
+      const token = signToken(user);
+      res.json({ token });
     } catch (e) {
-      console.error('[auth/login]', e);
+      console.error('[auth/login]', e.message || e);
+      if (e.stack) console.error(e.stack);
       res.status(500).json({ error: 'Server error' });
     }
   });

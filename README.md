@@ -1,10 +1,19 @@
-# BadShuffle v0.4.2
+# BadShuffle v0.4.3
 
 A self-hosted inventory and quoting tool for event rental businesses. Manage your catalog, build quotes, track usage stats, and sync items directly from Goodshuffle Pro — all running locally on your machine with no subscription required.
 
 *Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history.*
 
 ---
+
+## What's New in v0.4.3
+
+- **Public catalog** — New no-auth catalog at `/catalog` and `/catalog/item/:id`, with server-rendered SEO pages, JSON-LD, `robots.txt`, `sitemap.xml`, and `/api/public/*` endpoints.
+- **Docker deployment** — New `Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml`, and entrypoint support for persistent `/data` storage and single-container deployment.
+- **Dev launch improvements** — New `npm run dev:host` and `npm run dev:docker` flows, plus a dev-only `/api/auth/dev-login` path that can auto-create/login a local admin while you build.
+- **AI integration settings** — Settings now store encrypted Claude, OpenAI, and Gemini keys and expose per-feature enable/model controls.
+- **Operator UX refresh** — Mobile sidebar/overlay, stronger touch targets, category chips on Inventory, drag-and-drop quote item ordering, and broader responsive polish across the app shell.
+- **Production serving** — The Express server now serves the built client in Docker/production mode, and respects `APP_URL`, `DB_PATH`, and `UPLOADS_DIR`.
 
 ## What's New in v0.4.2
 
@@ -62,10 +71,11 @@ A self-hosted inventory and quoting tool for event rental businesses. Manage you
 ## Features
 
 - **Inventory management** — Add, edit, hide, and search rental items with photos; optional subrental flag and vendor link
-- **Quote builder** — Create event quotes, add items with quantities and labels, custom one-off line items, conflict indicators for over-reserved items, export to PDF/image
+- **Quote builder** — Create event quotes, add items with quantities and labels, custom one-off line items, per-line price overrides, discounts/surcharges, drag-to-reorder, conflict indicators for over-reserved items, export to PDF/image
+- **Public catalog** — SEO-optimized, no-auth browsable catalog at `/catalog`; server-rendered HTML with JSON-LD, robots.txt, sitemap.xml; React SPA counterpart; JSON API at `/api/public/*`
 - **Files / media library** — Upload images and documents; serve them inline for use in quotes and emails
 - **Messages** — Full outbound + inbound email log linked to quotes; IMAP polling for client replies
-- **AI suggestions** — GPT-4o-mini recommends items for a quote based on guest count and event type (optional; falls back gracefully without an API key)
+- **AI settings** — Store encrypted Claude/OpenAI/Gemini keys and choose per-feature AI providers from Settings; AI-assisted flows remain optional
 - **Usage stats** — See which items are quoted most often and track per-guest-count brackets
 - **Availability & conflicts** — Dashboard panels for items over-reserved (conflicts) and items needing subrental; per-quote conflict check; rental date fields on quotes (rental_start/end, delivery_date, pickup_date)
 - **Vendors** — Manage subrental vendors; link items to vendors; Vendors page in the UI
@@ -84,7 +94,6 @@ Planned improvements and roadmap (see [ai/KNOWN_GAPS.md](ai/KNOWN_GAPS.md) and [
 - **Email on role change** — Notify users when an admin changes their role.
 - **Send modal preview** — Inline preview of the quote email or public link before sending.
 - **Inventory reservation** — Use `quantity_in_stock` to reserve or track items going out on quotes (today it’s display-only).
-- **Delivery/return tracking** — Optional delivery and return dates or status per quote/order.
 
 ---
 
@@ -95,13 +104,14 @@ badshuffle/
 ├── server/          Express API + sql.js SQLite (port 3001)
 │   ├── index.js
 │   ├── db.js        sql.js shim that mirrors better-sqlite3's API
-│   ├── routes/      items, quotes, sheets, stats, ai, files, messages, settings, vendors, availability
+│   ├── routes/      items, quotes, sheets, stats, ai, files, messages, settings, vendors, availability, publicCatalog
 │   ├── services/    singleInstance, updateCheck, emailPoller (IMAP)
 │   └── lib/         authMiddleware, crypto, imageProxy
 ├── client/          React + Vite SPA (port 5173 in dev)
 │   ├── src/
 │   │   ├── pages/   Dashboard, Inventory, Import, Quotes, QuoteDetail,
-│   │   │            Stats, Files, Messages, Settings, Leads, Templates, Vendors
+│   │   │            Stats, Files, Messages, Settings, Leads, Templates, Vendors,
+│   │   │            PublicCatalog, PublicItem
 │   │   └── components/
 │   └── serve.js     Zero-dep static server used by the packaged exe
 ├── extension/       Chrome MV3 extension (load unpacked)
@@ -110,6 +120,8 @@ badshuffle/
 │   ├── background.js  Posts items to localhost:3001
 │   └── popup.html
 ├── ai/              Project context for developers and AI (overview, architecture, features, data models, workflows, TODO, gaps, setup)
+├── Dockerfile       Multi-stage build (Bun → client, Node:20 → server)
+├── docker-compose.yml  Production deployment with persistent /data volume
 └── scripts/
     └── postpackage.js  Copies build output → dist/
 ```
@@ -122,15 +134,16 @@ badshuffle/
 |---|---|
 | Node.js | 14.x (for building `.exe` packages only) |
 | Bun | 1.1+ (dev server and installs) |
+| Docker | 24+ (optional, for containerized runs) |
 | Chrome | any modern version |
 
 > Node 14 is only required if you want to **build the executables** (`pkg` targets node14). The dev server runs under Bun (1.1+). If Bun is not installed, `npm install` and `node index.js` still work as fallbacks.
 
 ---
 
-## Getting Started
+## Quickstart / Dev Launch
 
-### 1. Install dependencies
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/248Tech/badshuffle.git
@@ -138,38 +151,77 @@ cd badshuffle
 npm run install:all
 ```
 
-### 2. Configure environment (optional)
+### 2. Configure `.env` (recommended)
 
-Copy `.env.example` to `.env` and fill in your OpenAI key if you want AI suggestions:
-
-```bash
-cp .env.example .env
-```
+Copy `.env.example` to `.env`, then set any values you need:
 
 ```env
-OPENAI_API_KEY=sk-...   # optional — app works without it
-PORT=3001               # optional — default is 3001
+OPENAI_API_KEY=sk-...                 # optional
+PORT=3001                             # optional
+APP_URL=http://localhost:3001         # optional, used by catalog sitemap/canonical URLs
 ```
 
-### 3. Run in development mode
+### 3. Pick a launch mode
+
+**Local development**
 
 ```bash
 npm run dev
 ```
 
-Opens both the Express server (`:3001`) and Vite dev server (`:5173`) concurrently.
-Visit **http://localhost:5173** in your browser.
+- Starts the API on `http://localhost:3001`
+- Starts the Vite app on `http://localhost:5173`
+- Use this for normal desktop development
 
-### 4. Load the Chrome extension
+**LAN / phone testing**
+
+```bash
+npm run dev:host
+```
+
+- Same as local dev, but Vite is exposed on your network
+- Open `http://<your-pc-ip>:5173` from another device
+
+**Containerized development**
+
+```bash
+npm run dev:docker
+```
+
+- Builds and runs the app via `docker-compose.dev.yml`
+- Useful when you want to validate the container path locally
+
+**Docker / production-style run**
+
+```bash
+docker compose up -d --build
+```
+
+- Serves both the API and built client from `http://localhost:3001`
+- Persists the DB and uploads in the `badshuffle_data` Docker volume
+
+### 4. Dev login behavior
+
+When the client is running in Vite dev mode, BadShuffle can auto-create and log in a local admin account through the dev-only `/api/auth/dev-login` route. The seeded credentials are:
+
+- `admin@admin.com`
+- `admin123`
+
+That route is disabled when `NODE_ENV=production`.
+
+### 5. Load the Chrome extension
 
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
-3. Click **Load unpacked** → select the `extension/` folder
-4. Browse to your Goodshuffle Pro catalog — a "Sync to BadShuffle" button will appear
+3. Click **Load unpacked** and select the `extension/` folder
+4. Browse to your Goodshuffle Pro catalog and use the "Sync to BadShuffle" button
 
-**Locked out?** If you can't log in or forgot the admin password, run:
-`npm run create-admin -- --email your@email.com --password yournewpassword`
-(from the repo root).
+**Locked out?** Run `npm run create-admin -- --email your@email.com --password yournewpassword` from the repo root.
+
+**Connection refused on login?** If you see `ECONNREFUSED` or a proxy error at `/api/auth/login`, the frontend cannot reach the backend. Fix it by:
+- Running the app from the repo root with `npm run dev` or `npm run dev:host` so both the API and client are up together.
+- Avoiding client-only launches when you expect `/api/*` calls to work.
+- Recreating an admin after a DB reset with `npm run create-admin -- --email admin@admin.com --password admin123` once the server is back up.
 
 ---
 
@@ -226,6 +278,34 @@ On any quote detail page, use **+ Add custom item** to add a one-off line item n
 - Pick a photo from the Files library or from inventory item photos
 - Custom items appear in quote totals and in the PDF/image export
 - Selecting an inventory item image pre-fills the price from that item
+
+---
+
+## Docker Deployment
+
+Single-container production deployment. DB and uploads persist in a named volume.
+
+```bash
+docker compose up -d
+```
+
+Or build manually:
+
+```bash
+docker build -t badshuffle .
+docker run -p 3001:3001 -v badshuffle_data:/data badshuffle
+```
+
+Copy `.env.example` → `.env` and set `APP_URL` to your public hostname (used for sitemap, canonical URLs, and signed file URLs):
+
+```env
+APP_URL=https://catalog.yourcompany.com
+OPENAI_API_KEY=sk-...   # optional
+```
+
+The container serves the API on port 3001 and also serves the built React SPA. Visit **http://localhost:3001** (or your mapped port) in your browser.
+
+> `badshuffle.db` and `uploads/` are stored at `/data` inside the container, mounted from the `badshuffle_data` named volume.
 
 ---
 
@@ -334,6 +414,18 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | POST | `/vendors` | Create vendor |
 | PUT | `/vendors/:id` | Update vendor |
 | DELETE | `/vendors/:id` | Delete vendor |
+
+### Public Catalog (no auth)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/catalog` | Server-rendered SEO catalog page (HTML) |
+| GET | `/catalog/item/:id` | Server-rendered SEO item detail page (HTML) |
+| GET | `/robots.txt` | robots.txt (allows /catalog, disallows internal routes) |
+| GET | `/sitemap.xml` | XML sitemap (catalog, category pages, all item URLs) |
+| GET | `/api/public/catalog-meta` | Company info, categories, counts, total item count |
+| GET | `/api/public/items` | Item list (`?category=`, `?search=`, `?limit=`, `?offset=`) |
+| GET | `/api/public/items/:id` | Single public item detail |
 
 ### Other
 

@@ -40,9 +40,9 @@ try {
 const PORT = process.env.PORT || 3001;
 
 // Resolve uploads directory (works both in dev and pkg)
-const UPLOADS_DIR = typeof process.pkg !== 'undefined'
+const UPLOADS_DIR = process.env.UPLOADS_DIR || (typeof process.pkg !== 'undefined'
   ? path.join(path.dirname(process.execPath), 'uploads')
-  : path.join(__dirname, '../uploads');
+  : path.join(__dirname, '../uploads'));
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
@@ -67,7 +67,8 @@ async function start() {
     origin: (origin, cb) => {
       const allowed = [
         'http://localhost:5173',
-        'http://localhost:5174'
+        'http://localhost:5174',
+        ...(process.env.APP_URL ? [process.env.APP_URL] : []),
       ];
       if (!origin || allowed.includes(origin) || /^chrome-extension:\/\//.test(origin)) {
         cb(null, true);
@@ -220,10 +221,20 @@ async function start() {
   app.use('/api/vendors',       auth, require('./routes/vendors')(db));
   app.use('/api/availability',  auth, require('./routes/availability')(db));
 
+  // Public catalog — no auth (JSON API + server-rendered HTML + sitemap + robots)
+  app.use(require('./routes/publicCatalog')(db));
+
   // API 404 — return JSON so clients get a consistent error shape
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Not found', path: req.path });
   });
+
+  // Serve built React client (production/Docker)
+  const CLIENT_DIST = path.join(__dirname, '../client/dist');
+  if (fs.existsSync(CLIENT_DIST)) {
+    app.use(express.static(CLIENT_DIST));
+    app.get('*', (req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
+  }
 
   app.listen(PORT, () => {
     console.log(`BadShuffle server running on http://localhost:${PORT}`);

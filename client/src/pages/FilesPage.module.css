@@ -1,7 +1,14 @@
-.page { display: flex; flex-direction: column; gap: 20px; }
+.page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 .header { display: flex; flex-direction: column; gap: 4px; }
 .title { font-size: 22px; font-weight: 700; }
 .sub { font-size: 13px; color: var(--color-text-muted); }
+
+@media (max-width: 768px) {
+  .page { gap: 14px; }
+  .title { font-size: 18px; }
+  .dropZone { padding: 24px 16px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+}
 
 .dropZone {
   border: 2px dashed var(--color-border);

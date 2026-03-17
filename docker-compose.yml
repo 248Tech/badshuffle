@@ -1,0 +1,17 @@
+services:
+  badshuffle:
+    build: .
+    ports:
+      - "${PORT:-3001}:3001"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DB_PATH: /data/badshuffle.db
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      - badshuffle_data:/data
+    restart: unless-stopped
+
+volumes:
+  badshuffle_data:

@@ -33,6 +33,13 @@ export default function SettingsPage() {
     recaptcha_site_key: '',
     recaptcha_secret_key: ''
   });
+  const [aiKeys, setAiKeys] = useState({ ai_claude_key: '', ai_openai_key: '', ai_gemini_key: '' });
+  const [aiFeatures, setAiFeatures] = useState({
+    ai_suggest_enabled: '1', ai_suggest_model: 'claude',
+    ai_pdf_import_enabled: '1', ai_pdf_import_model: 'claude',
+    ai_email_draft_enabled: '0', ai_email_draft_model: 'claude',
+    ai_description_enabled: '0', ai_description_model: 'claude',
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingImap, setTestingImap] = useState(false);
@@ -84,6 +91,21 @@ export default function SettingsPage() {
           recaptcha_site_key: s.recaptcha_site_key || '',
           recaptcha_secret_key: s.recaptcha_secret_key || ''
         });
+        setAiKeys({
+          ai_claude_key: s.ai_claude_key || '',
+          ai_openai_key: s.ai_openai_key || '',
+          ai_gemini_key: s.ai_gemini_key || '',
+        });
+        setAiFeatures({
+          ai_suggest_enabled: s.ai_suggest_enabled || '1',
+          ai_suggest_model: s.ai_suggest_model || 'claude',
+          ai_pdf_import_enabled: s.ai_pdf_import_enabled || '1',
+          ai_pdf_import_model: s.ai_pdf_import_model || 'claude',
+          ai_email_draft_enabled: s.ai_email_draft_enabled || '0',
+          ai_email_draft_model: s.ai_email_draft_model || 'claude',
+          ai_description_enabled: s.ai_description_enabled || '0',
+          ai_description_model: s.ai_description_model || 'claude',
+        });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -100,7 +122,11 @@ export default function SettingsPage() {
         ...imap,
         imap_pass_enc: imap.imap_pass,
         ...quoteInventory,
-        ...recaptcha
+        ...recaptcha,
+        ai_claude_key_enc: aiKeys.ai_claude_key,
+        ai_openai_key_enc: aiKeys.ai_openai_key,
+        ai_gemini_key_enc: aiKeys.ai_gemini_key,
+        ...aiFeatures,
       });
       toast.success('Settings saved');
     } catch (e) {
@@ -534,6 +560,86 @@ export default function SettingsPage() {
             />
             <span>Count out-of-stock items (quantity = 0) as oversold in conflict detection</span>
           </label>
+        </div>
+
+        <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>
+          <h3 className={styles.section}>AI Integration</h3>
+          <p className={styles.hint} style={{ marginBottom: 14 }}>
+            Connect AI providers and enable AI-powered features. API keys are stored encrypted.
+          </p>
+
+          <h3 className={styles.section} style={{ marginTop: 8 }}>API Keys</h3>
+          <div className={styles.row}>
+            <div className="form-group">
+              <label>Anthropic (Claude) API Key</label>
+              <input
+                type="password"
+                value={aiKeys.ai_claude_key}
+                onChange={e => setAiKeys(k => ({ ...k, ai_claude_key: e.target.value }))}
+                placeholder="sk-ant-…"
+                autoComplete="off"
+              />
+              <span className={styles.hint}>Used when a feature is set to Claude.</span>
+            </div>
+            <div className="form-group">
+              <label>OpenAI (GPT-4) API Key</label>
+              <input
+                type="password"
+                value={aiKeys.ai_openai_key}
+                onChange={e => setAiKeys(k => ({ ...k, ai_openai_key: e.target.value }))}
+                placeholder="sk-…"
+                autoComplete="off"
+              />
+              <span className={styles.hint}>Used when a feature is set to GPT-4.</span>
+            </div>
+            <div className="form-group">
+              <label>Google (Gemini) API Key</label>
+              <input
+                type="password"
+                value={aiKeys.ai_gemini_key}
+                onChange={e => setAiKeys(k => ({ ...k, ai_gemini_key: e.target.value }))}
+                placeholder="AIza…"
+                autoComplete="off"
+              />
+              <span className={styles.hint}>Used when a feature is set to Gemini.</span>
+            </div>
+          </div>
+
+          <h3 className={styles.section} style={{ marginTop: 8 }}>Feature Toggles</h3>
+          <div className={styles.aiFeatureTable}>
+            {[
+              { key: 'ai_suggest', label: 'AI Quote Suggestions', desc: 'Recommends items to add based on event type and guest count.' },
+              { key: 'ai_pdf_import', label: 'PDF Quote Import', desc: 'Extracts line items from uploaded PDF quotes.' },
+              { key: 'ai_email_draft', label: 'AI Email Drafts', desc: 'Drafts follow-up and confirmation emails.' },
+              { key: 'ai_description', label: 'AI Item Descriptions', desc: 'Generates item descriptions in inventory.' },
+            ].map(({ key, label, desc }) => (
+              <div key={key} className={styles.aiFeatureRow}>
+                <div className={styles.aiFeatureInfo}>
+                  <label className={styles.aiFeatureLabel}>
+                    <input
+                      type="checkbox"
+                      checked={aiFeatures[`${key}_enabled`] === '1'}
+                      onChange={e => setAiFeatures(f => ({ ...f, [`${key}_enabled`]: e.target.checked ? '1' : '0' }))}
+                    />
+                    {label}
+                  </label>
+                  <span className={styles.hint}>{desc}</span>
+                </div>
+                <div className={styles.aiModelSelect}>
+                  <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Model</label>
+                  <select
+                    value={aiFeatures[`${key}_model`]}
+                    onChange={e => setAiFeatures(f => ({ ...f, [`${key}_model`]: e.target.value }))}
+                    disabled={aiFeatures[`${key}_enabled`] !== '1'}
+                  >
+                    <option value="claude">Claude (Anthropic)</option>
+                    <option value="gpt4">GPT-4 (OpenAI)</option>
+                    <option value="gemini">Gemini (Google)</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>

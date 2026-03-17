@@ -21,7 +21,7 @@ Areas that are incomplete, stubbed, or represent technical debt. Use this to kno
 
 ### Delivery/return tracking
 
-- **Status:** Partial. Quotes have `delivery_date` and `pickup_date` (and rental_start/rental_end) used for availability overlap. Logistics is category-based (display and totals). No delivery/return status workflow (e.g. out/returned) or fulfillment state machine.
+- **Status:** Partial. Quotes have `delivery_date`, `pickup_date`, `rental_start`, and `rental_end` used for availability overlap detection. Logistics is category-based (display and totals). No delivery/return status workflow (e.g. out/returned) or fulfillment state machine. `quote_damage_charges` table exists for post-event billing on closed quotes but no UI is implemented yet.
 
 ---
 

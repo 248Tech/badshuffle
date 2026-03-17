@@ -1,5 +1,11 @@
-.page { display: flex; flex-direction: column; gap: 24px; }
+.page { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+@media (max-width: 768px) {
+  .page { gap: 16px; }
+}
 .title { font-size: 24px; font-weight: 700; }
+@media (max-width: 768px) {
+  .title { font-size: 20px; }
+}
 .error { color: var(--color-danger, #dc2626); }
 
 /* Stat cards */
@@ -28,6 +34,10 @@
   letter-spacing: .05em;
 }
 .statValue { font-size: 30px; font-weight: 700; line-height: 1.1; }
+@media (max-width: 768px) {
+  .statCard { padding: 12px 14px; }
+  .statValue { font-size: 22px; }
+}
 
 /* Charts grid */
 .charts {
@@ -89,6 +99,25 @@
   transition: border-color 0.15s;
 }
 .eventRow:hover { border-color: var(--color-primary); }
+
+@media (max-width: 768px) {
+  .eventRow {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .eventName {
+    flex-basis: 100%;
+    order: 2;
+  }
+  .eventGuests {
+    order: 3;
+  }
+  .eventStatus {
+    order: 4;
+    margin-left: auto;
+  }
+}
 
 .eventDateBlock {
   display: flex;
@@ -180,4 +209,13 @@
 @media (max-width: 700px) {
   .subrentalHeader, .subrentalRow { grid-template-columns: 1fr 1fr; }
   .subrentalHeader span:nth-child(n+3), .subrentalRow span:nth-child(n+3) { display: none; }
+}
+
+@media (max-width: 480px) {
+  .chartCard,
+  .deliveryCard,
+  .conflictsCard,
+  .subrentalsCard {
+    padding: 14px;
+  }
 }

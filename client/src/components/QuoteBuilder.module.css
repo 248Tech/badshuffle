@@ -2,6 +2,12 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .builder { gap: 16px; }
+  .quoteItem, .pickerItem { padding: 10px; gap: 8px; }
 }
 
 .section {
@@ -259,6 +265,33 @@
   background: #1579ad;
   border-color: #1579ad;
   color: #fff;
+}
+
+.categoryDropdown {
+  padding: 5px 10px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.dragHandle {
+  cursor: grab;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+  padding: 0 2px;
+  user-select: none;
+}
+.dragHandle:active { cursor: grabbing; }
+
+.quoteItemDragOver {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  opacity: 0.8;
 }
 
 .pickerToolbar {

@@ -807,6 +807,17 @@ module.exports = function makeRouter(db, uploadsDir) {
     res.status(201).json({ qitem });
   });
 
+  // PUT /api/quotes/:id/items/reorder — bulk sort_order update
+  router.put('/:id/items/reorder', (req, res) => {
+    const { order } = req.body || {};
+    if (!Array.isArray(order)) return res.status(400).json({ error: 'order must be an array of qitem ids' });
+    const quote = db.prepare('SELECT id FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Quote not found' });
+    const stmt = db.prepare('UPDATE quote_items SET sort_order = ? WHERE id = ? AND quote_id = ?');
+    order.forEach((qitemId, idx) => stmt.run(idx, qitemId, req.params.id));
+    res.json({ ok: true });
+  });
+
   // PUT /api/quotes/:id/items/:qitem_id
   router.put('/:id/items/:qitem_id', (req, res) => {
     const { quantity, label, sort_order, hidden_from_quote, unit_price_override } = req.body;

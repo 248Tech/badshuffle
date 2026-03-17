@@ -16,6 +16,8 @@ import SetupPage from './pages/SetupPage.jsx';
 import ForgotPage from './pages/ForgotPage.jsx';
 import ResetPage from './pages/ResetPage.jsx';
 import PublicQuotePage from './pages/PublicQuotePage.jsx';
+import PublicCatalogPage from './pages/PublicCatalogPage.jsx';
+import PublicItemPage from './pages/PublicItemPage.jsx';
 import TemplatesPage from './pages/TemplatesPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import FilesPage from './pages/FilesPage.jsx';
@@ -23,7 +25,7 @@ import MessagesPage from './pages/MessagesPage.jsx';
 import BillingPage from './pages/BillingPage.jsx';
 import VendorsPage from './pages/VendorsPage.jsx';
 import { ToastProvider } from './components/Toast.jsx';
-import { api, getToken } from './api';
+import { api, getToken, setToken, clearToken } from './api';
 
 function ProtectedRoute({ children }) {
   if (!getToken()) return <Navigate to="/login" replace />;
@@ -39,40 +41,69 @@ function AuthGate({ children, setRole }) {
   useEffect(() => {
     let cancelled = false;
 
-    api.auth.status()
-      .then(({ setup }) => {
-        if (cancelled) return;
-        if (!setup) {
-          navigate('/setup', { replace: true });
-          setState('unauthed');
-          return;
+    const doAuth = async () => {
+      // Dev mode: auto-login with hardcoded admin account, no setup/login required
+      if (import.meta.env.DEV && !getToken()) {
+        try {
+          const data = await api.auth.devLogin();
+          if (data.token) setToken(data.token);
+        } catch (e) {
+          // server not ready yet or non-dev build; fall through to normal flow
         }
-        const token = getToken();
-        if (!token) {
-          setState('unauthed');
-          return;
-        }
-        return api.auth.me()
-          .then(me => {
-            if (cancelled) return;
-            setRole(me.role);
-            setState('authed');
-          })
-          .catch(() => {
-            if (cancelled) return;
-            setRole('');
-            setState('unauthed');
-            if (location.pathname !== '/login' && !hasRedirectedToLogin.current) {
-              hasRedirectedToLogin.current = true;
-              navigate('/login', { replace: true });
-            }
-          });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setState('unauthed');
-      });
+      }
 
+      let setup = true;
+      try {
+        ({ setup } = await api.auth.status());
+      } catch {
+        if (!cancelled) setState('unauthed');
+        return;
+      }
+      if (cancelled) return;
+
+      if (!setup) {
+        navigate('/setup', { replace: true });
+        setState('unauthed');
+        return;
+      }
+
+      const token = getToken();
+      if (!token) {
+        setState('unauthed');
+        return;
+      }
+
+      try {
+        const me = await api.auth.me();
+        if (cancelled) return;
+        setRole(me.role);
+        setState('authed');
+      } catch {
+        if (cancelled) return;
+        clearToken();
+        setRole('');
+        // If already at /login, try dev auto-login immediately (stale token case after DB clear)
+        if (import.meta.env.DEV && location.pathname === '/login') {
+          try {
+            const data = await api.auth.devLogin();
+            if (!cancelled && data.token) {
+              setToken(data.token);
+              const me = await api.auth.me();
+              if (!cancelled) { setRole(me.role); setState('authed'); }
+            }
+          } catch { /* fall through to show login page */ }
+          if (!cancelled) setState('unauthed');
+          return;
+        }
+        setState('unauthed');
+        if (location.pathname !== '/login' && !hasRedirectedToLogin.current) {
+          hasRedirectedToLogin.current = true;
+          navigate('/login', { replace: true });
+        }
+      }
+    };
+
+    doAuth();
     return () => { cancelled = true; };
   }, [navigate, setRole, location.pathname]);
 
@@ -92,8 +123,10 @@ export default function App() {
     <ToastProvider>
       <BrowserRouter>
         <Routes>
-          {/* Client-viewable quote (no auth required) — must be outside AuthGate so link works in new tab */}
+          {/* Public routes — no auth required */}
           <Route path="/quote/public/:token" element={<PublicQuotePage />} />
+          <Route path="/catalog" element={<PublicCatalogPage />} />
+          <Route path="/catalog/item/:id" element={<PublicItemPage />} />
 
           {/* App routes (auth required except login/setup) */}
           <Route path="*" element={

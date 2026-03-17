@@ -8,9 +8,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = typeof process.pkg !== 'undefined'
+const DB_PATH = process.env.DB_PATH || (typeof process.pkg !== 'undefined'
   ? path.join(path.dirname(process.execPath), 'badshuffle.db')
-  : path.join(__dirname, 'badshuffle.db');
+  : path.join(__dirname, 'badshuffle.db'));
 
 function normalizeParams(args) {
   return args.map(v => (v === undefined ? null : v));
@@ -561,6 +561,24 @@ async function initDb() {
 
   // Availability setting
   db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run('count_oos_oversold', '0');
+
+  // AI settings
+  const aiDefaults = {
+    ai_claude_key_enc: '',
+    ai_openai_key_enc: '',
+    ai_gemini_key_enc: '',
+    ai_suggest_enabled: '1',
+    ai_suggest_model: 'claude',
+    ai_pdf_import_enabled: '1',
+    ai_pdf_import_model: 'claude',
+    ai_email_draft_enabled: '0',
+    ai_email_draft_model: 'claude',
+    ai_description_enabled: '0',
+    ai_description_model: 'claude',
+  };
+  for (const [k, v] of Object.entries(aiDefaults)) {
+    db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
+  }
 
   // quote_items: per-booking price override
   try { db.exec('ALTER TABLE quote_items ADD COLUMN unit_price_override REAL'); } catch (e) {}

@@ -8,6 +8,11 @@ const ALLOWED_KEYS = [
   'quote_inventory_filter_mode', 'quote_inventory_max_categories', 'quote_inventory_manual_categories',
   'recaptcha_enabled', 'recaptcha_site_key', 'recaptcha_secret_key',
   'company_address', 'mapbox_access_token', 'count_oos_oversold',
+  'ai_claude_key_enc', 'ai_openai_key_enc', 'ai_gemini_key_enc',
+  'ai_suggest_enabled', 'ai_suggest_model',
+  'ai_pdf_import_enabled', 'ai_pdf_import_model',
+  'ai_email_draft_enabled', 'ai_email_draft_model',
+  'ai_description_enabled', 'ai_description_model',
 ];
 
 module.exports = function makeRouter(db) {
@@ -22,6 +27,12 @@ module.exports = function makeRouter(db) {
         settings['smtp_pass'] = decrypt(row.value);
       } else if (row.key === 'imap_pass_enc') {
         settings['imap_pass'] = decrypt(row.value);
+      } else if (row.key === 'ai_claude_key_enc') {
+        settings['ai_claude_key'] = decrypt(row.value);
+      } else if (row.key === 'ai_openai_key_enc') {
+        settings['ai_openai_key'] = decrypt(row.value);
+      } else if (row.key === 'ai_gemini_key_enc') {
+        settings['ai_gemini_key'] = decrypt(row.value);
       } else {
         settings[row.key] = row.value;
       }
@@ -35,6 +46,10 @@ module.exports = function makeRouter(db) {
     // Also accept smtp_pass/imap_pass as aliases (encrypt + store as _enc)
     if (body.smtp_pass !== undefined) body.smtp_pass_enc = body.smtp_pass;
     if (body.imap_pass !== undefined) body.imap_pass_enc = body.imap_pass;
+    // Accept ai_*_key as aliases for encrypted variants
+    if (body.ai_claude_key !== undefined) body.ai_claude_key_enc = body.ai_claude_key;
+    if (body.ai_openai_key !== undefined) body.ai_openai_key_enc = body.ai_openai_key;
+    if (body.ai_gemini_key !== undefined) body.ai_gemini_key_enc = body.ai_gemini_key;
 
     const keys = Object.keys(body).filter(k => ALLOWED_KEYS.includes(k));
     if (keys.length === 0) return res.status(400).json({ error: 'No valid keys provided' });
@@ -42,7 +57,7 @@ module.exports = function makeRouter(db) {
     const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
     for (const k of keys) {
       let val = String(body[k] !== null && body[k] !== undefined ? body[k] : '');
-      if (k === 'smtp_pass_enc' || k === 'imap_pass_enc') val = encrypt(val);
+      if (k === 'smtp_pass_enc' || k === 'imap_pass_enc' || k === 'ai_claude_key_enc' || k === 'ai_openai_key_enc' || k === 'ai_gemini_key_enc') val = encrypt(val);
       stmt.run(k, val);
     }
 
@@ -53,6 +68,12 @@ module.exports = function makeRouter(db) {
         settings['smtp_pass'] = decrypt(row.value);
       } else if (row.key === 'imap_pass_enc') {
         settings['imap_pass'] = decrypt(row.value);
+      } else if (row.key === 'ai_claude_key_enc') {
+        settings['ai_claude_key'] = decrypt(row.value);
+      } else if (row.key === 'ai_openai_key_enc') {
+        settings['ai_openai_key'] = decrypt(row.value);
+      } else if (row.key === 'ai_gemini_key_enc') {
+        settings['ai_gemini_key'] = decrypt(row.value);
       } else {
         settings[row.key] = row.value;
       }

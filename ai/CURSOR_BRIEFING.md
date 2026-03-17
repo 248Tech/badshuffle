@@ -1,18 +1,26 @@
-# Cursor Briefing — BadShuffle (as of 2026-03-07)
+# Cursor Briefing — BadShuffle (as of 2026-03-17)
 
 ## What this project is
 
-BadShuffle is a self-hosted inventory and quoting tool for event rental businesses. It runs as two local Windows executables (server + client). Stack: Node/Express + sql.js SQLite on the back end, React + Vite on the front end.
+BadShuffle is a self-hosted inventory and quoting tool for event rental businesses. It runs as two local Windows executables (server + client), or via Docker. Stack: Node/Express + sql.js SQLite on the back end, React + Vite on the front end.
 
-## Current state: v0.4.1 (latest release)
+## Current state: v0.4.3 (latest release)
 
 Latest release:
 
 ```
-release: v0.4.1 — Availability detection, vendor support, rental date fields, dashboard conflict/subrental panels, quote builder conflict indicators, count_oos_oversold setting, Bun support testing
+release: v0.4.3 — Public catalog, Docker deployment, dev launch improvements, AI settings panel, responsive shell cleanup, inventory category chips, drag-and-drop quote item reordering
 ```
 
-### What was built in v0.4.1
+### What shipped in v0.4.3
+- **Public catalog** — `/catalog` and `/catalog/item/:id` routes; server-rendered HTML with full SEO (JSON-LD, og: tags, robots.txt, sitemap.xml); React SPA counterparts (`PublicCatalogPage`, `PublicItemPage`); JSON API at `/api/public/*` (no auth required).
+- **Docker** — `Dockerfile` (multi-stage: Bun builds client, Node:20-alpine runs server), `docker-compose.yml` (named volume at `/data` for DB + uploads), `docker-entrypoint.sh`.
+- **Drag-and-drop reordering** — QuoteBuilder line items are draggable; drag handle (⠿) on each row; `PUT /api/quotes/:id/items/reorder` saves new sort_order in one transaction.
+- **Development launch flow** — `dev:host`, `dev:docker`, dev-only `/api/auth/dev-login`, and server-side static client serving for Docker/production runs.
+- **Settings / AI controls** — Encrypted Claude/OpenAI/Gemini key storage plus per-feature enable/model settings in the Settings page.
+- **Responsive client polish** — Mobile sidebar overlay, larger touch targets, Inventory category chips, and broader mobile layout cleanup.
+
+### What was built in v0.4.2
 - **Availability & conflict detection** — GET `/api/availability/conflicts`, `/availability/subrental-needs`, `/availability/quote/:id`; considers quote status and rental date ranges (delivery → pickup). Dashboard: Conflicts and Subrental Needs panels. Quote builder: conflict indicator icon on line items.
 - **Vendors / subrental** — `vendors` table and CRUD API; items have `is_subrental` and `vendor_id`; Vendors page; vendor selection in item editor. Client helpers: getVendors, createVendor, updateVendor, deleteVendor, getConflicts, getSubrentalNeeds, getQuoteConflicts.
 - **Rental date fields** — Quotes: rental_start, rental_end, delivery_date, pickup_date; editable in quote editor.
@@ -61,7 +69,7 @@ server/
   index.js              — Express entry; mounts all routes; IMAP poller startup
   db.js                 — sql.js shim (mirrors better-sqlite3 API); all migrations here
   routes/
-    quotes.js           — Quote CRUD + /send /approve /revert + custom items + contract + contract/logs
+    quotes.js           — Quote CRUD + /send /approve /revert + custom items + contract + contract/logs + adjustments + items/reorder
     leads.js            — Lead CRUD + CSV/XLSX/Sheets import + column mapping + /:id/events
     templates.js        — Email template CRUD
     files.js            — File upload / serve
@@ -72,6 +80,7 @@ server/
     items.js            — Inventory CRUD (is_subrental, vendor_id)
     availability.js     — Conflicts, subrental-needs, quote conflict
     vendors.js          — Vendors CRUD
+    publicCatalog.js    — No-auth public catalog (robots.txt, sitemap.xml, /api/public/*, /catalog, /catalog/item/:id)
     sheets.js           — Google Sheets scrape
     stats.js            — Usage stats
     ai.js               — GPT-4o-mini item suggestions
@@ -86,12 +95,15 @@ server/
 
 client/src/
   App.jsx               — Routes, AuthGate, role state
-  api.js                — All API calls
+  api.js                — All API calls (includes api.catalog.* for public catalog)
   pages/
     DashboardPage.jsx
     InventoryPage.jsx
-    QuoteDetailPage.jsx — Main quote editing UI (38 KB — the biggest file)
+    QuoteDetailPage.jsx — Main quote editing UI
     PublicQuotePage.jsx — Read-only public quote view + print
+    PublicCatalogPage.jsx — Public browsable catalog (/catalog)
+    PublicItemPage.jsx  — Public item detail (/catalog/item/:id)
+    VendorsPage.jsx     — Vendor CRUD
     TemplatesPage.jsx   — Email template CRUD
     FilesPage.jsx       — Media library
     MessagesPage.jsx    — Email thread view
@@ -100,17 +112,22 @@ client/src/
     ImportPage.jsx      — 3-step lead import wizard
     AdminPage.jsx
   components/
-    QuoteBuilder.jsx    — Line item editor (qty, unit price, line total, taxable)
+    QuoteBuilder.jsx    — Line item editor (qty, unit price, overrides, adjustments, drag-to-reorder)
     Sidebar.jsx         — Nav (role-aware)
     QuoteExport.jsx     — PNG/PDF export
+
+Dockerfile            — Multi-stage: Bun builds client, Node:20-alpine runs server
+docker-compose.yml    — Production compose (named volume /data for DB + uploads)
+docker-compose.dev.yml — Dev compose variant
+docker-entrypoint.sh  — Creates /data/uploads, execs CMD
 ```
 
 ## Git state
 
 - `badshuffle.lock` deleted (runtime lock file, ignored going forward)
-- `badshuffle/` untracked — this is the extracted/packaged executable directory, not source
+- v0.4.3 adds public catalog pages, Docker files, dev-login flow, and AI settings support on the main release line
 
-Working tree is committed; canonical version is v0.4.1 (0.x pre-release until 1.0).
+Canonical version is v0.4.3 (0.x pre-release until 1.0).
 
 ## Known stubs / incomplete items
 

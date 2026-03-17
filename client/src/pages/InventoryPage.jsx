@@ -24,13 +24,15 @@ export default function InventoryPage() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
     const params = {};
     if (search) params.search = search;
+    if (selectedCategory) params.category = selectedCategory;
     api.getItems(params).then(d => setItems(d.items || [])).finally(() => setLoading(false));
-  }, [search]);
+  }, [search, selectedCategory]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -120,6 +122,27 @@ export default function InventoryPage() {
           </button>
         </div>
       </div>
+
+      {/* Category navbar */}
+      {categories.length > 0 && (
+        <div className={styles.categoryNav}>
+          <button
+            className={`${styles.categoryNavBtn} ${!selectedCategory ? styles.categoryNavBtnActive : ''}`}
+            onClick={() => setSelectedCategory(null)}
+          >
+            All
+          </button>
+          {categories.map(cat => (
+            <button
+              key={cat}
+              className={`${styles.categoryNavBtn} ${selectedCategory === cat ? styles.categoryNavBtnActive : ''}`}
+              onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className={styles.filters}>

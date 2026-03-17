@@ -1,9 +1,11 @@
 {
   "name": "badshuffle",
-  "version": "0.4.1",
+  "version": "0.4.3",
   "private": true,
   "scripts": {
     "dev": "concurrently \"bun run --cwd server dev\" \"bun run --cwd client dev\"",
+    "dev:docker": "docker compose -f docker-compose.dev.yml up --build",
+    "dev:host": "concurrently \"bun run --cwd server dev\" \"bun run --cwd client dev -- --host\"",
     "create-admin": "node server/cli.js create-admin",
     "reset-password": "node server/cli.js reset-password",
     "reset-auth": "node server/cli.js reset-auth --yes",

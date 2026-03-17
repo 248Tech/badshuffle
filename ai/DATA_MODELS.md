@@ -7,14 +7,28 @@ All tables are defined and migrated in `server/db.js`. SQLite (sql.js); foreign 
 ## Quote
 
 - **Table:** `quotes`
-- **Key columns:** id, name, guest_count, event_date, notes, status (draft/sent/approved), lead_id, public_token. Venue: venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes. Client: client_first_name, client_last_name, client_email, client_phone, client_address. quote_notes, tax_rate. Rental scheduling: rental_start, rental_end, delivery_date, pickup_date (TEXT). created_at, updated_at.
+- **Key columns:** id, name, guest_count, event_date, notes, status (draft/sent/approved/confirmed/closed), lead_id, public_token. Venue: venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes. Client: client_first_name, client_last_name, client_email, client_phone, client_address. quote_notes, tax_rate. Rental scheduling: rental_start, rental_end, delivery_date, pickup_date (TEXT). created_at, updated_at.
 - **Relationships:** lead_id → leads(id) SET NULL. One-to-many: quote_items, quote_custom_items, contracts, quote_attachments, quote_payments, quote_activity_log, contract_logs, messages (optional quote_id).
 
 ## QuoteItem
 
 - **Table:** `quote_items`
-- **Columns:** id, quote_id, item_id, quantity, label, sort_order, hidden_from_quote.
+- **Columns:** id, quote_id, item_id, quantity, label, sort_order, hidden_from_quote, unit_price_override (REAL, nullable — NULL means use items.unit_price).
 - **Relationships:** quote_id → quotes(id) CASCADE; item_id → items(id) RESTRICT. Used for equipment and (when category contains "logistics") delivery/pickup lines.
+
+## QuoteAdjustment
+
+- **Table:** `quote_adjustments`
+- **Columns:** id, quote_id, label TEXT, type TEXT (discount|surcharge), value_type TEXT (percent|fixed), amount REAL, sort_order INTEGER, created_at TEXT.
+- **Relationships:** quote_id → quotes(id) CASCADE.
+- **Notes:** Percent adjustments apply to pre-tax base (subtotal + delivery + custom subtotal). Fixed adjustments are flat amounts. Discounts are negative; surcharges positive. Tax is NOT recalculated (remains on raw taxable line items).
+
+## QuoteDamageCharge
+
+- **Table:** `quote_damage_charges`
+- **Columns:** id, quote_id, title TEXT, amount REAL, note TEXT, created_at TEXT, created_by TEXT.
+- **Relationships:** quote_id → quotes(id) CASCADE.
+- **Notes:** Post-event billing for damage; only applicable to closed quotes.
 
 ## Product / Item (Inventory)
 
@@ -51,7 +65,8 @@ All tables are defined and migrated in `server/db.js`. SQLite (sql.js); foreign 
 ## Vendor
 
 - **Table:** `vendors`
-- **Columns:** id, name, contact_name, contact_email, contact_phone, notes. Referenced by items.vendor_id for subrental sourcing.
+- **Columns:** id, name, email, phone, address, notes, created_at. Referenced by items.vendor_id for subrental sourcing.
+- **Note:** The DB schema uses `email`, `phone`, `address` (not `contact_name`/`contact_email`/`contact_phone`).
 
 ## Other Tables
 
@@ -61,7 +76,7 @@ All tables are defined and migrated in `server/db.js`. SQLite (sql.js); foreign 
 | **login_attempts** | ip, attempted_at, success |
 | **reset_tokens** | user_id, token, expires_at, used |
 | **extension_tokens** | token (for extension API) |
-| **settings** | key-value (tax_rate, currency, company_*, SMTP/IMAP, system flags, count_oos_oversold) |
+| **settings** | key-value (tax_rate, currency, company_*, SMTP/IMAP, system flags, count_oos_oversold, ai_claude_key_enc, ai_openai_key_enc, ai_gemini_key_enc, ai_suggest_enabled/model, ai_pdf_import_enabled/model, ai_email_draft_enabled/model, ai_description_enabled/model) |
 | **leads** | name, email, phone, event_date, event_type, source_url, notes, quote_id, created_at |
 | **lead_events** | lead_id, event_type, note, created_at |
 | **email_templates** | name, subject, body_html, body_text, is_default |
@@ -82,7 +97,7 @@ All tables are defined and migrated in `server/db.js`. SQLite (sql.js); foreign 
 
 ## Key Relationships Summary
 
-- **Quote** → many QuoteItems (inventory) + many QuoteCustomItems; one Contract; many QuoteAttachments, QuotePayments, activity log entries; optional Lead.
-- **Item** → many QuoteItems; optional parent/child Associations (bundles); one ItemStats; many UsageBrackets.
+- **Quote** → many QuoteItems (inventory) + many QuoteCustomItems + many QuoteAdjustments + many QuoteDamageCharges; one Contract; many QuoteAttachments, QuotePayments, activity log entries; optional Lead.
+- **Item** → many QuoteItems; optional parent/child Associations (bundles); one ItemStats; many UsageBrackets. Optional FK to Vendor via vendor_id.
 - **Lead** → optional Quote (quote_id); many LeadEvents.
 - **File** → many QuoteAttachments; item/custom item photo_url can store file id.

@@ -1,0 +1,105 @@
+.page {
+  min-height: 100vh;
+  background: #f5f6f8;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1a1a2e;
+}
+
+/* ── Header ── */
+.header { background: #0f172a; color: #fff; padding: .875rem 0; }
+.headerInner {
+  max-width: 1200px; margin: 0 auto; padding: 0 1.5rem;
+  display: flex; align-items: center; gap: .875rem;
+}
+.headerLogo { height: 44px; width: auto; border-radius: 4px; }
+.headerName { font-size: 1.25rem; font-weight: 800; letter-spacing: -.3px; }
+.headerName a { color: #fff; text-decoration: none; }
+.headerSub { font-size: .8rem; color: rgba(255,255,255,.5); margin-top: .1rem; }
+
+/* ── Detail ── */
+.detail { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+.breadcrumb {
+  font-size: .82rem; color: #94a3b8; margin-bottom: 1.5rem;
+  display: flex; flex-wrap: wrap; gap: .4rem; align-items: center;
+}
+.breadcrumb a { color: #3b82f6; text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.sep { color: #cbd5e1; }
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+  align-items: start;
+}
+@media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+
+.image {
+  width: 100%; border-radius: 14px; aspect-ratio: 4/3;
+  object-fit: cover; box-shadow: 0 6px 24px rgba(0,0,0,.12); background: #e8ecf0;
+}
+.imagePlaceholder {
+  width: 100%; border-radius: 14px; aspect-ratio: 4/3;
+  background: linear-gradient(135deg, #e8ecf0, #d1d8e0);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 4.5rem; color: #b0bec5;
+}
+
+.category { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #3b82f6; margin-bottom: .4rem; }
+.title { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 900; letter-spacing: -.5px; line-height: 1.2; margin-bottom: .75rem; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: .8rem; font-weight: 700;
+  padding: .3rem .7rem; border-radius: 99px; margin-bottom: 1rem;
+  background: #dcfce7; color: #15803d;
+}
+
+.priceBox { background: #eff6ff; border-radius: 10px; padding: .9rem 1.1rem; margin-bottom: 1.1rem; }
+.price { font-size: 1.75rem; font-weight: 900; color: #0f172a; }
+.priceLabel { font-size: .8rem; color: #64748b; }
+
+.description { font-size: .95rem; color: #475569; line-height: 1.75; margin-bottom: 1.4rem; }
+
+.meta { list-style: none; margin-bottom: 1.4rem; }
+.meta li { display: flex; gap: .75rem; padding: .45rem 0; border-bottom: 1px solid #f1f5f9; font-size: .87rem; }
+.meta li:last-child { border-bottom: none; }
+.metaKey { color: #94a3b8; min-width: 90px; }
+.metaVal { font-weight: 600; }
+
+.cta { display: flex; gap: .65rem; flex-wrap: wrap; }
+.btnPrimary {
+  display: inline-block; background: #3b82f6; color: #fff;
+  padding: .8rem 1.75rem; border-radius: 8px; font-weight: 700; font-size: .95rem;
+  text-decoration: none; transition: .15s;
+}
+.btnPrimary:hover { background: #2563eb; }
+.btnBack {
+  display: inline-block; border: 2px solid #e2e8f0; color: #475569;
+  padding: .8rem 1.5rem; border-radius: 8px; font-weight: 600; font-size: .9rem;
+  text-decoration: none; transition: .15s;
+}
+.btnBack:hover { border-color: #94a3b8; }
+
+/* ── CTA band ── */
+.ctaBand {
+  background: linear-gradient(135deg, #0f172a, #1e3a5f);
+  color: #fff; padding: 3rem 1.5rem; text-align: center; margin-top: 3rem;
+}
+.ctaBand h2 { font-size: 1.9rem; font-weight: 900; margin-bottom: .6rem; }
+.ctaBand p { font-size: 1rem; color: rgba(255,255,255,.72); max-width: 480px; margin: 0 auto 1.4rem; }
+
+/* ── Footer ── */
+.footer {
+  background: #0f172a; color: rgba(255,255,255,.4);
+  text-align: center; padding: 1.25rem 1.5rem; font-size: .82rem;
+}
+.footer p { margin-bottom: .25rem; }
+.footer a { color: rgba(255,255,255,.6); text-decoration: none; }
+
+/* ── States ── */
+.loading { text-align: center; padding: 5rem; color: #94a3b8; font-size: .9rem; }
+.notFound { text-align: center; padding: 5rem 1.5rem; color: #94a3b8; }
+.notFoundIcon { font-size: 4rem; margin-bottom: 1rem; }
+.notFound h1 { font-size: 1.5rem; margin-bottom: 1.5rem; color: #475569; }

@@ -63,6 +63,12 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
   const [localQty, setLocalQty] = useState({});
   const debounceRef = useRef(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  // All categories for dropdown
+  const [allCategories, setAllCategories] = useState([]);
+  // Drag-and-drop state
+  const dragItemRef = useRef(null);
+  const dragOverItemRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
   // Per-item price override inline editing
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [priceInput, setPriceInput] = useState('');
@@ -90,6 +96,11 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
     setSelectedCategory(null);
     setPickerPage(1);
   }, [filterMode, maxCategories]);
+
+  // Load all categories for the "all categories" dropdown
+  useEffect(() => {
+    api.getCategories().then(d => setAllCategories(d.categories || [])).catch(() => {});
+  }, []);
 
   // Load category list for filter buttons (popular or manual)
   useEffect(() => {
@@ -261,6 +272,36 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
     }
   };
 
+  // Drag-and-drop reordering of quote items
+  const handleDragStart = (e, idx) => {
+    dragItemRef.current = idx;
+    setDragging(true);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleDragEnter = (e, idx) => {
+    dragOverItemRef.current = idx;
+    e.preventDefault();
+  };
+  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+  const handleDragEnd = async () => {
+    setDragging(false);
+    const from = dragItemRef.current;
+    const to = dragOverItemRef.current;
+    dragItemRef.current = null;
+    dragOverItemRef.current = null;
+    if (from == null || to == null || from === to) return;
+    const reordered = [...(items || [])];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    // Optimistically update via parent callback with new sort_order
+    try {
+      await api.reorderQuoteItems(quoteId, reordered.map(it => it.qitem_id));
+      onItemsChange();
+    } catch (e) {
+      // ignore; parent will refetch
+    }
+  };
+
   const handleAddAdjustment = async (e) => {
     e.preventDefault();
     const amt = parseFloat(adjForm.amount);
@@ -304,7 +345,7 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
           <p className={styles.empty}>No items yet. Add from inventory below.</p>
         )}
         <div className={styles.quoteList}>
-          {(items || []).map(item => {
+          {(items || []).map((item, idx) => {
             const qty = item.quantity ?? 1;
             const basePrice = item.unit_price ?? 0;
             const hasOverride = item.unit_price_override != null;
@@ -315,7 +356,16 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
             const avail = itemId != null ? availability[itemId] : null;
             const isEditingPrice = editingPriceId === item.qitem_id;
             return (
-              <div key={item.qitem_id} className={`${styles.quoteItem} ${item.hidden_from_quote ? styles.quoteItemHidden : ''}`}>
+              <div
+                key={item.qitem_id}
+                className={`${styles.quoteItem} ${item.hidden_from_quote ? styles.quoteItemHidden : ''} ${dragging && dragOverItemRef.current === idx ? styles.quoteItemDragOver : ''}`}
+                draggable
+                onDragStart={e => handleDragStart(e, idx)}
+                onDragEnter={e => handleDragEnter(e, idx)}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+              >
+                <span className={styles.dragHandle} title="Drag to reorder" aria-hidden>⠿</span>
                 <div className={styles.thumbWrap}>
                   {item.photo_url ? (
                     <img
@@ -481,27 +531,39 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Add from Inventory</h3>
 
-        {categoryList.length > 0 && (
-          <div className={styles.categoryRow}>
+        <div className={styles.categoryRow}>
+          <button
+            type="button"
+            className={`${styles.categoryBtn} ${!selectedCategory ? styles.categoryBtnActive : ''}`}
+            onClick={() => setSelectedCategory(null)}
+          >
+            All
+          </button>
+          {categoryList.map(cat => (
             <button
+              key={cat}
               type="button"
-              className={`${styles.categoryBtn} ${!selectedCategory ? styles.categoryBtnActive : ''}`}
-              onClick={() => setSelectedCategory(null)}
+              className={`${styles.categoryBtn} ${selectedCategory === cat ? styles.categoryBtnActive : ''}`}
+              onClick={() => setSelectedCategory(cat)}
             >
-              All
+              {cat}
             </button>
-            {categoryList.map(cat => (
-              <button
-                key={cat}
-                type="button"
-                className={`${styles.categoryBtn} ${selectedCategory === cat ? styles.categoryBtnActive : ''}`}
-                onClick={() => setSelectedCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        )}
+          ))}
+          {allCategories.length > 0 && (
+            <select
+              className={styles.categoryDropdown}
+              value={selectedCategory || ''}
+              onChange={e => setSelectedCategory(e.target.value || null)}
+              title="Filter by category"
+              aria-label="Filter by category"
+            >
+              <option value="">All categories…</option>
+              {allCategories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          )}
+        </div>
 
         <div className={styles.pickerToolbar}>
           <input

@@ -7,7 +7,7 @@ All features below are implemented unless marked as stub or partial.
 ## Quote System
 
 - **CRUD:** Create, read, update, delete quotes. Name, guest_count, event_date, notes, venue_* (name, email, phone, address, contact, notes), quote_notes, tax_rate, client_* (first_name, last_name, email, phone, address).
-- **Status:** draft → sent → approved; revert (back to draft). POST `/api/quotes/:id/send`, `/approve`, `/revert`. Send generates public_token if missing.
+- **Status:** draft → sent → approved → confirmed → closed; revert (back to draft from draft/sent/approved/confirmed; closed is irreversible). POST `/api/quotes/:id/send`, `/approve`, `/revert`. New: `confirmed` = hard inventory reservation; `closed` = post-event, releases inventory, unlocks damage charges. Send generates public_token if missing.
 - **List:** GET `/api/quotes` returns quotes with computed total, amount_paid, remaining_balance, overpaid. UI: QuotePage with list/tile view, multi-select, batch duplicate/delete.
 - **Detail:** QuoteDetailPage: header (QuoteHeader), client/venue blocks, quote notes, logistics section, totals bar, tabs (Details, Contract, Files, Payments, Activity), Send to Client, Copy Link, AI Suggest, Duplicate, Delete.
 - **Logic location:** `server/routes/quotes.js`, `client/src/pages/QuotePage.jsx`, `client/src/pages/QuoteDetailPage.jsx`, `client/src/components/QuoteHeader.jsx`.
@@ -16,7 +16,23 @@ All features below are implemented unless marked as stub or partial.
 
 - Add/update/remove line items (inventory items) on a quote: quantity, label, sort_order. PATCH for hidden_from_quote.
 - **Hide from quote:** `quote_items.hidden_from_quote` — item stays on quote for internal/operations but excluded from client-facing totals and public view. Toggle in QuoteBuilder.
-- **Logic location:** `server/routes/quotes.js` (POST/PUT/DELETE quote items), `client/src/components/QuoteBuilder.jsx`.
+- **Drag-and-drop reordering:** QuoteBuilder line items have a drag handle (⠿); drag to reorder; saves via `PUT /api/quotes/:id/items/reorder` (updates sort_order in one transaction).
+- **Logic location:** `server/routes/quotes.js` (POST/PUT/DELETE quote items, PUT items/reorder), `client/src/components/QuoteBuilder.jsx`.
+
+## Price Overrides
+
+- **Per-line price override:** `quote_items.unit_price_override` (REAL, nullable). NULL = use inventory unit_price. Set inline in QuoteBuilder (click price → input → Enter/Esc to confirm/cancel). Override shown in purple with ✕ reset button.
+- **Effective price:** `effectivePrice(it) = it.unit_price_override ?? it.unit_price` — used in all total computations (QuoteDetailPage, public quote, QuoteExport).
+- **Logic location:** `server/routes/quotes.js` (PUT /:id/items/:qitem_id accepts `unit_price_override`; GET /:id returns it), QuoteBuilder (inline edit UI), QuoteDetailPage (`effectivePrice`, `computeTotals`).
+
+## Quote Adjustments (Discounts & Surcharges)
+
+- **Table:** `quote_adjustments` (id, quote_id, label, type, value_type, amount, sort_order).
+- **Types:** `discount` (green, negative) or `surcharge` (amber, positive). Value type: `percent` or `fixed`. Percent applies to pre-tax base (subtotal + delivery + custom subtotal); fixed is flat.
+- **Tax:** NOT recalculated on adjustments; tax remains on raw taxable line items.
+- **Routes:** `GET/POST/PUT/DELETE /api/quotes/:id/adjustments`. POST validates type, value_type, amount ≥ 0, percent ≤ 100. Add/remove/update logs to `quote_activity_log` and calls `markUnsignedChangesIfApproved`.
+- **UI:** "Discounts & Surcharges" section in QuoteBuilder (inline form + list with type badge and remove button). Adjustment rows in QuoteDetailPage summary card between delivery and tax lines.
+- **Logic location:** `server/routes/quotes.js`, QuoteBuilder, QuoteDetailPage (`computeAdjustmentsTotal`), `client/src/api.js` (`getAdjustments`, `addAdjustment`, `updateAdjustment`, `removeAdjustment`).
 
 ## Custom Items (Quote-Level)
 
@@ -94,6 +110,29 @@ All features below are implemented unless marked as stub or partial.
 - **Fields on quotes:** `rental_start`, `rental_end`, `delivery_date`, `pickup_date` (all TEXT). Editable and visible in quote editor (QuoteDetailPage). Used by availability engine for date-range overlap.
 - **Logic location:** `server/routes/quotes.js` (accept/return in GET/PUT), QuoteDetailPage (form and display).
 
+## Public Catalog
+
+- **Purpose:** Public-facing, no-auth browsable inventory catalog for customers (SEO-optimized). Separate from the internal app and the private `/quote/public/:token` route.
+- **Server-rendered pages (SEO):**
+  - `GET /catalog` — HTML catalog page with JSON-LD (ItemList + LocalBusiness), og: tags, canonical link; category sidebar; item grid.
+  - `GET /catalog/item/:id` — HTML item detail page with JSON-LD (Product + BreadcrumbList), og: tags; price box, availability badge, CTA.
+  - `GET /robots.txt` — Allows /catalog, disallows internal routes; links to sitemap.
+  - `GET /sitemap.xml` — XML sitemap: /catalog, category filter pages, all item detail URLs.
+- **JSON API (no auth):**
+  - `GET /api/public/catalog-meta` — company info, categories, counts, total.
+  - `GET /api/public/items` — item list with category/search filters, pagination (max 500).
+  - `GET /api/public/items/:id` — single item detail.
+  - All queries exclude `hidden=1` items. `photo_url` resolved to signed URL or absolute URL via `APP_URL` env var.
+- **React SPA pages:** `PublicCatalogPage.jsx` (/catalog) and `PublicItemPage.jsx` (/catalog/item/:id) — same data as server-rendered but client-side for SPA navigation within the app shell.
+- **Logic location:** `server/routes/publicCatalog.js`, `client/src/pages/PublicCatalogPage.jsx`, `client/src/pages/PublicItemPage.jsx`, `client/src/api.js` (`api.catalog.*`).
+
+## Docker Deployment
+
+- **Dockerfile:** Multi-stage; Stage 1: `oven/bun:1-alpine` builds React client. Stage 2: `node:20-alpine` runs Express server with built client. Exposes port 3001.
+- **docker-compose.yml:** Single service; named volume `badshuffle_data` at `/data`; DB at `/data/badshuffle.db`; uploads at `/data/uploads`. Port `${PORT:-3001}:3001`.
+- **docker-entrypoint.sh:** Creates `/data/uploads` on start, then execs CMD.
+- **Logic location:** `Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml`, `docker-entrypoint.sh`, `.dockerignore`.
+
 ## Other Features
 
 - **Dashboard:** GET `/api/quotes/summary` (byStatus, revenueByStatus, upcoming, byMonth). DashboardPage. Also Conflicts and Subrental Needs panels (see Availability & Conflict Detection).
@@ -102,7 +141,7 @@ All features below are implemented unless marked as stub or partial.
 - **Extension:** Download extension ZIP (public); extension tokens for API (admin). ExtensionPage.
 - **Import:** Inventory from CSV/XLSX/Sheets (sheets.js); leads from CSV/XLSX/Sheets with column mapping (leads preview/import). ImportPage.
 - **Stats:** Item usage (times quoted, etc.); StatsPage, ItemDetailPage.
-- **Settings:** Company, tax, currency, SMTP/IMAP; `count_oos_oversold` (whether out-of-stock items count toward dashboard conflict detection). SettingsPage (operator).
+- **Settings:** Company, tax, currency, SMTP/IMAP; `count_oos_oversold`; AI provider keys (Claude, OpenAI, Gemini) and per-feature enable/model settings. SettingsPage (operator).
 - **Admin:** Users, approve/reject, roles, system settings (autokill, update check). AdminPage (admin).
 
 Where a feature is only partially implemented or has known gaps, see **KNOWN_GAPS.md**.

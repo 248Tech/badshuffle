@@ -1,5 +1,5 @@
-.page { display: flex; flex-direction: column; gap: 20px; }
-.header { display: flex; justify-content: space-between; align-items: flex-start; }
+.page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 .title { font-size: 22px; font-weight: 700; }
 .sub { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
 .formCard { padding: 20px; }
@@ -8,12 +8,12 @@
 .formRow { display: flex; gap: 12px; flex-wrap: wrap; }
 .formRow .form-group { min-width: 120px; }
 .formActions { display: flex; gap: 8px; justify-content: flex-end; }
-.headerActions { display: flex; align-items: center; gap: 12px; }
+.headerActions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .viewToggle { display: flex; gap: 2px; }
 .viewToggle .btn.active { background: var(--color-bg-elevated); }
 .batchBar {
   display: flex; align-items: center; gap: 12px; padding: 10px 14px;
-  background: var(--color-bg-elevated); border-radius: 8px;
+  background: var(--color-bg-elevated); border-radius: 8px; flex-wrap: wrap;
 }
 .batchBar span { font-size: 13px; color: var(--color-text-muted); margin-right: 4px; }
 .grid {
@@ -21,8 +21,8 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
-.listWrap { overflow-x: auto; }
-.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.listWrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 480px; }
 .table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--color-border); }
 .table th { font-weight: 600; color: var(--color-text-muted); }
 .table tbody tr:hover { background: var(--color-bg-elevated); }
@@ -33,3 +33,13 @@
 .remainingCell { color: #c00; font-weight: 500; }
 .overpaidCell { color: #b45309; font-weight: 500; margin-right: 6px; }
 .overpaidBadge { font-size: 11px; font-weight: 600; padding: 2px 6px; background: #fef3c7; color: #b45309; border-radius: 999px; }
+
+@media (max-width: 768px) {
+  .page { gap: 14px; }
+  .header { flex-direction: column; align-items: stretch; }
+  .headerActions { justify-content: flex-start; }
+  .title { font-size: 18px; }
+  .grid { grid-template-columns: 1fr; gap: 12px; }
+  .batchBar { padding: 12px; gap: 8px; }
+  .batchBar .btn { min-height: 44px; }
+}
