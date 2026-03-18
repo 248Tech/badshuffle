@@ -37,7 +37,19 @@ try {
   } else throw e;
 }
 
-const PORT = process.env.PORT || 3001;
+const PREFERRED_PORT = Number(process.env.PORT) || 3001;
+const PORT_CONFIGURED = !!process.env.PORT;
+
+function findOpenPort(port) {
+  return new Promise((resolve, reject) => {
+    const srv = require('net').createServer();
+    srv.listen(port, '127.0.0.1', () => { srv.close(() => resolve(port)); });
+    srv.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') resolve(findOpenPort(port + 1));
+      else reject(err);
+    });
+  });
+}
 
 // Resolve uploads directory (works both in dev and pkg)
 const UPLOADS_DIR = process.env.UPLOADS_DIR || (typeof process.pkg !== 'undefined'
@@ -66,11 +78,10 @@ async function start() {
   app.use(cors({
     origin: (origin, cb) => {
       const allowed = [
-        'http://localhost:5173',
-        'http://localhost:5174',
         ...(process.env.APP_URL ? [process.env.APP_URL] : []),
       ];
-      if (!origin || allowed.includes(origin) || /^chrome-extension:\/\//.test(origin)) {
+      const isLocalhost = origin && /^http:\/\/localhost(:\d+)?$/.test(origin);
+      if (!origin || isLocalhost || allowed.includes(origin) || /^chrome-extension:\/\//.test(origin)) {
         cb(null, true);
       } else {
         cb(null, false);
@@ -172,6 +183,39 @@ async function start() {
     res.json({ quote: updated });
   });
 
+  // Public: get messages for a quote by token (client-facing thread)
+  app.get('/api/quotes/public/:token/messages', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    const messages = db.prepare(
+      "SELECT id, direction, from_email, to_email, subject, body_text, sent_at FROM messages WHERE quote_id = ? ORDER BY sent_at ASC"
+    ).all(quote.id);
+    res.json({ messages });
+  });
+
+  // Public: client sends a message via quote token (no auth)
+  app.post('/api/quotes/public/:token/messages', (req, res) => {
+    const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    const { body_text, from_name, from_email } = req.body || {};
+    if (!body_text || !String(body_text).trim()) return res.status(400).json({ error: 'Message required' });
+    try {
+      db.prepare(`
+        INSERT INTO messages (quote_id, direction, from_email, to_email, subject, body_text, status, sent_at, quote_name)
+        VALUES (?, 'inbound', ?, NULL, ?, ?, 'unread', datetime('now'), ?)
+      `).run(
+        quote.id,
+        from_email || from_name || 'Client',
+        'Message from ' + (from_name || 'client'),
+        String(body_text).trim(),
+        quote.name || ''
+      );
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Public contract sign by token (no auth)
   app.post('/api/quotes/contract/sign', (req, res) => {
     const token = (req.body && req.body.token) || '';
@@ -236,11 +280,15 @@ async function start() {
     app.get('*', (req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
   }
 
+  const PORT = PORT_CONFIGURED ? PREFERRED_PORT : await findOpenPort(PREFERRED_PORT);
+  if (!PORT_CONFIGURED && PORT !== PREFERRED_PORT) {
+    console.log(`[port] Port ${PREFERRED_PORT} in use — using ${PORT} instead.`);
+  }
+
   app.listen(PORT, () => {
+    singleInstance.updateLock({ port: PORT });
     console.log(`BadShuffle server running on http://localhost:${PORT}`);
-    // Non-blocking startup update check
     updateCheck.run(db).catch(function() {});
-    // Start IMAP polling (no-op if not configured)
     emailPoller.startPolling(db, 5 * 60 * 1000);
   });
 }

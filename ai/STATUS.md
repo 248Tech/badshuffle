@@ -1,9 +1,46 @@
 # STATUS
 
-**Released v0.4.3** (2026-03-17): Public catalog, Docker deployment, `APP_URL`/`DB_PATH`/`UPLOADS_DIR` runtime support, dev launch improvements (`dev:host`, `dev:docker`, dev-only auto-login), encrypted AI settings, mobile shell polish, inventory category chips, and drag-and-drop quote item reordering.
+**Released v0.4.4** (2026-03-18): Quote-page filters + date-range picker, 2-step quote creation wizard with optional Google Places autocomplete, public quote live messaging thread (`/api/quotes/public/:token/messages`), availability picker endpoint (`/api/availability/quote/:id/items`), UI theme/map settings, robust extension scraping, and item `contract_description` persistence.
 
 ## Current Task
-Completed: v0.4.3 release prep and docs alignment; previously: Public catalog, Docker deployment, dev login flow, AI settings, and drag-and-drop quote item reordering.
+Completed: v0.4.4 release prep and docs alignment; previously: v0.4.3 release prep and docs alignment.
+
+## Quote Flow + Public Messaging + Theming — v0.4.4
+
+### Quote creation, filtering, and availability UX
+- **Quotes page:** `client/src/pages/QuotePage.jsx` now includes:
+  - 2-step quote wizard (event details, then client info)
+  - filters: search, venue, status, event date range, outstanding balance
+  - Google Places address autocomplete (when `google_places_api_key` is configured)
+  - conflict stop-sign indicators on quote cards/list rows
+- **Quote list API:** `server/routes/quotes.js` `GET /api/quotes` supports query params:
+  - `search`, `status`, `event_from`, `event_to`, `has_balance`, `venue`
+- **Quote builder availability:** `client/src/components/QuoteBuilder.jsx` now shows stock/booked hints and conflict state in the picker and line items.
+- **Availability endpoint:** `server/routes/availability.js` adds `GET /api/availability/quote/:quoteId/items?ids=...`.
+
+### Public quote live thread
+- **Server:** `server/index.js` adds:
+  - `GET /api/quotes/public/:token/messages`
+  - `POST /api/quotes/public/:token/messages`
+- **Client:** `client/src/pages/PublicQuotePage.jsx` + CSS adds:
+  - message list polling
+  - client message composer on public quote page
+
+### Settings, theming, and maps
+- **Settings keys:** `server/routes/settings.js` allows `ui_theme`, `google_places_api_key`, `map_default_style`.
+- **Settings UI:** `client/src/pages/SettingsPage.jsx` adds theme picker, Google Places key field, and default map style selector.
+- **Theme tokens:** `client/src/theme.css` adds theme variable sets (`shadcn`, `material`, `chakra`), and `client/index.html` applies saved theme before React render.
+- **Address map modal:** `AddressMapModal` now honors `defaultMapStyle`.
+
+### Item schema and extension sync
+- **DB migration:** `server/db.js` adds `items.contract_description`.
+- **Items routes:** `server/routes/items.js` accepts/persists `contract_description` in create, update, and upsert flows.
+- **Extension:** `extension/content.js` extracts richer item data, including contract-description-style fields; `extension/background.js` sends `contract_description`.
+
+### Runtime/dev behavior
+- **Port handling:** `server/index.js` can auto-increment to the next open localhost port when `PORT` is unset.
+- **Lockfile metadata:** `server/services/singleInstance.js` can update lock metadata (including active port), and Vite reads the lockfile port (`client/vite.config.js`).
+- **Cross-platform env setting:** `server/package.json` uses `cross-env` in `dev` script.
 
 ## Public Catalog + Docker + Dev UX — v0.4.3
 

@@ -6,8 +6,10 @@ How to run the project locally and in production.
 
 ## Environment Requirements
 
-- **Node.js** — LTS (e.g. 14+). Used for server and client dev/build.
-- **npm** — For install and scripts. No pnpm/yarn requirement.
+- **Bun** — 1.1+ (primary dev runtime and installer).
+- **Node.js** — 14.x required for `pkg` executable targets (packaging flow); modern Node is also used in Docker/runtime images.
+- **npm** — Optional wrapper for root scripts.
+- **Docker** — Optional for containerized runs.
 
 ---
 
@@ -19,12 +21,12 @@ From repo root:
 npm run install:all
 ```
 
-This runs `npm install` at root and `npm install --prefix server` and `npm install --prefix client`. Or manually:
+This runs Bun installs at root/server/client. Or manually:
 
 ```bash
-npm install
-npm install --prefix server
-npm install --prefix client
+bun install
+bun install --cwd server
+bun install --cwd client
 ```
 
 ---
@@ -52,12 +54,12 @@ From repo root:
 npm run dev
 ```
 
-This runs server and client concurrently (e.g. `concurrently "npm run dev --prefix server" "npm run dev --prefix client"`).
+This runs server and client concurrently (server dev uses Bun; client uses Vite).
 
-- **Server:** http://localhost:3001 (or PORT from .env)
+- **Server:** http://localhost:3001 by default (or `PORT` from `.env`; if `PORT` is unset and 3001 is busy, server auto-selects the next free localhost port)
 - **Client:** http://localhost:5173 (Vite). Vite proxy forwards `/api` to the server.
 
-First run: ensure no other process is using port 3001 (or set PORT). If single-instance autokill is enabled (admin System settings), the server may kill a previous BadShuffle server on startup.
+If the server auto-selects a port, it writes it into `badshuffle.lock`; Vite reads that lockfile so `/api` continues to proxy correctly.
 
 ---
 

@@ -26,13 +26,13 @@ function pixelsToDegrees(pixels, zoom) {
   return (360 / (512 * Math.pow(2, zoom)));
 }
 
-export default function AddressMapModal({ address, companyAddress = '', mapboxToken = '', onClose }) {
+export default function AddressMapModal({ address, companyAddress = '', mapboxToken = '', defaultMapStyle = 'map', onClose }) {
   const [coords, setCoords] = useState(null);
   const [mapError, setMapError] = useState(null);
   const [mapLoading, setMapLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [mapStyle, setMapStyle] = useState('map');
-  const [zoom, setZoom] = useState(14);
+  const [mapStyle, setMapStyle] = useState(defaultMapStyle === 'sat' || defaultMapStyle === 'satellite' ? 'sat' : 'map');
+  const [zoom, setZoom] = useState(ZOOM_MAX);
   const [viewCenter, setViewCenter] = useState(null);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [displayMapUrl, setDisplayMapUrl] = useState(null);

@@ -8,7 +8,8 @@ All features below are implemented unless marked as stub or partial.
 
 - **CRUD:** Create, read, update, delete quotes. Name, guest_count, event_date, notes, venue_* (name, email, phone, address, contact, notes), quote_notes, tax_rate, client_* (first_name, last_name, email, phone, address).
 - **Status:** draft → sent → approved → confirmed → closed; revert (back to draft from draft/sent/approved/confirmed; closed is irreversible). POST `/api/quotes/:id/send`, `/approve`, `/revert`. New: `confirmed` = hard inventory reservation; `closed` = post-event, releases inventory, unlocks damage charges. Send generates public_token if missing.
-- **List:** GET `/api/quotes` returns quotes with computed total, amount_paid, remaining_balance, overpaid. UI: QuotePage with list/tile view, multi-select, batch duplicate/delete.
+- **List + filters:** GET `/api/quotes` returns quotes with computed total, amount_paid, remaining_balance, overpaid, with optional filters (`search`, `status`, `event_from`, `event_to`, `has_balance`, `venue`). UI: QuotePage supports list/tile view, multi-select, batch duplicate/delete, and filter controls.
+- **Create wizard:** QuotePage uses a 2-step quote creation flow (event details, then client info); optional Google Places autocomplete can fill client address.
 - **Detail:** QuoteDetailPage: header (QuoteHeader), client/venue blocks, quote notes, logistics section, totals bar, tabs (Details, Contract, Files, Payments, Activity), Send to Client, Copy Link, AI Suggest, Duplicate, Delete.
 - **Logic location:** `server/routes/quotes.js`, `client/src/pages/QuotePage.jsx`, `client/src/pages/QuoteDetailPage.jsx`, `client/src/components/QuoteHeader.jsx`.
 
@@ -16,8 +17,8 @@ All features below are implemented unless marked as stub or partial.
 
 - Add/update/remove line items (inventory items) on a quote: quantity, label, sort_order. PATCH for hidden_from_quote.
 - **Hide from quote:** `quote_items.hidden_from_quote` — item stays on quote for internal/operations but excluded from client-facing totals and public view. Toggle in QuoteBuilder.
-- **Drag-and-drop reordering:** QuoteBuilder line items have a drag handle (⠿); drag to reorder; saves via `PUT /api/quotes/:id/items/reorder` (updates sort_order in one transaction).
-- **Logic location:** `server/routes/quotes.js` (POST/PUT/DELETE quote items, PUT items/reorder), `client/src/components/QuoteBuilder.jsx`.
+- **Zero-quantity removal behavior:** Updating a quote item or custom item with `quantity = 0` removes the line and logs activity.
+- **Logic location:** `server/routes/quotes.js` (POST/PUT/DELETE quote items and custom items), `client/src/components/QuoteBuilder.jsx`.
 
 ## Price Overrides
 
@@ -83,6 +84,7 @@ All features below are implemented unless marked as stub or partial.
 - **View:** GET `/api/quotes/public/:token` (no auth). Returns quote, items (excluding hidden_from_quote), customItems, contract, company settings; signed_photo_url for file-based images.
 - **Approve:** Button on public page → POST `/api/quotes/approve-by-token` (no auth) → status = approved.
 - **Contract sign:** POST `/api/quotes/contract/sign` with token, signature_data, signer_name.
+- **Public message thread:** GET/POST `/api/quotes/public/:token/messages` for client-visible conversation history and message posting from the public quote page.
 - **Logic location:** `server/index.js` and `server/api/v1.js` (public route), `client/src/pages/PublicQuotePage.jsx`.
 
 ## Pull Sheets
@@ -94,8 +96,9 @@ All features below are implemented unless marked as stub or partial.
 - **Conflicts:** GET `/api/availability/conflicts` — items where reserved quantities exceed stock; considers quote status and rental date ranges (delivery_date → pickup_date, or rental_start → rental_end).
 - **Subrental needs:** GET `/api/availability/subrental-needs` — items requiring subrental (demand > stock, `is_subrental = 0`).
 - **Per-quote conflict:** GET `/api/availability/quote/:id` — which items on this quote conflict with other reservations.
+- **Per-quote picker stock view:** GET `/api/availability/quote/:id/items?ids=...` — stock, reserved_qty, potential_qty for selected item IDs on that quote's date window.
 - **Dashboard:** Conflicts panel and Subrental Needs panel; respect setting `count_oos_oversold`.
-- **Quote builder:** Conflict indicator icon (☹) next to line items that overlap with other reservations.
+- **Quote builder:** Shows conflict/available state and stock-vs-booked badges in both quote lines and inventory picker.
 - **Logic location:** `server/routes/availability.js`, DashboardPage (panels), QuoteBuilder (icon), SettingsPage (`count_oos_oversold`).
 
 ## Vendors / Subrental
@@ -141,7 +144,7 @@ All features below are implemented unless marked as stub or partial.
 - **Extension:** Download extension ZIP (public); extension tokens for API (admin). ExtensionPage.
 - **Import:** Inventory from CSV/XLSX/Sheets (sheets.js); leads from CSV/XLSX/Sheets with column mapping (leads preview/import). ImportPage.
 - **Stats:** Item usage (times quoted, etc.); StatsPage, ItemDetailPage.
-- **Settings:** Company, tax, currency, SMTP/IMAP; `count_oos_oversold`; AI provider keys (Claude, OpenAI, Gemini) and per-feature enable/model settings. SettingsPage (operator).
+- **Settings:** Company, tax, currency, SMTP/IMAP; `count_oos_oversold`; AI provider keys (Claude, OpenAI, Gemini) and per-feature enable/model settings; `ui_theme`, `google_places_api_key`, `map_default_style`. SettingsPage (operator).
 - **Admin:** Users, approve/reject, roles, system settings (autokill, update check). AdminPage (admin).
 
 Where a feature is only partially implemented or has known gaps, see **KNOWN_GAPS.md**.

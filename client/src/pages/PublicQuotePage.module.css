@@ -702,6 +702,107 @@
   margin-bottom: 12px;
 }
 
+/* ── Live message thread ─────────────────────────────────── */
+.msgCard {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  padding: 20px 22px;
+}
+
+.msgList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.msgBubble {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.msgOut {
+  align-self: flex-start;
+  background: #f0f4ff;
+  border-bottom-left-radius: 4px;
+}
+
+.msgIn {
+  align-self: flex-end;
+  background: #e6f7ee;
+  border-bottom-right-radius: 4px;
+}
+
+.msgBubbleBody { color: #1a1a2e; word-break: break-word; }
+
+.msgBubbleMeta {
+  font-size: 11px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.msgSentNote {
+  font-size: 13px;
+  color: #047857;
+  background: #d1fae5;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+}
+
+.msgForm { display: flex; flex-direction: column; gap: 10px; }
+
+.msgFormTop { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.msgInput {
+  flex: 1;
+  min-width: 140px;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fafafa;
+  color: #1a1a2e;
+}
+
+.msgInput:focus { outline: none; border-color: #3b82f6; }
+
+.msgTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fafafa;
+  color: #1a1a2e;
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.msgTextarea:focus { outline: none; border-color: #3b82f6; }
+
+.msgFormActions { display: flex; justify-content: flex-end; }
+
+.msgSendBtn {
+  padding: 9px 20px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.msgSendBtn:hover:not(:disabled) { background: #2563eb; }
+.msgSendBtn:disabled { opacity: .55; cursor: not-allowed; }
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 560px) {
   .infoGrid { grid-template-columns: 1fr; }
@@ -718,6 +819,7 @@
   .actionBar { display: none !important; }
   .signForm { display: none !important; }
   .contractBody { max-height: none; overflow: visible; }
+  .msgCard { display: none !important; }
   .itemsCard, .infoCard, .totalsCard, .contractCard, .notes {
     box-shadow: none;
     border: 1px solid #ccc;

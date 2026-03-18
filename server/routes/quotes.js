@@ -15,17 +15,52 @@ module.exports = function makeRouter(db, uploadsDir) {
     } catch (e) {}
   }
 
-  // GET /api/quotes — include computed total, amount_paid, remaining_balance, overpaid for list/card/billing
+  // GET /api/quotes — include computed total, amount_paid, remaining_balance, overpaid; optional filters
+  // Query params: search (name/client), status, event_from, event_to, has_balance, venue
   router.get('/', (req, res) => {
     const defaultTaxRow = db.prepare("SELECT value FROM settings WHERE key = 'tax_rate'").get();
     const defaultTaxRate = defaultTaxRow ? parseFloat(defaultTaxRow.value) : 0;
-    const quotes = db.prepare('SELECT * FROM quotes ORDER BY created_at DESC').all();
+    const search = (req.query.search || '').trim();
+    const status = (req.query.status || '').trim();
+    const event_from = (req.query.event_from || '').trim();
+    const event_to = (req.query.event_to || '').trim();
+    const has_balance = req.query.has_balance === '1' || req.query.has_balance === 'true';
+    const venue = (req.query.venue || '').trim();
+
+    const conditions = [];
+    const params = [];
+    if (search) {
+      const term = `%${search}%`;
+      conditions.push('(name LIKE ? OR client_first_name LIKE ? OR client_last_name LIKE ? OR client_email LIKE ?)');
+      params.push(term, term, term, term);
+    }
+    if (status) {
+      conditions.push('status = ?');
+      params.push(status);
+    }
+    if (event_from) {
+      conditions.push('event_date >= ?');
+      params.push(event_from);
+    }
+    if (event_to) {
+      conditions.push('event_date <= ?');
+      params.push(event_to);
+    }
+    if (venue) {
+      const vTerm = `%${venue}%`;
+      conditions.push('(venue_name LIKE ? OR venue_address LIKE ?)');
+      params.push(vTerm, vTerm);
+    }
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    const sql = `SELECT * FROM quotes ${where} ORDER BY created_at DESC`;
+    const quotes = params.length ? db.prepare(sql).all(...params) : db.prepare(sql).all();
+
     let amountPaidByQuote = {};
     try {
       const rows = db.prepare('SELECT quote_id, COALESCE(SUM(amount), 0) AS amount_paid FROM quote_payments GROUP BY quote_id').all();
       rows.forEach(r => { amountPaidByQuote[r.quote_id] = r.amount_paid; });
     } catch (e) {}
-    const quotesWithTotal = quotes.map(q => {
+    let quotesWithTotal = quotes.map(q => {
       let subtotal = 0;
       let taxableAmount = 0;
       try {
@@ -58,6 +93,9 @@ module.exports = function makeRouter(db, uploadsDir) {
       const overpaid = remaining_balance < 0;
       return { ...q, total, contract_total: total, amount_paid, remaining_balance, overpaid };
     });
+    if (has_balance) {
+      quotesWithTotal = quotesWithTotal.filter(q => q.remaining_balance > 0);
+    }
     res.json({ quotes: quotesWithTotal });
   });
 
@@ -327,7 +365,7 @@ module.exports = function makeRouter(db, uploadsDir) {
       SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote,
              qi.unit_price_override,
              i.id, i.title, i.photo_url, i.source, i.hidden,
-             i.unit_price, i.taxable, i.category, i.labor_hours
+             i.unit_price, i.taxable, i.category, i.labor_hours, i.is_subrental
       FROM quote_items qi
       JOIN items i ON i.id = qi.item_id
       WHERE qi.quote_id = ?
@@ -457,12 +495,15 @@ module.exports = function makeRouter(db, uploadsDir) {
     db.prepare("UPDATE quotes SET status = 'sent', public_token = ?, updated_at = datetime('now') WHERE id = ?")
       .run(token, req.params.id);
 
+    const msgId = '<bs-q' + req.params.id + '-' + Date.now() + '@badshuffle.local>';
     let emailPreview = null;
+    let fromAddr = null;
 
     if (toEmail) {
       const smtpRows = db.prepare("SELECT key, value FROM settings WHERE key LIKE 'smtp_%'").all();
       const smtp = {};
       smtpRows.forEach(r => { smtp[r.key] = r.value; });
+      fromAddr = smtp.smtp_from || smtp.smtp_user || null;
 
       if (smtp.smtp_host && smtp.smtp_user) {
         try {
@@ -475,9 +516,8 @@ module.exports = function makeRouter(db, uploadsDir) {
             auth: { user: smtp.smtp_user, pass: smtp.smtp_pass_enc ? decrypt(smtp.smtp_pass_enc) : '' }
           });
 
-          const msgId = '<bs-q' + req.params.id + '-' + Date.now() + '@badshuffle.local>';
           const mailOptions = {
-            from: smtp.smtp_from || smtp.smtp_user,
+            from: fromAddr,
             to: toEmail,
             subject: subject || '',
             text: bodyText || '',
@@ -497,12 +537,6 @@ module.exports = function makeRouter(db, uploadsDir) {
 
           await transporter.sendMail(mailOptions);
 
-          // Log outbound message
-          const quoteName = quote.name || '';
-          db.prepare(`
-            INSERT OR IGNORE INTO messages (quote_id, direction, from_email, to_email, subject, body_text, body_html, message_id, status, sent_at, quote_name)
-            VALUES (?, 'outbound', ?, ?, ?, ?, ?, ?, 'sent', datetime('now'), ?)
-          `).run(req.params.id, smtp.smtp_from || smtp.smtp_user, toEmail, subject || '', bodyText || '', bodyHtml || null, msgId, quoteName);
           if (quote.lead_id) {
             try {
               db.prepare('INSERT INTO lead_events (lead_id, event_type, note) VALUES (?, ?, ?)')
@@ -520,6 +554,14 @@ module.exports = function makeRouter(db, uploadsDir) {
         emailPreview = { to: toEmail, subject: subject || '(No subject)', body: bodyText || bodyHtml || '' };
       }
     }
+
+    // Always log an outbound message to start/continue the thread, regardless of email/SMTP
+    try {
+      db.prepare(`
+        INSERT OR IGNORE INTO messages (quote_id, direction, from_email, to_email, subject, body_text, body_html, message_id, status, sent_at, quote_name)
+        VALUES (?, 'outbound', ?, ?, ?, ?, ?, ?, 'sent', datetime('now'), ?)
+      `).run(req.params.id, fromAddr, toEmail || null, subject || '', bodyText || '', bodyHtml || null, msgId, quote.name || '');
+    } catch (e) {}
 
     const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     res.json({ quote: updated, emailPreview });
@@ -807,18 +849,7 @@ module.exports = function makeRouter(db, uploadsDir) {
     res.status(201).json({ qitem });
   });
 
-  // PUT /api/quotes/:id/items/reorder — bulk sort_order update
-  router.put('/:id/items/reorder', (req, res) => {
-    const { order } = req.body || {};
-    if (!Array.isArray(order)) return res.status(400).json({ error: 'order must be an array of qitem ids' });
-    const quote = db.prepare('SELECT id FROM quotes WHERE id = ?').get(req.params.id);
-    if (!quote) return res.status(404).json({ error: 'Quote not found' });
-    const stmt = db.prepare('UPDATE quote_items SET sort_order = ? WHERE id = ? AND quote_id = ?');
-    order.forEach((qitemId, idx) => stmt.run(idx, qitemId, req.params.id));
-    res.json({ ok: true });
-  });
-
-  // PUT /api/quotes/:id/items/:qitem_id
+  // PUT /api/quotes/:id/items/:qitem_id — zero quantity removes the item
   router.put('/:id/items/:qitem_id', (req, res) => {
     const { quantity, label, sort_order, hidden_from_quote, unit_price_override } = req.body;
     const oldRow = db.prepare(`
@@ -828,6 +859,16 @@ module.exports = function makeRouter(db, uploadsDir) {
       WHERE qi.id = ? AND qi.quote_id = ?
     `).get(req.params.qitem_id, req.params.id);
     if (!oldRow) return res.status(404).json({ error: 'Not found' });
+
+    const qtyNum = quantity !== undefined && quantity !== null ? Number(quantity) : null;
+    if (qtyNum === 0) {
+      const oldVal = `Title: ${(oldRow.label || oldRow.item_title || '').trim() || oldRow.item_title || 'Item'}, Unit price: $${(oldRow.unit_price || 0).toFixed(2)}, Qty: ${oldRow.quantity ?? 1}`;
+      db.prepare('DELETE FROM quote_items WHERE id = ? AND quote_id = ?')
+        .run(req.params.qitem_id, req.params.id);
+      logActivity(req.params.id, 'item_removed', 'Removed line item (zero quantity)', oldVal, null, req);
+      markUnsignedChangesIfApproved(req.params.id);
+      return res.json({ deleted: true });
+    }
 
     // unit_price_override: explicit null clears it, a number sets it, undefined leaves unchanged
     let newOverride = oldRow.unit_price_override;
@@ -907,11 +948,21 @@ module.exports = function makeRouter(db, uploadsDir) {
     res.status(201).json({ item });
   });
 
-  // PUT /api/quotes/:id/custom-items/:cid
+  // PUT /api/quotes/:id/custom-items/:cid — zero quantity removes the item
   router.put('/:id/custom-items/:cid', (req, res) => {
     const { title, unit_price, quantity, photo_url, taxable, sort_order } = req.body || {};
     const oldRow = db.prepare('SELECT title, unit_price, quantity FROM quote_custom_items WHERE id = ? AND quote_id = ?').get(req.params.cid, req.params.id);
     if (!oldRow) return res.status(404).json({ error: 'Not found' });
+
+    const qtyNum = quantity !== undefined && quantity !== null ? Number(quantity) : null;
+    if (qtyNum === 0) {
+      const oldVal = `Title: ${oldRow.title || ''}, Unit price: $${(oldRow.unit_price || 0).toFixed(2)}, Qty: ${oldRow.quantity ?? 1}`;
+      db.prepare('DELETE FROM quote_custom_items WHERE id = ? AND quote_id = ?')
+        .run(req.params.cid, req.params.id);
+      logActivity(req.params.id, 'custom_item_removed', 'Removed custom item (zero quantity)', oldVal, null, req);
+      markUnsignedChangesIfApproved(req.params.id);
+      return res.json({ deleted: true });
+    }
 
     db.prepare(`
       UPDATE quote_custom_items SET

@@ -110,8 +110,15 @@ export const api = {
   },
   importPdfQuote: (text) => request('/sheets/import-pdf-quote', { method: 'POST', body: { text } }),
 
-  // Quotes
-  getQuotes: () => request('/quotes'),
+  // Quotes — optional params: search, status, event_from, event_to, has_balance, venue
+  getQuotes: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
+    });
+    const query = qs.toString();
+    return request(query ? `/quotes?${query}` : '/quotes');
+  },
   getQuotesSummary: () => request('/quotes/summary'),
   getQuote: (id) => request(`/quotes/${id}`),
   createQuote: (body) => request('/quotes', { method: 'POST', body }),
@@ -133,6 +140,8 @@ export const api = {
   getPublicQuote: (token) => publicRequest(`/quotes/public/${token}`),
   approveQuoteByToken: (token) => publicRequest('/quotes/approve-by-token', { method: 'POST', body: { token } }),
   signContractByToken: (token, body) => publicRequest('/quotes/contract/sign', { method: 'POST', body: { token, ...body } }),
+  getPublicMessages: (token) => publicRequest(`/quotes/public/${token}/messages`),
+  sendPublicMessage: (token, body) => publicRequest(`/quotes/public/${token}/messages`, { method: 'POST', body }),
   getQuoteFiles: (id) => request(`/quotes/${id}/files`),
   addQuoteFile: (id, body) => request(`/quotes/${id}/files`, { method: 'POST', body }),
   removeQuoteFile: (quoteId, fileId) => request(`/quotes/${quoteId}/files/${fileId}`, { method: 'DELETE' }),
@@ -230,7 +239,12 @@ export const api = {
   deleteVendor:  (id)         => request(`/vendors/${id}`, { method: 'DELETE' }),
 
   // Availability
-  getQuoteAvailability: (quoteId) => request(`/availability/quote/${quoteId}`),
+  getQuoteAvailability:     (quoteId) => request(`/availability/quote/${quoteId}`),
+  getQuoteAvailabilityItems: (quoteId, itemIds) => {
+    if (!itemIds?.length) return Promise.resolve({});
+    const ids = Array.isArray(itemIds) ? itemIds.join(',') : String(itemIds);
+    return request(`/availability/quote/${quoteId}/items?ids=${encodeURIComponent(ids)}`);
+  },
   getConflicts:         ()        => request('/availability/conflicts'),
   getSubrentals:        ()        => request('/availability/subrentals'),
 

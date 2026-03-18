@@ -32,11 +32,22 @@ function forceKill(pid) {
   } catch {}
 }
 
-function writeLock() {
+function writeLock(extra) {
   const lockPath = getLockPath();
-  const data = JSON.stringify({ pid: process.pid, name: 'badshuffle-server', startedAt: Date.now() });
+  const data = JSON.stringify({ pid: process.pid, name: 'badshuffle-server', startedAt: Date.now(), ...extra });
   try { fs.writeFileSync(lockPath, data, 'utf8'); } catch (e) {
     console.warn('[single-instance] Could not write lockfile:', e.message);
+  }
+}
+
+function updateLock(extra) {
+  const lockPath = getLockPath();
+  try {
+    let existing = {};
+    try { existing = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
+    fs.writeFileSync(lockPath, JSON.stringify({ ...existing, ...extra }), 'utf8');
+  } catch (e) {
+    console.warn('[single-instance] Could not update lockfile:', e.message);
   }
 }
 
@@ -93,4 +104,4 @@ async function acquire(autokillEnabled) {
   writeLock();
 }
 
-module.exports = { acquire, release };
+module.exports = { acquire, release, updateLock };

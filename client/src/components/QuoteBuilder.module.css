@@ -103,6 +103,39 @@
 .quoteItemHidden .itemTitle,
 .quoteItemHidden .itemTitleLink { text-decoration: line-through; color: var(--color-text-muted); }
 .quoteItemHidden .itemTitleLink:hover { color: var(--color-primary); }
+
+/* Oversold: light red shading (similar to hidden) */
+.quoteItemOversold {
+  position: relative;
+  background: color-mix(in srgb, #dc2626 10%, var(--color-bg));
+}
+.quoteItemOversold::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #dc2626 25%, transparent);
+}
+
+.conflictIcon { display: inline-flex; margin-right: 6px; vertical-align: middle; flex-shrink: 0; }
+.availableIcon { display: inline-flex; margin-right: 6px; vertical-align: middle; flex-shrink: 0; }
+.subrentalBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-radius: 3px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
 .hiddenBadge {
   font-size: 10px;
   font-weight: 600;
@@ -625,8 +658,38 @@
   line-height: 1.2;
 }
 
-.conflictRed { margin-left: 5px; font-size: 14px; cursor: default; }
-.conflictYellow { margin-left: 5px; font-size: 14px; cursor: default; }
+
+/* Inline stock warning on quote line items */
+.stockBadge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #b45309;
+  background: #fef3c7;
+  border-radius: 4px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+/* Picker tile/list stock warning */
+.pickerStockBadge {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #b45309;
+  background: #fef3c7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.pickerStockBadgeList {
+  font-size: 11px;
+  color: #b45309;
+  margin-left: 6px;
+  white-space: nowrap;
+}
 
 /* Per-item price override */
 .unitPrice {

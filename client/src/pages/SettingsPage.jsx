@@ -5,14 +5,24 @@ import styles from './SettingsPage.module.css';
 
 export default function SettingsPage() {
   const toast = useToast();
+  const THEMES = [
+    { id: 'default',  label: 'Default',     primary: '#1a8fc1', accent: '#16b2a5', sidebar: '#0d3b52' },
+    { id: 'shadcn',   label: 'shadcn/ui',   primary: '#18181b', accent: '#52525b', sidebar: '#09090b' },
+    { id: 'material', label: 'Material UI', primary: '#1976d2', accent: '#9c27b0', sidebar: '#1565c0' },
+    { id: 'chakra',   label: 'Chakra UI',   primary: '#3182ce', accent: '#38b2ac', sidebar: '#2d3748' },
+  ];
+
   const [form, setForm] = useState({
     company_name: '',
     company_email: '',
     company_logo: '',
     company_address: '',
     mapbox_access_token: '',
+    map_default_style: 'map',
+    google_places_api_key: '',
     tax_rate: '0',
-    currency: 'USD'
+    currency: 'USD',
+    ui_theme: 'default'
   });
   const [quoteInventory, setQuoteInventory] = useState({
     quote_inventory_filter_mode: 'popular',
@@ -61,9 +71,16 @@ export default function SettingsPage() {
           company_logo: s.company_logo || '',
           company_address: s.company_address || '',
           mapbox_access_token: s.mapbox_access_token || '',
+          map_default_style: s.map_default_style || 'map',
+          google_places_api_key: s.google_places_api_key || '',
           tax_rate: s.tax_rate || '0',
-          currency: s.currency || 'USD'
+          currency: s.currency || 'USD',
+          ui_theme: s.ui_theme || 'default'
         });
+        // Apply saved theme on load
+        const t = s.ui_theme || 'default';
+        if (t === 'default') document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme', t);
         setQuoteInventory({
           quote_inventory_filter_mode: s.quote_inventory_filter_mode || 'popular',
           quote_inventory_max_categories: s.quote_inventory_max_categories || '10',
@@ -111,6 +128,12 @@ export default function SettingsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handleThemeChange = (themeId) => {
+    setForm(f => ({ ...f, ui_theme: themeId }));
+    if (themeId === 'default') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', themeId);
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -128,6 +151,7 @@ export default function SettingsPage() {
         ai_gemini_key_enc: aiKeys.ai_gemini_key,
         ...aiFeatures,
       });
+      localStorage.setItem('bs_theme', form.ui_theme || 'default');
       toast.success('Settings saved');
     } catch (e) {
       toast.error(e.message);
@@ -198,6 +222,35 @@ export default function SettingsPage() {
 
       <form onSubmit={handleSave}>
         <div className={`card ${styles.card}`}>
+          <h3 className={styles.section}>Appearance</h3>
+          <p className={styles.hint} style={{ marginBottom: 14 }}>Choose a UI skin. Changes apply instantly as a live preview.</p>
+          <div className={styles.themeGrid}>
+            {THEMES.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                className={`${styles.themeCard} ${form.ui_theme === t.id ? styles.themeCardSelected : ''}`}
+                onClick={() => handleThemeChange(t.id)}
+              >
+                <div className={styles.themeSwatches}>
+                  <span style={{ background: t.primary }} />
+                  <span style={{ background: t.accent }} />
+                  <span style={{ background: t.sidebar }} />
+                </div>
+                <span className={styles.themeName}>{t.label}</span>
+                {form.ui_theme === t.id && (
+                  <span className={styles.themeCheck}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>
           <h3 className={styles.section}>Company</h3>
           <div className={styles.row}>
             <div className="form-group">
@@ -326,6 +379,45 @@ export default function SettingsPage() {
                 autoComplete="off"
               />
               <span className={styles.hint}>Public token only. Leave blank to hide the map; Google Maps links will still work.</span>
+            </div>
+          </div>
+          <div className={styles.row} style={{ marginTop: 12 }}>
+            <div className="form-group" style={{ flex: '1 1 200px' }}>
+              <label>Open map dialog as</label>
+              <select
+                value={form.map_default_style || 'map'}
+                onChange={e => setForm(f => ({ ...f, map_default_style: e.target.value }))}
+              >
+                <option value="map">Map</option>
+                <option value="sat">Satellite</option>
+              </select>
+              <span className={styles.hint}>Default style when opening the address map from a quote.</span>
+            </div>
+          </div>
+        </div>
+
+        <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>
+          <h3 className={styles.section}>Google Places</h3>
+          <p className={styles.hint} style={{ marginBottom: 12 }}>
+            Enables address autocomplete when creating a quote. Uses the Google Places API.
+          </p>
+          <ol className={styles.mapboxSteps} style={{ marginBottom: 16 }}>
+            <li>Open the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>Google Cloud Console</a> and create or select a project.</li>
+            <li>Enable the <strong>Places API</strong> (and optionally <strong>Maps JavaScript API</strong>) from the API Library.</li>
+            <li>Go to <strong>Credentials</strong> → <strong>Create credentials</strong> → <strong>API key</strong>.</li>
+            <li>Restrict the key to your domain if desired, then paste it below.</li>
+          </ol>
+          <div className={styles.row}>
+            <div className="form-group" style={{ flex: '1 1 100%' }}>
+              <label>Google Places API key</label>
+              <input
+                type="password"
+                value={form.google_places_api_key}
+                onChange={e => setForm(f => ({ ...f, google_places_api_key: e.target.value }))}
+                placeholder="AIza…"
+                autoComplete="off"
+              />
+              <span className={styles.hint}>Address autocomplete will appear in the new quote wizard once a key is saved.</span>
             </div>
           </div>
         </div>

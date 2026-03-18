@@ -13,6 +13,28 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 
 ---
 
+## [0.4.4] - 2026-03-18
+
+### Added
+- **Quote filtering API + UI** — `GET /api/quotes` now supports `search`, `status`, `event_from`, `event_to`, `has_balance`, and `venue` filters. Quotes page adds filter controls and a date-range picker.
+- **Public quote live thread** — New no-auth endpoints `GET/POST /api/quotes/public/:token/messages` plus public quote UI for live polling and client message submission.
+- **Theme + map settings** — New Settings keys `ui_theme`, `google_places_api_key`, and `map_default_style`; new theme picker and Google Places setup UI.
+- **Availability picker endpoint** — `GET /api/availability/quote/:quoteId/items?ids=...` returns stock/reserved/potential counts for specific item IDs on the quote date window.
+- **Inventory contract description support** — `items.contract_description` column added and wired through item create/update/upsert and extension upsert payloads.
+
+### Changed
+- **Quote creation flow** — Quotes page now uses a 2-step wizard (event details then client info) and can auto-complete client addresses with Google Places.
+- **Quote builder availability UX** — Line items and inventory picker show explicit stock/booked badges and conflict states; subrental lines are labeled in-editor.
+- **Quote item update semantics** — Updating quote or custom item quantity to `0` now removes the line item server-side and logs activity.
+- **Runtime port handling** — Server auto-finds a free localhost port when `PORT` is not set; chosen port is written into `badshuffle.lock` and Vite proxy reads it.
+- **Cross-platform dev script** — `server/package.json` now uses `cross-env` for `NODE_ENV=development`.
+- **Billing labels and visibility rules** — UI copy switched from “Contract total” to “Quote total”; remaining balance is shown only in statuses where it is meaningful.
+
+### Fixed
+- **Goodshuffle extension scraping resilience** — Content script extraction now uses layered strategies (label scan, ng-model, CSS/text fallback), improving coverage across catalog and item detail layouts.
+
+---
+
 ## [0.4.3] - 2026-03-17
 
 ### Added

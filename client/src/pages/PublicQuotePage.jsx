@@ -77,6 +77,13 @@ export default function PublicQuotePage() {
   const [signing, setSigning] = useState(false);
   const [signSuccess, setSignSuccess] = useState(false);
   const [detailItem, setDetailItem] = useState(null);
+  // Live messaging
+  const [messages, setMessages] = useState([]);
+  const [msgText, setMsgText] = useState('');
+  const [msgName, setMsgName] = useState('');
+  const [msgEmail, setMsgEmail] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgSent, setMsgSent] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -86,6 +93,36 @@ export default function PublicQuotePage() {
       .then(data => { setQuote(data); setLoading(false); })
       .catch(err => { setError(err.message || 'Not found'); setLoading(false); });
   }, [token]);
+
+  // Live polling — refresh quote and messages every 8 seconds
+  useEffect(() => {
+    if (!token) return;
+    const poll = () => {
+      api.getPublicQuote(token).then(data => setQuote(data)).catch(() => {});
+      api.getPublicMessages(token).then(d => setMessages(d.messages || [])).catch(() => {});
+    };
+    // Initial message load
+    api.getPublicMessages(token).then(d => setMessages(d.messages || [])).catch(() => {});
+    const id = setInterval(poll, 8000);
+    return () => clearInterval(id);
+  }, [token]);
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!msgText.trim()) return;
+    setMsgSending(true);
+    try {
+      await api.sendPublicMessage(token, { body_text: msgText.trim(), from_name: msgName.trim() || undefined, from_email: msgEmail.trim() || undefined });
+      setMsgText('');
+      setMsgSent(true);
+      // Immediately reload messages
+      api.getPublicMessages(token).then(d => setMessages(d.messages || [])).catch(() => {});
+    } catch (err) {
+      // ignore
+    } finally {
+      setMsgSending(false);
+    }
+  };
 
   useEffect(() => {
     if (!detailItem) return;
@@ -456,6 +493,64 @@ export default function PublicQuotePage() {
             </div>
           </div>
         )}
+
+        {/* ── Live message thread ─────────────────────────── */}
+        <div className={s.section}>
+          <div className={s.msgCard}>
+            <div className={s.sectionHeader}>Messages</div>
+
+            {messages.length > 0 && (
+              <div className={s.msgList}>
+                {messages.map(m => (
+                  <div key={m.id} className={`${s.msgBubble} ${m.direction === 'inbound' ? s.msgIn : s.msgOut}`}>
+                    <div className={s.msgBubbleBody}>{m.body_text || m.subject || ''}</div>
+                    <div className={s.msgBubbleMeta}>
+                      {m.direction === 'inbound' ? (m.from_email || 'You') : 'Your rental company'}
+                      {' · '}
+                      {m.sent_at ? new Date(m.sent_at.replace(' ', 'T') + 'Z').toLocaleString() : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {msgSent && (
+              <div className={s.msgSentNote}>Message sent — we'll be in touch soon.</div>
+            )}
+
+            <form onSubmit={handleSendMessage} className={s.msgForm}>
+              <div className={s.msgFormTop}>
+                <input
+                  className={s.msgInput}
+                  type="text"
+                  placeholder="Your name (optional)"
+                  value={msgName}
+                  onChange={e => setMsgName(e.target.value)}
+                />
+                <input
+                  className={s.msgInput}
+                  type="email"
+                  placeholder="Your email (optional)"
+                  value={msgEmail}
+                  onChange={e => setMsgEmail(e.target.value)}
+                />
+              </div>
+              <textarea
+                className={s.msgTextarea}
+                rows={3}
+                placeholder="Have a question or comment about this quote? Send us a message…"
+                value={msgText}
+                onChange={e => { setMsgText(e.target.value); setMsgSent(false); }}
+                required
+              />
+              <div className={s.msgFormActions}>
+                <button type="submit" className={s.msgSendBtn} disabled={msgSending || !msgText.trim()}>
+                  {msgSending ? 'Sending…' : 'Send message'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
 
       </div>{/* /inner */}
 

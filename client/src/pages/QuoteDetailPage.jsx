@@ -825,7 +825,7 @@ export default function QuoteDetailPage() {
                       {quote.client_address && (
                         <span>
                           <strong>Address:</strong>{' '}
-                          <button type="button" className={styles.addressLink} onClick={e => { e.stopPropagation(); api.getSettings().then(s => setAddressModalData({ address: quote.client_address, companyAddress: s.company_address || '', mapboxToken: s.mapbox_access_token || '' })).catch(() => setAddressModalData({ address: quote.client_address, companyAddress: settings.company_address || '', mapboxToken: '' })); }}>
+                          <button type="button" className={styles.addressLink} onClick={e => { e.stopPropagation(); api.getSettings().then(s => setAddressModalData({ address: quote.client_address, companyAddress: s.company_address || '', mapboxToken: s.mapbox_access_token || '', defaultMapStyle: s.map_default_style || 'map' })).catch(() => setAddressModalData({ address: quote.client_address, companyAddress: settings.company_address || '', mapboxToken: '', defaultMapStyle: settings.map_default_style || 'map' })); }}>
                             {quote.client_address}
                           </button>
                         </span>
@@ -865,7 +865,7 @@ export default function QuoteDetailPage() {
                       {quote.venue_address && (
                         <span>
                           <strong>Address:</strong>{' '}
-                          <button type="button" className={styles.addressLink} onClick={e => { e.stopPropagation(); api.getSettings().then(s => setAddressModalData({ address: quote.venue_address, companyAddress: s.company_address || '', mapboxToken: s.mapbox_access_token || '' })).catch(() => setAddressModalData({ address: quote.venue_address, companyAddress: settings.company_address || '', mapboxToken: '' })); }}>
+                          <button type="button" className={styles.addressLink} onClick={e => { e.stopPropagation(); api.getSettings().then(s => setAddressModalData({ address: quote.venue_address, companyAddress: s.company_address || '', mapboxToken: s.mapbox_access_token || '', defaultMapStyle: s.map_default_style || 'map' })).catch(() => setAddressModalData({ address: quote.venue_address, companyAddress: settings.company_address || '', mapboxToken: '', defaultMapStyle: settings.map_default_style || 'map' })); }}>
                             {quote.venue_address}
                           </button>
                         </span>
@@ -1066,10 +1066,11 @@ export default function QuoteDetailPage() {
                 const applied = payments.reduce((s, p) => s + (p.amount || 0), 0);
                 const balance = (totals.total || 0) - applied;
                 const overpaid = balance < 0;
+                const showBalance = quote.has_unsigned_changes || quote.status === 'approved' || quote.status === 'confirmed' || quote.status === 'closed';
                 return (
                   <div className={styles.billingSummary}>
                     <div className={styles.billingBlock}>
-                      <h4 className={styles.venueTitle}>Contract total</h4>
+                      <h4 className={styles.venueTitle}>Quote total</h4>
                       <div className={styles.billingTotal}>${(totals.total || 0).toFixed(2)}</div>
                     </div>
                     <div className={styles.billingBlock}>
@@ -1078,19 +1079,23 @@ export default function QuoteDetailPage() {
                         ${applied.toFixed(2)}
                       </div>
                     </div>
-                    <div className={styles.billingBlock}>
-                      <h4 className={styles.venueTitle}>Balance</h4>
-                      <div className={styles.billingBalance}>
-                        ${(overpaid ? 0 : balance).toFixed(2)}
-                      </div>
-                    </div>
-                    {overpaid && (
-                      <div className={styles.billingBlockOverpaid}>
-                        <h4 className={styles.venueTitle}>Overpaid</h4>
-                        <div className={styles.billingOverpaid}>
-                          ${Math.abs(balance).toFixed(2)}
+                    {showBalance && (
+                      <>
+                        <div className={styles.billingBlock}>
+                          <h4 className={styles.venueTitle}>Balance</h4>
+                          <div className={styles.billingBalance}>
+                            ${(overpaid ? 0 : balance).toFixed(2)}
+                          </div>
                         </div>
-                      </div>
+                        {overpaid && (
+                          <div className={styles.billingBlockOverpaid}>
+                            <h4 className={styles.venueTitle}>Overpaid</h4>
+                            <div className={styles.billingOverpaid}>
+                              ${Math.abs(balance).toFixed(2)}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 );
@@ -1328,6 +1333,7 @@ export default function QuoteDetailPage() {
           address={addressModalData.address}
           companyAddress={addressModalData.companyAddress}
           mapboxToken={addressModalData.mapboxToken}
+          defaultMapStyle={addressModalData.defaultMapStyle || 'map'}
           onClose={() => setAddressModalData(null)}
         />
       )}

@@ -21,10 +21,24 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-.name { font-size: 15px; font-weight: 700; }
+.conflictStopSign {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.name { font-size: 15px; font-weight: 700; flex: 1; min-width: 0; }
 .date { font-size: 12px; color: var(--color-text-muted); white-space: nowrap; }
+.statusBadge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 999px; flex-shrink: 0; }
+.status_draft { background: var(--color-bg-elevated); color: var(--color-text-muted); }
+.status_sent { background: #dbeafe; color: #1d4ed8; }
+.status_approved { background: #d1fae5; color: #047857; }
+.status_confirmed { background: #e0e7ff; color: #3730a3; }
+.status_closed { background: #f3f4f6; color: #6b7280; }
 
 .meta {
   display: flex;

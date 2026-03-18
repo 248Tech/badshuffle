@@ -31,6 +31,7 @@ async function upsertItem(item, extToken) {
       category: item.category || undefined,
       quantity_in_stock: item.quantity_in_stock != null ? item.quantity_in_stock : undefined,
       description: item.description || undefined,
+      contract_description: item.contract_description || undefined,
       taxable: 1
     })
   });

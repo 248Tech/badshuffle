@@ -1,16 +1,24 @@
-# Cursor Briefing — BadShuffle (as of 2026-03-17)
+# Cursor Briefing — BadShuffle (as of 2026-03-18)
 
 ## What this project is
 
 BadShuffle is a self-hosted inventory and quoting tool for event rental businesses. It runs as two local Windows executables (server + client), or via Docker. Stack: Node/Express + sql.js SQLite on the back end, React + Vite on the front end.
 
-## Current state: v0.4.3 (latest release)
+## Current state: v0.4.4 (latest release)
 
 Latest release:
 
 ```
-release: v0.4.3 — Public catalog, Docker deployment, dev launch improvements, AI settings panel, responsive shell cleanup, inventory category chips, drag-and-drop quote item reordering
+release: v0.4.4 — quote filtering + 2-step creation wizard, public quote live messaging, picker-level availability, theme/map settings, extension extraction hardening, contract_description support
 ```
+
+### What shipped in v0.4.4
+- **Quote list + create flow** — Quotes page now supports search/status/date/venue/balance filters, and a 2-step quote creation wizard with optional Google Places address autocomplete.
+- **Public quote messaging** — New no-auth thread routes (`GET/POST /api/quotes/public/:token/messages`) and live message UI on the public quote page.
+- **Availability UX** — New endpoint `GET /api/availability/quote/:id/items?ids=...` for stock/reserved counts, shown in QuoteBuilder picker and line-item badges.
+- **Theme + map controls** — Settings adds `ui_theme`, `google_places_api_key`, and `map_default_style`; client applies saved theme pre-render.
+- **Extension + schema updates** — Extension scraper now uses layered extraction strategies and sends `contract_description`; backend persists `items.contract_description`.
+- **Dev/runtime port handling** — Server auto-selects open localhost port when needed and writes it to lockfile; Vite proxy reads lockfile port.
 
 ### What shipped in v0.4.3
 - **Public catalog** — `/catalog` and `/catalog/item/:id` routes; server-rendered HTML with full SEO (JSON-LD, og: tags, robots.txt, sitemap.xml); React SPA counterparts (`PublicCatalogPage`, `PublicItemPage`); JSON API at `/api/public/*` (no auth required).
@@ -69,7 +77,7 @@ server/
   index.js              — Express entry; mounts all routes; IMAP poller startup
   db.js                 — sql.js shim (mirrors better-sqlite3 API); all migrations here
   routes/
-    quotes.js           — Quote CRUD + /send /approve /revert + custom items + contract + contract/logs + adjustments + items/reorder
+    quotes.js           — Quote CRUD + /send /approve /revert + custom items + contract + contract/logs + adjustments + filtered list
     leads.js            — Lead CRUD + CSV/XLSX/Sheets import + column mapping + /:id/events
     templates.js        — Email template CRUD
     files.js            — File upload / serve
@@ -112,7 +120,7 @@ client/src/
     ImportPage.jsx      — 3-step lead import wizard
     AdminPage.jsx
   components/
-    QuoteBuilder.jsx    — Line item editor (qty, unit price, overrides, adjustments, drag-to-reorder)
+    QuoteBuilder.jsx    — Line item editor (qty, unit price, overrides, adjustments, availability badges)
     Sidebar.jsx         — Nav (role-aware)
     QuoteExport.jsx     — PNG/PDF export
 
@@ -127,7 +135,7 @@ docker-entrypoint.sh  — Creates /data/uploads, execs CMD
 - `badshuffle.lock` deleted (runtime lock file, ignored going forward)
 - v0.4.3 adds public catalog pages, Docker files, dev-login flow, and AI settings support on the main release line
 
-Canonical version is v0.4.3 (0.x pre-release until 1.0).
+Canonical version is v0.4.4 (0.x pre-release until 1.0).
 
 ## Known stubs / incomplete items
 

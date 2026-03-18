@@ -49,7 +49,7 @@ export default function BillingPage() {
         <div className="empty-state"><div className="spinner" /></div>
       ) : quotes.length === 0 ? (
         <div className="empty-state">
-          <p>No overpaid quotes. When a customer pays more than the contract total, those quotes will appear here for refund processing.</p>
+          <p>No overpaid quotes. When a customer pays more than the quote total, those quotes will appear here for refund processing.</p>
         </div>
       ) : (
         <div className={`card ${styles.card}`}>
@@ -72,6 +72,7 @@ export default function BillingPage() {
               </thead>
               <tbody>
                 {quotes.map(q => {
+                  const showBalance = q.has_unsigned_changes || q.status === 'approved' || q.status === 'confirmed' || q.status === 'closed';
                   const refundDue = Math.abs(q.remaining_balance || 0);
                   const clientName = [q.client_first_name, q.client_last_name].filter(Boolean).join(' ') || q.name;
                   return (
@@ -89,11 +90,13 @@ export default function BillingPage() {
                       <td>${Number(q.contract_total ?? q.total).toFixed(2)}</td>
                       <td>${Number(q.amount_paid || 0).toFixed(2)}</td>
                       <td className={q.overpaid ? styles.remainingOverpaid : styles.remainingBalance}>
-                        {q.overpaid ? `Overpaid $${Math.abs(q.remaining_balance || 0).toFixed(2)}` : `$${Number(q.remaining_balance != null ? q.remaining_balance : (q.contract_total ?? q.total)).toFixed(2)}`}
+                        {showBalance
+                          ? (q.overpaid ? `Overpaid $${Math.abs(q.remaining_balance || 0).toFixed(2)}` : `$${Number(q.remaining_balance != null ? q.remaining_balance : (q.contract_total ?? q.total)).toFixed(2)}`)
+                          : '—'}
                       </td>
-                      <td className={styles.refundDue}>${refundDue.toFixed(2)}</td>
+                      <td className={styles.refundDue}>{showBalance ? `$${refundDue.toFixed(2)}` : '—'}</td>
                       <td>
-                        <span className={styles.overpaidBadge}>Overpaid</span>
+                        {showBalance && <span className={styles.overpaidBadge}>Overpaid</span>}
                       </td>
                     </tr>
                   );

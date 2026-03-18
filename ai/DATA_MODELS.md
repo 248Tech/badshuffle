@@ -33,7 +33,7 @@ All tables are defined and migrated in `server/db.js`. SQLite (sql.js); foreign 
 ## Product / Item (Inventory)
 
 - **Table:** `items`
-- **Columns:** id, title (UNIQUE COLLATE NOCASE), photo_url, source (manual/sheet/…), hidden, quantity_in_stock, unit_price, category, description, taxable, labor_hours, is_subrental (INTEGER DEFAULT 0), vendor_id (INTEGER REFERENCES vendors(id)), created_at, updated_at.
+- **Columns:** id, title (UNIQUE COLLATE NOCASE), photo_url, source (manual/sheet/…), hidden, quantity_in_stock, unit_price, category, description, contract_description, taxable, labor_hours, is_subrental (INTEGER DEFAULT 0), vendor_id (INTEGER REFERENCES vendors(id)), created_at, updated_at.
 - **Relationships:** Referenced by quote_items; parent/child via item_associations (bundles). item_stats (1:1), usage_brackets (1:many).
 
 ## InventoryItem
@@ -76,7 +76,7 @@ All tables are defined and migrated in `server/db.js`. SQLite (sql.js); foreign 
 | **login_attempts** | ip, attempted_at, success |
 | **reset_tokens** | user_id, token, expires_at, used |
 | **extension_tokens** | token (for extension API) |
-| **settings** | key-value (tax_rate, currency, company_*, SMTP/IMAP, system flags, count_oos_oversold, ai_claude_key_enc, ai_openai_key_enc, ai_gemini_key_enc, ai_suggest_enabled/model, ai_pdf_import_enabled/model, ai_email_draft_enabled/model, ai_description_enabled/model) |
+| **settings** | key-value (tax_rate, currency, company_*, SMTP/IMAP, system flags, count_oos_oversold, ui_theme, google_places_api_key, map_default_style, ai_claude_key_enc, ai_openai_key_enc, ai_gemini_key_enc, ai_suggest_enabled/model, ai_pdf_import_enabled/model, ai_email_draft_enabled/model, ai_description_enabled/model) |
 | **leads** | name, email, phone, event_date, event_type, source_url, notes, quote_id, created_at |
 | **lead_events** | lead_id, event_type, note, created_at |
 | **email_templates** | name, subject, body_html, body_text, is_default |

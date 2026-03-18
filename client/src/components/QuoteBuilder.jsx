@@ -47,6 +47,27 @@ function EyeIcon({ hidden, className }) {
   );
 }
 
+function ConflictStopSignIcon({ className, title }) {
+  return (
+    <span className={className} role="img" title={title} aria-label="Inventory conflict">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="#c00" stroke="#8b0000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" />
+        <path d="M12 8v4M12 16h.01" stroke="#fff" strokeWidth="1.2" fill="none" />
+      </svg>
+    </span>
+  );
+}
+
+function AvailableCheckIcon({ className, title }) {
+  return (
+    <span className={className} role="img" title={title} aria-label="Available">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0a7b0a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M20 6L9 17l-5-5" />
+      </svg>
+    </span>
+  );
+}
+
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 75, 100, 250, 500];
 
 export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCustomItem, settings = {}, availability = {}, adjustments = [], onAdjustmentsChange }) {
@@ -63,12 +84,6 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
   const [localQty, setLocalQty] = useState({});
   const debounceRef = useRef(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  // All categories for dropdown
-  const [allCategories, setAllCategories] = useState([]);
-  // Drag-and-drop state
-  const dragItemRef = useRef(null);
-  const dragOverItemRef = useRef(null);
-  const [dragging, setDragging] = useState(false);
   // Per-item price override inline editing
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [priceInput, setPriceInput] = useState('');
@@ -76,6 +91,8 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
   const [showAdjForm, setShowAdjForm] = useState(false);
   const [adjForm, setAdjForm] = useState({ label: '', type: 'discount', value_type: 'percent', amount: '' });
   const [adjSaving, setAdjSaving] = useState(false);
+  // Picker availability (stock / already booked) for current page of items
+  const [pickerAvailability, setPickerAvailability] = useState({});
 
   const filterMode = settings.quote_inventory_filter_mode || 'popular';
   const maxCategories = Math.max(1, Math.min(15, parseInt(settings.quote_inventory_max_categories, 10) || 10));
@@ -97,23 +114,20 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
     setPickerPage(1);
   }, [filterMode, maxCategories]);
 
-  // Load all categories for the "all categories" dropdown
-  useEffect(() => {
-    api.getCategories().then(d => setAllCategories(d.categories || [])).catch(() => {});
-  }, []);
-
   // Load category list for filter buttons (popular or manual)
   useEffect(() => {
+    let cancelled = false;
     if (filterMode === 'manual') {
       const manual = (settings.quote_inventory_manual_categories || '').split(',').map(s => s.trim()).filter(Boolean);
       const list = manual.slice(0, maxCategories);
       setCategoryList(list);
       setSelectedCategory(prev => (prev && list.includes(prev) ? prev : null));
-      return;
+      return () => { cancelled = true; };
     }
     // Popular mode: fetch by usage; fallback to all categories if empty (e.g. no stats yet)
     api.getPopularCategories(maxCategories)
       .then(d => {
+        if (cancelled) return;
         const list = d.categories || [];
         if (list.length > 0) {
           setCategoryList(list);
@@ -121,16 +135,22 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
           return;
         }
         return api.getCategories().then(all => {
+          if (cancelled) return;
           const fallback = (all.categories || []).slice(0, maxCategories);
           setCategoryList(fallback);
           setSelectedCategory(prev => (prev && fallback.includes(prev) ? prev : null));
         });
       })
-      .catch(() => api.getCategories().then(all => {
-        const fallback = (all.categories || []).slice(0, maxCategories);
-        setCategoryList(fallback);
-        setSelectedCategory(prev => (prev && fallback.includes(prev) ? prev : null));
-      }));
+      .catch(() => {
+        if (cancelled) return;
+        api.getCategories().then(all => {
+          if (cancelled) return;
+          const fallback = (all.categories || []).slice(0, maxCategories);
+          setCategoryList(fallback);
+          setSelectedCategory(prev => (prev && fallback.includes(prev) ? prev : null));
+        });
+      });
+    return () => { cancelled = true; };
   }, [filterMode, maxCategories, settings.quote_inventory_manual_categories, settings.quote_inventory_filter_mode]);
 
   // Fetch inventory with pagination, search, and optional category.
@@ -190,6 +210,19 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
 
   // Server already excludes items on this quote when exclude_quote_id is sent; only hide optimistically added until parent refetches
   const visibleInventory = inventory.filter(item => !optimisticInQuote.has(item.id));
+  const pickerItemIdsKey = visibleInventory.length ? visibleInventory.map(i => i.id).filter(Boolean).sort((a, b) => a - b).join(',') : '';
+
+  // Fetch stock / already-booked for current picker page so we can show "Only X available, Y already booked" on tiles
+  useEffect(() => {
+    if (!quoteId || !pickerItemIdsKey) {
+      setPickerAvailability({});
+      return;
+    }
+    const ids = pickerItemIdsKey.split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+    api.getQuoteAvailabilityItems(quoteId, ids)
+      .then(data => setPickerAvailability(data || {}))
+      .catch(() => setPickerAvailability({}));
+  }, [quoteId, pickerItemIdsKey]);
 
   const removeItem = async (qitemId, title) => {
     try {
@@ -272,36 +305,6 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
     }
   };
 
-  // Drag-and-drop reordering of quote items
-  const handleDragStart = (e, idx) => {
-    dragItemRef.current = idx;
-    setDragging(true);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-  const handleDragEnter = (e, idx) => {
-    dragOverItemRef.current = idx;
-    e.preventDefault();
-  };
-  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
-  const handleDragEnd = async () => {
-    setDragging(false);
-    const from = dragItemRef.current;
-    const to = dragOverItemRef.current;
-    dragItemRef.current = null;
-    dragOverItemRef.current = null;
-    if (from == null || to == null || from === to) return;
-    const reordered = [...(items || [])];
-    const [moved] = reordered.splice(from, 1);
-    reordered.splice(to, 0, moved);
-    // Optimistically update via parent callback with new sort_order
-    try {
-      await api.reorderQuoteItems(quoteId, reordered.map(it => it.qitem_id));
-      onItemsChange();
-    } catch (e) {
-      // ignore; parent will refetch
-    }
-  };
-
   const handleAddAdjustment = async (e) => {
     e.preventDefault();
     const amt = parseFloat(adjForm.amount);
@@ -345,7 +348,7 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
           <p className={styles.empty}>No items yet. Add from inventory below.</p>
         )}
         <div className={styles.quoteList}>
-          {(items || []).map((item, idx) => {
+          {(items || []).map(item => {
             const qty = item.quantity ?? 1;
             const basePrice = item.unit_price ?? 0;
             const hasOverride = item.unit_price_override != null;
@@ -355,17 +358,10 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
             const itemId = item.id ?? item.item_id;
             const avail = itemId != null ? availability[itemId] : null;
             const isEditingPrice = editingPriceId === item.qitem_id;
+            const isOversold = avail && (avail.status === 'reserved' || avail.status === 'potential');
+            const isSubrental = !!(item.is_subrental || item.is_subrental === 1);
             return (
-              <div
-                key={item.qitem_id}
-                className={`${styles.quoteItem} ${item.hidden_from_quote ? styles.quoteItemHidden : ''} ${dragging && dragOverItemRef.current === idx ? styles.quoteItemDragOver : ''}`}
-                draggable
-                onDragStart={e => handleDragStart(e, idx)}
-                onDragEnter={e => handleDragEnter(e, idx)}
-                onDragOver={handleDragOver}
-                onDragEnd={handleDragEnd}
-              >
-                <span className={styles.dragHandle} title="Drag to reorder" aria-hidden>⠿</span>
+              <div key={item.qitem_id} className={`${styles.quoteItem} ${item.hidden_from_quote ? styles.quoteItemHidden : ''} ${isOversold ? styles.quoteItemOversold : ''}`}>
                 <div className={styles.thumbWrap}>
                   {item.photo_url ? (
                     <img
@@ -393,12 +389,21 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
                   title={itemId != null ? 'Edit product in inventory' : undefined}
                   role={itemId != null ? 'button' : undefined}
                 >
-                  {item.label || item.title}
-                  {avail && avail.status === 'reserved' && (
-                    <span className={styles.conflictRed} title={`Confirmed oversold (${avail.my_qty} needed / ${avail.stock} in stock)`}>😢</span>
+                  {avail && (avail.status === 'reserved' || avail.status === 'potential') && (
+                    <ConflictStopSignIcon
+                      className={styles.conflictIcon}
+                      title={avail.status === 'reserved' ? `Confirmed oversold (${avail.my_qty} needed / ${avail.stock} in stock)` : `Potential oversold (${avail.my_qty} needed / ${avail.stock} in stock)`}
+                    />
                   )}
-                  {avail && avail.status === 'potential' && (
-                    <span className={styles.conflictYellow} title={`Potential oversold (${avail.my_qty} needed / ${avail.stock} in stock)`}>🙁</span>
+                  {avail && avail.status === 'ok' && (
+                    <AvailableCheckIcon className={styles.availableIcon} title="Item available" />
+                  )}
+                  {isSubrental && <span className={styles.subrentalBadge} title="Subrental item">S</span>}
+                  {item.label || item.title}
+                  {avail && avail.stock != null && (avail.reserved_qty > 0 || avail.status !== 'ok') && (
+                    <span className={styles.stockBadge} title={`${avail.stock} in stock, ${avail.reserved_qty} already booked on this date`}>
+                      Only {avail.stock} available, {avail.reserved_qty} already booked
+                    </span>
                   )}
                 </span>
                 {isEditingPrice ? (
@@ -531,39 +536,27 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Add from Inventory</h3>
 
-        <div className={styles.categoryRow}>
-          <button
-            type="button"
-            className={`${styles.categoryBtn} ${!selectedCategory ? styles.categoryBtnActive : ''}`}
-            onClick={() => setSelectedCategory(null)}
-          >
-            All
-          </button>
-          {categoryList.map(cat => (
+        {categoryList.length > 0 && (
+          <div className={styles.categoryRow}>
             <button
-              key={cat}
               type="button"
-              className={`${styles.categoryBtn} ${selectedCategory === cat ? styles.categoryBtnActive : ''}`}
-              onClick={() => setSelectedCategory(cat)}
+              className={`${styles.categoryBtn} ${!selectedCategory ? styles.categoryBtnActive : ''}`}
+              onClick={() => setSelectedCategory(null)}
             >
-              {cat}
+              All
             </button>
-          ))}
-          {allCategories.length > 0 && (
-            <select
-              className={styles.categoryDropdown}
-              value={selectedCategory || ''}
-              onChange={e => setSelectedCategory(e.target.value || null)}
-              title="Filter by category"
-              aria-label="Filter by category"
-            >
-              <option value="">All categories…</option>
-              {allCategories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          )}
-        </div>
+            {categoryList.map(cat => (
+              <button
+                key={cat}
+                type="button"
+                className={`${styles.categoryBtn} ${selectedCategory === cat ? styles.categoryBtnActive : ''}`}
+                onClick={() => setSelectedCategory(cat)}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className={styles.pickerToolbar}>
           <input
@@ -610,47 +603,61 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
         </div>
 
         <div className={pickerView === 'tile' ? styles.pickerGrid : styles.pickerList}>
-          {visibleInventory.map(item => (
-            <div
-              key={item.id}
-              className={pickerView === 'tile' ? styles.pickerTile : styles.pickerItem}
-              onClick={() => addItem(item)}
-            >
-              {pickerView === 'tile' ? (
-                <>
-                  <div className={styles.tileThumbWrap}>
+          {visibleInventory.map(item => {
+            const pickerAvail = pickerAvailability[item.id];
+            const showPickerStock = pickerAvail && pickerAvail.stock != null && (pickerAvail.reserved_qty > 0 || pickerAvail.potential_qty > 0);
+            return (
+              <div
+                key={item.id}
+                className={pickerView === 'tile' ? styles.pickerTile : styles.pickerItem}
+                onClick={() => addItem(item)}
+              >
+                {pickerView === 'tile' ? (
+                  <>
+                    <div className={styles.tileThumbWrap}>
+                      {item.photo_url ? (
+                        <img
+                          src={api.proxyImageUrl(item.photo_url)}
+                          alt={item.title}
+                          className={styles.tileThumb}
+                          onError={e => { e.target.src = '/placeholder.png'; }}
+                        />
+                      ) : (
+                        <img src="/placeholder.png" alt="" className={styles.tileThumb} aria-hidden />
+                      )}
+                      <span className={styles.tileAddHint}>+ Add</span>
+                    </div>
+                    <span className={styles.tileTitle}>{item.title}</span>
+                    {showPickerStock && (
+                      <span className={styles.pickerStockBadge} title={`${pickerAvail.stock} in stock, ${pickerAvail.reserved_qty} already booked on this date`}>
+                        Only {pickerAvail.stock} available, {pickerAvail.reserved_qty} already booked
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
                     {item.photo_url ? (
                       <img
                         src={api.proxyImageUrl(item.photo_url)}
                         alt={item.title}
-                        className={styles.tileThumb}
+                        className={styles.thumb}
                         onError={e => { e.target.src = '/placeholder.png'; }}
                       />
                     ) : (
-                      <img src="/placeholder.png" alt="" className={styles.tileThumb} aria-hidden />
+                      <img src="/placeholder.png" alt="" className={styles.thumb} aria-hidden />
                     )}
-                    <span className={styles.tileAddHint}>+ Add</span>
-                  </div>
-                  <span className={styles.tileTitle}>{item.title}</span>
-                </>
-              ) : (
-                <>
-                  {item.photo_url ? (
-                    <img
-                      src={api.proxyImageUrl(item.photo_url)}
-                      alt={item.title}
-                      className={styles.thumb}
-                      onError={e => { e.target.src = '/placeholder.png'; }}
-                    />
-                  ) : (
-                    <img src="/placeholder.png" alt="" className={styles.thumb} aria-hidden />
-                  )}
-                  <span className={styles.itemTitle}>{item.title}</span>
-                  <span className={styles.addHint}>+ Add</span>
-                </>
-              )}
-            </div>
-          ))}
+                    <span className={styles.itemTitle}>{item.title}</span>
+                    {showPickerStock && (
+                      <span className={styles.pickerStockBadgeList}>
+                        Only {pickerAvail.stock} available, {pickerAvail.reserved_qty} already booked
+                      </span>
+                    )}
+                    <span className={styles.addHint}>+ Add</span>
+                  </>
+                )}
+              </div>
+            );
+          })}
           {visibleInventory.length === 0 && (
             <p className={styles.empty}>
               {debouncedSearch || selectedCategory ? 'No matches.' : 'No inventory items.'}

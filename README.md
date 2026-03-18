@@ -1,10 +1,23 @@
-# BadShuffle v0.4.3
+# BadShuffle v0.4.4
 
-A self-hosted inventory and quoting tool for event rental businesses. Manage your catalog, build quotes, track usage stats, and sync items directly from Goodshuffle Pro — all running locally on your machine with no subscription required.
+A self-hosted quoting, inventory, and client-facing sales tool for event rental businesses. Build and share quotes, run a public catalog, track availability conflicts, sync inventory from Goodshuffle Pro, and keep client conversations tied to each quote.
+
+## About
+
+BadShuffle is built for rental teams that need quoting, inventory visibility, public quote/client collaboration, and operator workflows in one local-first app without recurring SaaS lock-in.
 
 *Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history.*
 
 ---
+
+## What's New in v0.4.4
+
+- **Quote pipeline upgrades** — New 2-step quote creation wizard (event details + client info), plus filters on the Quotes page for search, venue, status, date range, and outstanding balance.
+- **Public quote messaging** — Clients can now send messages directly from a public quote page, with live polling and persistent quote thread history via `/api/quotes/public/:token/messages`.
+- **Availability clarity in Quote Builder** — Inventory picker and line items now show stock vs already-booked quantities, oversold warnings, and clearer conflict/availability indicators.
+- **Theme and mapping settings** — New Settings controls for UI theme (`default`, `shadcn`, `material`, `chakra`), Google Places API key, and map default style (`map` or `sat`).
+- **Extension + inventory schema** — Extension scraper was rebuilt for more reliable Goodshuffle extraction, and now captures `contract_description` into the `items` table.
+- **Dev/runtime quality-of-life** — Server can auto-select the next open localhost port if 3001 is occupied, writes selected port to lockfile, and Vite proxy now follows that lockfile port in dev.
 
 ## What's New in v0.4.3
 
@@ -71,7 +84,7 @@ A self-hosted inventory and quoting tool for event rental businesses. Manage you
 ## Features
 
 - **Inventory management** — Add, edit, hide, and search rental items with photos; optional subrental flag and vendor link
-- **Quote builder** — Create event quotes, add items with quantities and labels, custom one-off line items, per-line price overrides, discounts/surcharges, drag-to-reorder, conflict indicators for over-reserved items, export to PDF/image
+- **Quote builder** — Create event quotes, add items with quantities and labels, custom one-off line items, per-line price overrides, discounts/surcharges, stock/booking awareness, and conflict indicators for over-reserved items
 - **Public catalog** — SEO-optimized, no-auth browsable catalog at `/catalog`; server-rendered HTML with JSON-LD, robots.txt, sitemap.xml; React SPA counterpart; JSON API at `/api/public/*`
 - **Files / media library** — Upload images and documents; serve them inline for use in quotes and emails
 - **Messages** — Full outbound + inbound email log linked to quotes; IMAP polling for client replies
@@ -363,7 +376,7 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/quotes` | List quotes |
+| GET | `/quotes` | List quotes (`?search=`, `?status=`, `?event_from=`, `?event_to=`, `?has_balance=1`, `?venue=`) |
 | POST | `/quotes` | Create quote |
 | GET | `/quotes/:id` | Get quote with items and custom items |
 | PUT | `/quotes/:id` | Update quote |
@@ -373,12 +386,14 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | POST | `/quotes/:id/approve` | Set status to approved |
 | POST | `/quotes/:id/revert` | Revert to draft |
 | POST | `/quotes/:id/items` | Add inventory item to quote |
-| PUT | `/quotes/:id/items/:qitemId` | Update quote item |
+| PUT | `/quotes/:id/items/:qitemId` | Update quote item (quantity `0` removes it) |
 | DELETE | `/quotes/:id/items/:qitemId` | Remove quote item |
 | POST | `/quotes/:id/custom-items` | Add custom line item |
-| PUT | `/quotes/:id/custom-items/:cid` | Update custom item |
+| PUT | `/quotes/:id/custom-items/:cid` | Update custom item (quantity `0` removes it) |
 | DELETE | `/quotes/:id/custom-items/:cid` | Remove custom item |
 | GET | `/quotes/public/:token` | Public quote view (no auth) |
+| GET | `/quotes/public/:token/messages` | Public quote thread (no auth) |
+| POST | `/quotes/public/:token/messages` | Post client message to quote thread (no auth) |
 
 ### Files
 
@@ -405,6 +420,7 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | GET | `/availability/conflicts` | Items where reserved quantities exceed stock |
 | GET | `/availability/subrental-needs` | Items requiring subrental due to shortfall |
 | GET | `/availability/quote/:id` | Conflict check for a specific quote |
+| GET | `/availability/quote/:id/items?ids=1,2,3` | Stock + reserved counts for specific items on that quote's date range |
 
 ### Vendors
 
@@ -442,7 +458,7 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | PUT | `/settings` | Update settings |
 | POST | `/settings/test-imap` | Test IMAP connection |
 
-Client helpers in `client/src/api.js`: `getVendors`, `createVendor`, `updateVendor`, `deleteVendor`, `getConflicts`, `getSubrentalNeeds`, `getQuoteConflicts`.
+Client helpers in `client/src/api.js`: `getVendors`, `createVendor`, `updateVendor`, `deleteVendor`, `getConflicts`, `getSubrentalNeeds`, `getQuoteConflicts`, `getQuoteAvailabilityItems`, `getPublicMessages`, `sendPublicMessage`.
 
 ---
 
@@ -465,7 +481,7 @@ Client helpers in `client/src/api.js`: `getVendors`, `createVendor`, `updateVend
 
 ## Development Notes
 
-- The Vite dev server proxies `/api` → `http://localhost:3001` (configured in `vite.config.js`)
+- The Vite dev server proxies `/api` to the server port from `PORT` or `badshuffle.lock` (falls back to `http://localhost:3001`)
 - Production builds bake in `VITE_API_BASE=http://localhost:3001` via `client/.env.production`
 - The `server/db.js` shim exposes a synchronous API matching `better-sqlite3` so routes don't need to be aware of async WASM initialization
 - DB is saved to disk after every write (or after each transaction commit)

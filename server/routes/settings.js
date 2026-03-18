@@ -7,12 +7,13 @@ const ALLOWED_KEYS = [
   'imap_host', 'imap_port', 'imap_secure', 'imap_user', 'imap_pass_enc', 'imap_poll_enabled',
   'quote_inventory_filter_mode', 'quote_inventory_max_categories', 'quote_inventory_manual_categories',
   'recaptcha_enabled', 'recaptcha_site_key', 'recaptcha_secret_key',
-  'company_address', 'mapbox_access_token', 'count_oos_oversold',
+  'company_address', 'mapbox_access_token', 'map_default_style', 'google_places_api_key', 'count_oos_oversold',
   'ai_claude_key_enc', 'ai_openai_key_enc', 'ai_gemini_key_enc',
   'ai_suggest_enabled', 'ai_suggest_model',
   'ai_pdf_import_enabled', 'ai_pdf_import_model',
   'ai_email_draft_enabled', 'ai_email_draft_model',
   'ai_description_enabled', 'ai_description_model',
+  'ui_theme',
 ];
 
 module.exports = function makeRouter(db) {

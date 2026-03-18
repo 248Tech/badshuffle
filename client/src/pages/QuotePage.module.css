@@ -1,5 +1,5 @@
-.page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.page { display: flex; flex-direction: column; gap: 20px; }
+.header { display: flex; justify-content: space-between; align-items: flex-start; }
 .title { font-size: 22px; font-weight: 700; }
 .sub { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
 .formCard { padding: 20px; }
@@ -8,12 +8,12 @@
 .formRow { display: flex; gap: 12px; flex-wrap: wrap; }
 .formRow .form-group { min-width: 120px; }
 .formActions { display: flex; gap: 8px; justify-content: flex-end; }
-.headerActions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.headerActions { display: flex; align-items: center; gap: 12px; }
 .viewToggle { display: flex; gap: 2px; }
 .viewToggle .btn.active { background: var(--color-bg-elevated); }
 .batchBar {
   display: flex; align-items: center; gap: 12px; padding: 10px 14px;
-  background: var(--color-bg-elevated); border-radius: 8px; flex-wrap: wrap;
+  background: var(--color-bg-elevated); border-radius: 8px;
 }
 .batchBar span { font-size: 13px; color: var(--color-text-muted); margin-right: 4px; }
 .grid {
@@ -21,12 +21,14 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
-.listWrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 480px; }
+.listWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--color-border); }
 .table th { font-weight: 600; color: var(--color-text-muted); }
 .table tbody tr:hover { background: var(--color-bg-elevated); }
 .colCheck { width: 40px; }
+.colName { white-space: nowrap; }
+.colName .conflictStopSignList { display: inline-flex; align-items: center; margin-right: 6px; vertical-align: middle; }
 .colActions { white-space: nowrap; }
 .colActions .btn { margin-right: 4px; }
 .rowSelected { background: color-mix(in srgb, var(--color-primary) 12%, transparent) !important; }
@@ -34,12 +36,28 @@
 .overpaidCell { color: #b45309; font-weight: 500; margin-right: 6px; }
 .overpaidBadge { font-size: 11px; font-weight: 600; padding: 2px 6px; background: #fef3c7; color: #b45309; border-radius: 999px; }
 
-@media (max-width: 768px) {
-  .page { gap: 14px; }
-  .header { flex-direction: column; align-items: stretch; }
-  .headerActions { justify-content: flex-start; }
-  .title { font-size: 18px; }
-  .grid { grid-template-columns: 1fr; gap: 12px; }
-  .batchBar { padding: 12px; gap: 8px; }
-  .batchBar .btn { min-height: 44px; }
+/* Filter bar */
+.filterBar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 12px 14px; background: var(--color-bg-elevated); border-radius: 8px;
 }
+.filterInput { width: 180px; max-width: 100%; padding: 6px 10px; font-size: 13px; border: 1px solid var(--color-border); border-radius: 6px; }
+.filterInput:focus { outline: none; border-color: var(--color-primary); }
+.filterSelect { padding: 6px 10px; font-size: 13px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg); }
+.filterDate { padding: 6px 10px; font-size: 13px; border: 1px solid var(--color-border); border-radius: 6px; width: 140px; }
+.filterCheck { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text-muted); cursor: pointer; white-space: nowrap; }
+.filterCheck input { margin: 0; }
+
+/* Wizard */
+.wizardHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.wizardHeader .formTitle { margin-bottom: 0; }
+.wizardStep { font-size: 12px; font-weight: 600; color: var(--color-text-muted); background: var(--color-bg-elevated); padding: 3px 8px; border-radius: 999px; }
+.wizardSub { font-size: 13px; color: var(--color-text-muted); margin: -6px 0 12px; }
+
+/* Status badge in list */
+.statusBadge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }
+.status_draft { background: var(--color-bg-elevated); color: var(--color-text-muted); }
+.status_sent { background: #dbeafe; color: #1d4ed8; }
+.status_approved { background: #d1fae5; color: #047857; }
+.status_confirmed { background: #e0e7ff; color: #3730a3; }
+.status_closed { background: #f3f4f6; color: #6b7280; }

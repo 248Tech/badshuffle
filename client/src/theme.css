@@ -28,6 +28,69 @@
   --touch-min: 44px;
 }
 
+/* ── shadcn/ui ─────────────────────────────────────────── */
+:root[data-theme="shadcn"] {
+  --color-primary:       #18181b;
+  --color-accent:        #52525b;
+  --color-sidebar:       #09090b;
+  --color-sidebar-hover: #27272a;
+  --color-bg:            #ffffff;
+  --color-surface:       #fafafa;
+  --color-border:        #e4e4e7;
+  --color-text:          #09090b;
+  --color-text-muted:    #71717a;
+  --color-danger:        #ef4444;
+  --color-success:       #22c55e;
+  --radius:              6px;
+  --radius-sm:           3px;
+  --radius-md:           4px;
+  --shadow:              0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:           0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+  --font:                Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ── Material UI ───────────────────────────────────────── */
+:root[data-theme="material"] {
+  --color-primary:       #1976d2;
+  --color-accent:        #9c27b0;
+  --color-sidebar:       #1565c0;
+  --color-sidebar-hover: #1976d2;
+  --color-bg:            #ffffff;
+  --color-surface:       #f5f5f5;
+  --color-border:        #e0e0e0;
+  --color-text:          #212121;
+  --color-text-muted:    #757575;
+  --color-danger:        #d32f2f;
+  --color-success:       #388e3c;
+  --radius:              4px;
+  --radius-sm:           2px;
+  --radius-md:           3px;
+  --shadow:              0 2px 1px -1px rgba(0,0,0,0.2), 0 1px 1px rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.12);
+  --shadow-md:           0 3px 3px -2px rgba(0,0,0,0.2), 0 3px 4px rgba(0,0,0,0.14), 0 1px 8px rgba(0,0,0,0.12);
+  --font:                Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ── Chakra UI ─────────────────────────────────────────── */
+:root[data-theme="chakra"] {
+  --color-primary:       #3182ce;
+  --color-accent:        #38b2ac;
+  --color-sidebar:       #2d3748;
+  --color-sidebar-hover: #4a5568;
+  --color-bg:            #ffffff;
+  --color-surface:       #f7fafc;
+  --color-border:        #e2e8f0;
+  --color-text:          #1a202c;
+  --color-text-muted:    #718096;
+  --color-danger:        #e53e3e;
+  --color-success:       #38a169;
+  --radius:              6px;
+  --radius-sm:           4px;
+  --radius-md:           5px;
+  --shadow:              0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:           0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+  --font:                Inter, system-ui, sans-serif;
+}
+
 body {
   font-family: var(--font);
   font-size: 14px;

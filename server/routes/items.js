@@ -74,7 +74,7 @@ module.exports = function makeRouter(db) {
   router.post('/upsert', (req, res) => {
     const {
       title, photo_url, source = 'manual', hidden = 0,
-      quantity_in_stock, unit_price, category, description, taxable, labor_hours
+      quantity_in_stock, unit_price, category, description, contract_description, taxable, labor_hours
     } = req.body;
     if (!title) return res.status(400).json({ error: 'title required' });
 
@@ -83,16 +83,17 @@ module.exports = function makeRouter(db) {
     if (existing) {
       db.prepare(`
         UPDATE items SET
-          photo_url         = COALESCE(?, photo_url),
-          source            = ?,
-          hidden            = ?,
-          quantity_in_stock = COALESCE(?, quantity_in_stock),
-          unit_price        = COALESCE(?, unit_price),
-          category          = COALESCE(?, category),
-          description       = COALESCE(?, description),
-          taxable           = COALESCE(?, taxable),
-          labor_hours       = COALESCE(?, labor_hours),
-          updated_at        = datetime('now')
+          photo_url            = COALESCE(?, photo_url),
+          source               = ?,
+          hidden               = ?,
+          quantity_in_stock    = COALESCE(?, quantity_in_stock),
+          unit_price           = COALESCE(?, unit_price),
+          category             = COALESCE(?, category),
+          description          = COALESCE(?, description),
+          contract_description = COALESCE(?, contract_description),
+          taxable              = COALESCE(?, taxable),
+          labor_hours          = COALESCE(?, labor_hours),
+          updated_at           = datetime('now')
         WHERE id = ?
       `).run(
         photo_url || null, source, hidden ? 1 : 0,
@@ -100,6 +101,7 @@ module.exports = function makeRouter(db) {
         unit_price != null ? unit_price : null,
         category || null,
         description || null,
+        contract_description || null,
         taxable != null ? (taxable ? 1 : 0) : null,
         labor_hours != null ? labor_hours : null,
         existing.id
@@ -109,13 +111,13 @@ module.exports = function makeRouter(db) {
     }
 
     const result = db.prepare(`
-      INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, taxable, labor_hours)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, contract_description, taxable, labor_hours)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       title, photo_url || null, source, hidden ? 1 : 0,
       quantity_in_stock != null ? quantity_in_stock : 0,
       unit_price != null ? unit_price : 0,
-      category || null, description || null,
+      category || null, description || null, contract_description || null,
       taxable != null ? (taxable ? 1 : 0) : 1,
       labor_hours != null ? labor_hours : 0
     );
@@ -154,18 +156,19 @@ module.exports = function makeRouter(db) {
   router.post('/', (req, res) => {
     const {
       title, photo_url, source = 'manual', hidden = 0,
-      quantity_in_stock = 0, unit_price = 0, category, description, taxable = 1, labor_hours = 0,
-      is_subrental = 0, vendor_id
+      quantity_in_stock = 0, unit_price = 0, category, description, contract_description,
+      taxable = 1, labor_hours = 0, is_subrental = 0, vendor_id
     } = req.body;
     if (!title) return res.status(400).json({ error: 'title required' });
 
     try {
       const result = db.prepare(`
-        INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, taxable, labor_hours, is_subrental, vendor_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, contract_description, taxable, labor_hours, is_subrental, vendor_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         title, photo_url || null, source, hidden ? 1 : 0,
-        quantity_in_stock, unit_price, category || null, description || null, taxable ? 1 : 0,
+        quantity_in_stock, unit_price, category || null, description || null,
+        contract_description || null, taxable ? 1 : 0,
         labor_hours != null ? labor_hours : 0,
         is_subrental ? 1 : 0, vendor_id != null ? vendor_id : null
       );
@@ -181,27 +184,28 @@ module.exports = function makeRouter(db) {
   router.put('/:id', (req, res) => {
     const {
       title, photo_url, source, hidden,
-      quantity_in_stock, unit_price, category, description, taxable, labor_hours,
-      is_subrental, vendor_id
+      quantity_in_stock, unit_price, category, description, contract_description,
+      taxable, labor_hours, is_subrental, vendor_id
     } = req.body;
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     db.prepare(`
       UPDATE items SET
-        title             = COALESCE(?, title),
-        photo_url         = COALESCE(?, photo_url),
-        source            = COALESCE(?, source),
-        hidden            = COALESCE(?, hidden),
-        quantity_in_stock = COALESCE(?, quantity_in_stock),
-        unit_price        = COALESCE(?, unit_price),
-        category          = COALESCE(?, category),
-        description       = COALESCE(?, description),
-        taxable           = COALESCE(?, taxable),
-        labor_hours       = COALESCE(?, labor_hours),
-        is_subrental      = COALESCE(?, is_subrental),
-        vendor_id         = COALESCE(?, vendor_id),
-        updated_at        = datetime('now')
+        title                = COALESCE(?, title),
+        photo_url            = COALESCE(?, photo_url),
+        source               = COALESCE(?, source),
+        hidden               = COALESCE(?, hidden),
+        quantity_in_stock    = COALESCE(?, quantity_in_stock),
+        unit_price           = COALESCE(?, unit_price),
+        category             = COALESCE(?, category),
+        description          = COALESCE(?, description),
+        contract_description = COALESCE(?, contract_description),
+        taxable              = COALESCE(?, taxable),
+        labor_hours          = COALESCE(?, labor_hours),
+        is_subrental         = COALESCE(?, is_subrental),
+        vendor_id            = COALESCE(?, vendor_id),
+        updated_at           = datetime('now')
       WHERE id = ?
     `).run(
       title || null,
@@ -212,6 +216,7 @@ module.exports = function makeRouter(db) {
       unit_price != null ? unit_price : null,
       category !== undefined ? (category || null) : null,
       description !== undefined ? (description || null) : null,
+      contract_description !== undefined ? (contract_description || null) : null,
       taxable != null ? (taxable ? 1 : 0) : null,
       labor_hours !== undefined ? (labor_hours != null ? labor_hours : 0) : null,
       is_subrental !== undefined ? (is_subrental ? 1 : 0) : null,

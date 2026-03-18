@@ -35,6 +35,80 @@ module.exports = function makeRouter(db) {
     return row && row.value === '1';
   }
 
+  // GET /api/availability/quote/:quoteId/items?ids=1,2,3
+  // Returns stock and already-reserved counts for given item IDs on this quote's date range (for picker).
+  // Response: { [item_id]: { stock, reserved_qty, potential_qty } }
+  router.get('/quote/:quoteId/items', (req, res) => {
+    const quoteId = parseInt(req.params.quoteId, 10);
+    if (isNaN(quoteId)) return res.status(400).json({ error: 'Invalid quoteId' });
+    const rawIds = req.query.ids;
+    const itemIds = rawIds ? String(rawIds).split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n)) : [];
+    if (itemIds.length === 0) return res.json({});
+
+    const targetQuote = db.prepare(`
+      SELECT q.*, c.signed_at
+      FROM quotes q
+      LEFT JOIN contracts c ON c.quote_id = q.id
+      WHERE q.id = ?
+    `).get(quoteId);
+    if (!targetQuote) return res.status(404).json({ error: 'Not found' });
+
+    const targetRange = getQuoteRange(targetQuote);
+    if (!targetRange) {
+      const out = {};
+      const rows = db.prepare(`
+        SELECT id, quantity_in_stock FROM items WHERE id IN (${itemIds.map(() => '?').join(',')})
+      `).all(...itemIds);
+      rows.forEach(r => { out[r.id] = { stock: r.quantity_in_stock || 0, reserved_qty: 0, potential_qty: 0 }; });
+      return res.json(out);
+    }
+
+    const ph = itemIds.map(() => '?').join(',');
+    const otherQuotes = db.prepare(`
+      SELECT DISTINCT q.id, q.name, q.event_date, q.rental_start, q.rental_end,
+             q.delivery_date, q.pickup_date, q.has_unsigned_changes, q.status, c.signed_at
+      FROM quotes q
+      JOIN quote_items qi ON qi.quote_id = q.id
+      LEFT JOIN contracts c ON c.quote_id = q.id
+      WHERE q.id != ? AND qi.item_id IN (${ph})
+        AND COALESCE(q.status, 'draft') != 'closed'
+    `).all(quoteId, ...itemIds);
+
+    const overlapping = otherQuotes.filter(oq => rangesOverlap(targetRange, getQuoteRange(oq)));
+    const oqIds = overlapping.map(q => q.id);
+    let oqItemMap = {};
+    if (oqIds.length) {
+      const oqPh = oqIds.map(() => '?').join(',');
+      const oqItems = db.prepare(`
+        SELECT quote_id, item_id, quantity FROM quote_items
+        WHERE quote_id IN (${oqPh}) AND item_id IN (${ph})
+      `).all(...oqIds, ...itemIds);
+      oqItems.forEach(r => {
+        if (!oqItemMap[r.quote_id]) oqItemMap[r.quote_id] = {};
+        oqItemMap[r.quote_id][r.item_id] = r.quantity || 1;
+      });
+    }
+
+    const itemRows = db.prepare(`
+      SELECT id, quantity_in_stock FROM items WHERE id IN (${ph})
+    `).all(...itemIds);
+
+    const result = {};
+    for (const row of itemRows) {
+      const stock = row.quantity_in_stock || 0;
+      let reservedQty = 0;
+      let potentialQty = 0;
+      for (const oq of overlapping) {
+        const qty = (oqItemMap[oq.id] || {})[row.id];
+        if (!qty) continue;
+        if (isReserved(oq)) reservedQty += qty;
+        else potentialQty += qty;
+      }
+      result[row.id] = { stock, reserved_qty: reservedQty, potential_qty: potentialQty };
+    }
+    res.json(result);
+  });
+
   // GET /api/availability/quote/:quoteId
   // Returns per-item conflict status for a given quote.
   // Response: { hasRange: bool, conflicts: { [item_id]: { status, reserved_qty, potential_qty, stock, my_qty } } }
@@ -117,9 +191,8 @@ module.exports = function makeRouter(db) {
       if (reservedQty + myQty > stock) status = 'reserved';
       else if (reservedQty + potentialQty + myQty > stock) status = 'potential';
 
-      if (status !== 'ok') {
-        conflicts[ti.item_id] = { status, reserved_qty: reservedQty, potential_qty: potentialQty, stock, my_qty: myQty };
-      }
+      // Always return stock/reserved_qty so UI can show "Only X available, Y already booked" even when under limit
+      conflicts[ti.item_id] = { status, reserved_qty: reservedQty, potential_qty: potentialQty, stock, my_qty: myQty };
     }
 
     res.json({ hasRange: true, conflicts });

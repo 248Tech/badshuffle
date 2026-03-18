@@ -545,6 +545,7 @@ async function initDb() {
   for (const col of [
     'ALTER TABLE items ADD COLUMN is_subrental INTEGER DEFAULT 0',
     'ALTER TABLE items ADD COLUMN vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL',
+    'ALTER TABLE items ADD COLUMN contract_description TEXT',
   ]) {
     try { db.exec(col); } catch (e) {}
   }
