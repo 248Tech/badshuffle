@@ -270,6 +270,50 @@ async function initDb() {
     try { db.exec(sql); } catch (e) {}
   }
   try { db.exec('ALTER TABLE quote_items ADD COLUMN hidden_from_quote INTEGER DEFAULT 0'); } catch (e) {}
+  // Per-item discounts
+  try { db.exec("ALTER TABLE quote_items ADD COLUMN discount_type TEXT DEFAULT 'none'"); } catch (e) {}
+  try { db.exec('ALTER TABLE quote_items ADD COLUMN discount_amount REAL DEFAULT 0'); } catch (e) {}
+  // Quote expiration
+  try { db.exec('ALTER TABLE quotes ADD COLUMN expires_at TEXT'); } catch (e) {}
+  // Item accessories (permanent)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS item_accessories (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id   INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        accessory_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        UNIQUE(item_id, accessory_id)
+      )
+    `);
+  } catch (e) {}
+  // Payment policies
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS payment_policies (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        body_text  TEXT,
+        is_default INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
+  // Rental terms
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS rental_terms (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        body_text  TEXT,
+        is_default INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
+  // Quote → policy + terms (nullable FK columns)
+  try { db.exec('ALTER TABLE quotes ADD COLUMN payment_policy_id INTEGER REFERENCES payment_policies(id) ON DELETE SET NULL'); } catch (e) {}
+  try { db.exec('ALTER TABLE quotes ADD COLUMN rental_terms_id INTEGER REFERENCES rental_terms(id) ON DELETE SET NULL'); } catch (e) {}
+  try { db.exec('ALTER TABLE quotes ADD COLUMN expiration_message TEXT'); } catch (e) {}
   // Email templates (admin/operator)
   try {
     db.exec(`

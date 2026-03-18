@@ -131,9 +131,11 @@ async function start() {
   app.get('/api/quotes/public/:token', (req, res) => {
     const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
+    const today = new Date().toISOString().slice(0, 10);
+    const isExpired = !!(quote.expires_at && quote.expires_at < today);
     const allItems = db.prepare(`
       SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote,
-             qi.unit_price_override,
+             qi.unit_price_override, qi.discount_type, qi.discount_amount,
              i.id, i.title, i.photo_url, i.unit_price, i.taxable, i.category, i.description
       FROM quote_items qi
       JOIN items i ON i.id = qi.item_id
@@ -169,7 +171,32 @@ async function start() {
     try {
       adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(quote.id);
     } catch (e) {}
-    res.json({ ...quote, items, customItems, contract, adjustments, company_name, company_email, company_logo, signed_company_logo });
+    let payment_policy = null;
+    let rental_terms = null;
+    try {
+      if (quote.payment_policy_id) {
+        payment_policy = db.prepare('SELECT * FROM payment_policies WHERE id = ?').get(quote.payment_policy_id);
+      }
+    } catch (e) {}
+    try {
+      if (quote.rental_terms_id) {
+        rental_terms = db.prepare('SELECT * FROM rental_terms WHERE id = ?').get(quote.rental_terms_id);
+      }
+    } catch (e) {}
+    res.json({
+      ...quote,
+      items,
+      customItems,
+      contract,
+      adjustments,
+      company_name,
+      company_email,
+      company_logo,
+      signed_company_logo,
+      is_expired: isExpired,
+      payment_policy,
+      rental_terms,
+    });
   });
 
   // Public quote approve by token (no auth)
@@ -178,6 +205,10 @@ async function start() {
     if (!token) return res.status(400).json({ error: 'token required' });
     const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
+    const today = new Date().toISOString().slice(0, 10);
+    if (quote.expires_at && quote.expires_at < today) {
+      return res.status(400).json({ error: 'This quote has expired and can no longer be approved' });
+    }
     db.prepare("UPDATE quotes SET status = 'approved', has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?").run(quote.id);
     const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(quote.id);
     res.json({ quote: updated });
@@ -224,6 +255,10 @@ async function start() {
     const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
     let contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(quote.id);
+    const today = new Date().toISOString().slice(0, 10);
+    if (quote.expires_at && quote.expires_at < today && !(contract && contract.signed_at)) {
+      return res.status(400).json({ error: 'This quote has expired and can no longer be signed' });
+    }
     if (!contract) {
       db.prepare('INSERT INTO contracts (quote_id, body_html, signed_at, signature_data, signer_name) VALUES (?, ?, datetime(\'now\'), ?, ?)')
         .run(quote.id, null, signature_data || null, signer_name || null);

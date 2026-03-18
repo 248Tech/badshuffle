@@ -1,9 +1,60 @@
 # STATUS
 
+**Released v0.4.5** (2026-03-18): Post-v0.4.4 enhancement batch shipped. Highlights: quote line-item discounts, quote expiration, reusable payment/rental terms, item accessories, UI scale, quote card polish, public quote parity fixes, and GitHub/docs cleanup.
+
 **Released v0.4.4** (2026-03-18): Quote-page filters + date-range picker, 2-step quote creation wizard with optional Google Places autocomplete, public quote live messaging thread (`/api/quotes/public/:token/messages`), availability picker endpoint (`/api/availability/quote/:id/items`), UI theme/map settings, robust extension scraping, and item `contract_description` persistence.
 
 ## Current Task
-Completed: v0.4.4 release prep and docs alignment; previously: v0.4.3 release prep and docs alignment.
+Release is complete. Remaining product polish items live in `TODO.md`.
+
+## Post-v0.4.4 Enhancement Batch
+
+### Completed (release batch)
+
+#### Fixes
+- **Availability conflicts on all quotes** — `QuotePage.jsx` now loads conflicts via `useCallback`; conflict stop sign displays on all quote cards/list rows regardless of whether they have date ranges.
+- **Inventory duplicate search bar** — Removed internal search from `ItemGrid.jsx` (InventoryPage already handles API-level search).
+- **UI skin button colors** — `QuoteBuilder.module.css`: replaced all hardcoded `#188ec5` / `#1579ad` hex with `var(--color-primary)` and `color-mix(in srgb, var(--color-primary) 80%, #000)` so active/hover button states honor the active UI theme.
+- **Conflict stop sign exclamation** — Replaced invisible `<path d="M12 16h.01">` with `<line>` + `<circle>` SVG elements in `QuoteCard.jsx`, `QuoteBuilder.jsx`, and `QuotePage.jsx` for a visible white ! on the red stop sign.
+
+#### Features
+- **Drag-to-reorder quote items** — HTML5 drag handles (⠿) on each line item in `QuoteBuilder.jsx`; drop reorders via `PUT /api/quotes/:id/items/reorder` (bulk `sort_order` update in a DB transaction).
+- **Per-item discount** — `quote_items` now has `discount_type` (`none` | `percent` | `fixed`) and `discount_amount`. Inline edit in `QuoteBuilder.jsx` (discount badge, click to edit). Totals in `QuoteDetailPage` and `PublicQuotePage` apply discounts via `effectivePrice()`.
+- **Quote expiration** — `quotes.expires_at` (date) + `quotes.expiration_message`. Public quote page shows customizable expired banner and disables contract/signature block when expired. Edit form in `QuoteDetailPage` has date + message fields.
+- **Colored tile borders** — `QuoteCard.jsx` / `QuotePage.jsx`: draft=yellow, sent=blue, approved/confirmed/closed=green, conflict or unsigned changes=red left border.
+- **"Edit" button on quotes list** — Both tile (QuoteCard) and list row (QuotePage) have an Edit button that navigates to `QuoteDetailPage` with `{ state: { autoEdit: true } }` to auto-open the edit form.
+- **View Quote → in Messages** — `MessagesPage.jsx`: when a thread has `quote_id`, a "View Quote →" button appears in the detail header and navigates to that quote.
+- **UI Scale setting** — `SettingsPage.jsx`: range slider 75–150% (step 5); applies `document.documentElement.style.fontSize` immediately and persists to `localStorage` (`bs_ui_scale`) on save. `main.jsx` applies saved scale before first render.
+- **Payment policies** — New `payment_policies` table (id, name, body_text, is_default). Full CRUD at `GET/POST/PUT/DELETE /api/templates/payment-policies`. Managed in `TemplatesPage.jsx` (new section). Selectable on quotes via `quotes.payment_policy_id` in the edit form. Shown as a section on the public quote page.
+- **Rental terms** — New `rental_terms` table (same schema). Full CRUD at `GET/POST/PUT/DELETE /api/templates/rental-terms`. Managed in `TemplatesPage.jsx`. Selectable on quotes via `quotes.rental_terms_id`. Shown on public quote page.
+- **Permanent accessories on items** — New `item_accessories` table (item_id → accessory_id, UNIQUE). CRUD at `GET/POST/DELETE /api/items/:id/accessories`. Shown in the Inventory edit form below AssociationList — search to add, remove button per entry. API client methods: `getItemAccessories`, `addItemAccessory`, `removeItemAccessory`.
+
+### Files changed in this batch
+- `server/db.js` — migrations: `quote_items.discount_type`, `quote_items.discount_amount`, `quotes.expires_at`, `quotes.expiration_message`, `quotes.payment_policy_id`, `quotes.rental_terms_id`, `item_accessories` table, `payment_policies` table, `rental_terms` table
+- `server/routes/quotes.js` — `PUT /:id/items/reorder` (new); `PUT /:id/items/:qitem_id` accepts discount fields; `PUT /:id` now saves `expires_at`, `expiration_message`, `payment_policy_id`, `rental_terms_id`
+- `server/routes/items.js` — `GET/POST/DELETE /:id/accessories` (new)
+- `server/routes/templates.js` — payment-policies + rental-terms CRUD (new routes)
+- `server/api/v1.js` + `server/index.js` — public quote endpoints now check expiration and fetch payment_policy + rental_terms by FK
+- `client/src/api.js` — `reorderQuoteItems`, discount fields, payment policy/rental terms CRUD methods, item accessories CRUD methods
+- `client/src/components/QuoteBuilder.jsx` — drag handles, drag handlers, per-item discount badge/edit, white ! SVG
+- `client/src/components/QuoteBuilder.module.css` — drag styles, discount badge/button styles, CSS variable theme fix
+- `client/src/components/QuoteCard.jsx` — colored border logic, Edit button, white ! SVG fix
+- `client/src/components/QuoteCard.module.css` — `.borderDraft/Sent/Signed/Conflict` classes
+- `client/src/pages/QuotePage.jsx` — colored borders, Edit button, white ! SVG fix, conflict loading via useCallback
+- `client/src/pages/QuoteDetailPage.jsx` — discount `effectivePrice()`, expiration fields in edit form, payment_policy_id/rental_terms_id selectors, autoEdit from nav state, load payment policies + rental terms when editing
+- `client/src/pages/PublicQuotePage.jsx` — expiration banner, rental terms section, payment policy section, expired placeholder for signature
+- `client/src/pages/PublicQuotePage.module.css` — `.expiredBanner` styles
+- `client/src/pages/MessagesPage.jsx` — "View Quote →" button
+- `client/src/pages/MessagesPage.module.css` — flex layout for detail header
+- `client/src/pages/SettingsPage.jsx` — UI scale slider
+- `client/src/main.jsx` — apply saved scale before render
+- `client/src/pages/TemplatesPage.jsx` — payment policies section, rental terms section
+- `client/src/pages/InventoryPage.jsx` — permanent accessories UI, `loadAccessories`, `searchAccessories`
+- `client/src/pages/InventoryPage.module.css` — accessories section styles
+
+### Remaining (2/14)
+- **Task 13:** Condense client/venue info display on `QuoteDetailPage` (make it more compact in view mode)
+- **Task 14:** Mobile version optimization (responsive layout pass across pages)
 
 ## Quote Flow + Public Messaging + Theming — v0.4.4
 

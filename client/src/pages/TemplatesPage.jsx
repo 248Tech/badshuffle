@@ -13,6 +13,14 @@ export default function TemplatesPage() {
   const [contractForm, setContractForm] = useState({ name: '', body_html: '' });
   const [showContractForm, setShowContractForm] = useState(false);
   const [contractSaving, setContractSaving] = useState(false);
+  // Payment policies
+  const [policies, setPolicies] = useState([]);
+  const [editingPolicy, setEditingPolicy] = useState(null); // null | 'new' | id
+  const [policyForm, setPolicyForm] = useState({ name: '', body_text: '', is_default: false });
+  // Rental terms
+  const [rentalTerms, setRentalTerms] = useState([]);
+  const [editingTerms, setEditingTerms] = useState(null);
+  const [termsForm, setTermsForm] = useState({ name: '', body_text: '', is_default: false });
 
   const load = () => {
     setLoading(true);
@@ -30,6 +38,10 @@ export default function TemplatesPage() {
 
   useEffect(() => { load(); }, []);
   useEffect(() => { loadContractTemplates(); }, []);
+  useEffect(() => {
+    api.getPaymentPolicies().then(d => setPolicies(d.policies || [])).catch(() => {});
+    api.getRentalTerms().then(d => setRentalTerms(d.terms || [])).catch(() => {});
+  }, []);
 
   const openNew = () => {
     setEditing('new');
@@ -116,6 +128,56 @@ export default function TemplatesPage() {
     } catch (e) {
       toast.error(e.message);
     }
+  };
+
+  const handleSavePolicy = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingPolicy === 'new') {
+        await api.createPaymentPolicy({ name: policyForm.name, body_text: policyForm.body_text, is_default: policyForm.is_default });
+        toast.success('Payment policy created');
+      } else {
+        await api.updatePaymentPolicy(editingPolicy, { name: policyForm.name, body_text: policyForm.body_text, is_default: policyForm.is_default });
+        toast.success('Payment policy updated');
+      }
+      setEditingPolicy(null);
+      api.getPaymentPolicies().then(d => setPolicies(d.policies || [])).catch(() => {});
+    } catch (e) { toast.error(e.message); }
+  };
+
+  const handleDeletePolicy = async (id) => {
+    if (!confirm('Delete this payment policy?')) return;
+    try {
+      await api.deletePaymentPolicy(id);
+      toast.info('Deleted');
+      if (editingPolicy === id) setEditingPolicy(null);
+      api.getPaymentPolicies().then(d => setPolicies(d.policies || [])).catch(() => {});
+    } catch (e) { toast.error(e.message); }
+  };
+
+  const handleSaveTerms = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingTerms === 'new') {
+        await api.createRentalTerms({ name: termsForm.name, body_text: termsForm.body_text, is_default: termsForm.is_default });
+        toast.success('Rental terms created');
+      } else {
+        await api.updateRentalTerms(editingTerms, { name: termsForm.name, body_text: termsForm.body_text, is_default: termsForm.is_default });
+        toast.success('Rental terms updated');
+      }
+      setEditingTerms(null);
+      api.getRentalTerms().then(d => setRentalTerms(d.terms || [])).catch(() => {});
+    } catch (e) { toast.error(e.message); }
+  };
+
+  const handleDeleteTerms = async (id) => {
+    if (!confirm('Delete these rental terms?')) return;
+    try {
+      await api.deleteRentalTerms(id);
+      toast.info('Deleted');
+      if (editingTerms === id) setEditingTerms(null);
+      api.getRentalTerms().then(d => setRentalTerms(d.terms || [])).catch(() => {});
+    } catch (e) { toast.error(e.message); }
   };
 
   if (loading) return <div className="empty-state"><div className="spinner" /></div>;
@@ -233,6 +295,115 @@ export default function TemplatesPage() {
             </div>
           </form>
         ) : null}
+      </section>
+      <section className={`card ${styles.card}`}>
+        <div className={styles.cardHeader}>
+          <div>
+            <h2 className={styles.sectionTitle}>Payment policies</h2>
+            <p className={styles.sub}>Preset payment schedules shown to clients at the end of the public quote page.</p>
+          </div>
+          {editingPolicy === null && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => { setEditingPolicy('new'); setPolicyForm({ name: '', body_text: '', is_default: false }); }}>+ New policy</button>
+          )}
+        </div>
+        {policies.length === 0 && editingPolicy === null && (
+          <p className={styles.empty}>No payment policies yet.</p>
+        )}
+        <ul className={styles.list}>
+          {policies.map(p => (
+            <li key={p.id} className={styles.row}>
+              <span className={styles.rowName}>{p.name}</span>
+              <span className={styles.rowDetail}>
+                {p.is_default && <span className={styles.badge}>Default</span>}
+              </span>
+              <div className={styles.rowActions}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditingPolicy(p.id); setPolicyForm({ name: p.name, body_text: p.body_text || '', is_default: !!p.is_default }); }}>Edit</button>
+                {!p.is_default && (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => api.updatePaymentPolicy(p.id, { is_default: true }).then(() => api.getPaymentPolicies().then(d => setPolicies(d.policies || [])))}>Set default</button>
+                )}
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleDeletePolicy(p.id)}>Delete</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {editingPolicy !== null && (
+          <form onSubmit={handleSavePolicy} className={styles.form}>
+            <h3 className={styles.formTitle}>{editingPolicy === 'new' ? 'New payment policy' : 'Edit payment policy'}</h3>
+            <div className="form-group">
+              <label>Name *</label>
+              <input required value={policyForm.name} onChange={e => setPolicyForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Standard payment schedule" />
+            </div>
+            <div className="form-group">
+              <label>Body text (shown on public quote)</label>
+              <textarea rows={5} value={policyForm.body_text} onChange={e => setPolicyForm(f => ({ ...f, body_text: e.target.value }))} placeholder="e.g. 50% due at booking, 50% due 7 days before event." />
+            </div>
+            <div className={styles.checkRow}>
+              <label>
+                <input type="checkbox" checked={policyForm.is_default} onChange={e => setPolicyForm(f => ({ ...f, is_default: e.target.checked }))} />
+                Default policy (pre-select on new quotes)
+              </label>
+            </div>
+            <div className={styles.formActions}>
+              <button type="button" className="btn btn-ghost" onClick={() => setEditingPolicy(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary">Save</button>
+            </div>
+          </form>
+        )}
+      </section>
+
+      <section className={`card ${styles.card}`}>
+        <div className={styles.cardHeader}>
+          <div>
+            <h2 className={styles.sectionTitle}>Rental terms</h2>
+            <p className={styles.sub}>Terms &amp; conditions shown to clients at the end of the public quote page.</p>
+          </div>
+          {editingTerms === null && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => { setEditingTerms('new'); setTermsForm({ name: '', body_text: '', is_default: false }); }}>+ New terms</button>
+          )}
+        </div>
+        {rentalTerms.length === 0 && editingTerms === null && (
+          <p className={styles.empty}>No rental terms yet.</p>
+        )}
+        <ul className={styles.list}>
+          {rentalTerms.map(t => (
+            <li key={t.id} className={styles.row}>
+              <span className={styles.rowName}>{t.name}</span>
+              <span className={styles.rowDetail}>
+                {t.is_default && <span className={styles.badge}>Default</span>}
+              </span>
+              <div className={styles.rowActions}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditingTerms(t.id); setTermsForm({ name: t.name, body_text: t.body_text || '', is_default: !!t.is_default }); }}>Edit</button>
+                {!t.is_default && (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => api.updateRentalTerms(t.id, { is_default: true }).then(() => api.getRentalTerms().then(d => setRentalTerms(d.terms || [])))}>Set default</button>
+                )}
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleDeleteTerms(t.id)}>Delete</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {editingTerms !== null && (
+          <form onSubmit={handleSaveTerms} className={styles.form}>
+            <h3 className={styles.formTitle}>{editingTerms === 'new' ? 'New rental terms' : 'Edit rental terms'}</h3>
+            <div className="form-group">
+              <label>Name *</label>
+              <input required value={termsForm.name} onChange={e => setTermsForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Standard rental agreement" />
+            </div>
+            <div className="form-group">
+              <label>Body text (shown on public quote)</label>
+              <textarea rows={8} value={termsForm.body_text} onChange={e => setTermsForm(f => ({ ...f, body_text: e.target.value }))} placeholder="Enter your rental terms and conditions…" />
+            </div>
+            <div className={styles.checkRow}>
+              <label>
+                <input type="checkbox" checked={termsForm.is_default} onChange={e => setTermsForm(f => ({ ...f, is_default: e.target.checked }))} />
+                Default terms (pre-select on new quotes)
+              </label>
+            </div>
+            <div className={styles.formActions}>
+              <button type="button" className="btn btn-ghost" onClick={() => setEditingTerms(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary">Save</button>
+            </div>
+          </form>
+        )}
       </section>
     </div>
   );

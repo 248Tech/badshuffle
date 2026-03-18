@@ -2,7 +2,7 @@
 
 **All development going forward must consider the API.**
 
-This document is part of the AI coordination layer. When implementing features, Cursor and Claude must treat the API as a first-class surface.
+This document is part of the AI coordination layer. When implementing features, all editor/agent workflows must treat the API as a first-class surface.
 
 ## Rule
 

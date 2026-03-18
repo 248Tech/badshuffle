@@ -363,7 +363,7 @@ module.exports = function makeRouter(db, uploadsDir) {
 
     const items = db.prepare(`
       SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote,
-             qi.unit_price_override,
+             qi.unit_price_override, qi.discount_type, qi.discount_amount,
              i.id, i.title, i.photo_url, i.source, i.hidden,
              i.unit_price, i.taxable, i.category, i.labor_hours, i.is_subrental
       FROM quote_items qi
@@ -413,6 +413,7 @@ module.exports = function makeRouter(db, uploadsDir) {
     const { name, guest_count, event_date, notes, lead_id, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate } = body;
     const { client_first_name, client_last_name, client_email, client_phone, client_address } = body;
     const { rental_start, rental_end, delivery_date, pickup_date } = body;
+    const { expires_at, expiration_message, payment_policy_id, rental_terms_id } = body;
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     if (!quote) return res.status(404).json({ error: 'Not found' });
 
@@ -440,6 +441,10 @@ module.exports = function makeRouter(db, uploadsDir) {
         rental_end    = COALESCE(?, rental_end),
         delivery_date = COALESCE(?, delivery_date),
         pickup_date   = COALESCE(?, pickup_date),
+        expires_at         = ?,
+        expiration_message = ?,
+        payment_policy_id  = ?,
+        rental_terms_id    = ?,
         updated_at    = datetime('now')
       WHERE id = ?
     `).run(
@@ -465,6 +470,10 @@ module.exports = function makeRouter(db, uploadsDir) {
       rental_end !== undefined ? (rental_end || null) : null,
       delivery_date !== undefined ? (delivery_date || null) : null,
       pickup_date !== undefined ? (pickup_date || null) : null,
+      expires_at !== undefined ? (expires_at || null) : quote.expires_at,
+      expiration_message !== undefined ? (expiration_message || null) : quote.expiration_message,
+      payment_policy_id !== undefined ? (payment_policy_id || null) : quote.payment_policy_id,
+      rental_terms_id !== undefined ? (rental_terms_id || null) : quote.rental_terms_id,
       req.params.id
     );
 
@@ -851,7 +860,7 @@ module.exports = function makeRouter(db, uploadsDir) {
 
   // PUT /api/quotes/:id/items/:qitem_id — zero quantity removes the item
   router.put('/:id/items/:qitem_id', (req, res) => {
-    const { quantity, label, sort_order, hidden_from_quote, unit_price_override } = req.body;
+    const { quantity, label, sort_order, hidden_from_quote, unit_price_override, discount_type, discount_amount } = req.body;
     const oldRow = db.prepare(`
       SELECT qi.quantity, qi.label, qi.unit_price_override, i.title as item_title, i.unit_price
       FROM quote_items qi
@@ -878,11 +887,13 @@ module.exports = function makeRouter(db, uploadsDir) {
 
     db.prepare(`
       UPDATE quote_items SET
-        quantity           = COALESCE(?, quantity),
-        label              = COALESCE(?, label),
-        sort_order         = COALESCE(?, sort_order),
-        hidden_from_quote  = COALESCE(?, hidden_from_quote),
-        unit_price_override = ?
+        quantity            = COALESCE(?, quantity),
+        label               = COALESCE(?, label),
+        sort_order          = COALESCE(?, sort_order),
+        hidden_from_quote   = COALESCE(?, hidden_from_quote),
+        unit_price_override = ?,
+        discount_type       = COALESCE(?, discount_type),
+        discount_amount     = COALESCE(?, discount_amount)
       WHERE id = ? AND quote_id = ?
     `).run(
       quantity !== undefined ? quantity : null,
@@ -890,6 +901,8 @@ module.exports = function makeRouter(db, uploadsDir) {
       sort_order !== undefined ? sort_order : null,
       hidden_from_quote !== undefined ? (hidden_from_quote ? 1 : 0) : null,
       newOverride !== undefined ? newOverride : null,
+      discount_type !== undefined ? discount_type : null,
+      discount_amount !== undefined ? parseFloat(discount_amount) : null,
       req.params.qitem_id,
       req.params.id
     );
@@ -946,6 +959,22 @@ module.exports = function makeRouter(db, uploadsDir) {
     logActivity(req.params.id, 'custom_item_added', 'Added custom item: ' + title, null, newVal, req);
     markUnsignedChangesIfApproved(req.params.id);
     res.status(201).json({ item });
+  });
+
+  // PUT /api/quotes/:id/items/reorder — update sort_order for all items in bulk
+  router.put('/:id/items/reorder', (req, res) => {
+    const quoteId = parseInt(req.params.id, 10);
+    if (isNaN(quoteId)) return res.status(400).json({ error: 'Invalid id' });
+    const { order } = req.body || {};
+    if (!Array.isArray(order)) return res.status(400).json({ error: 'order must be an array' });
+    const update = db.prepare('UPDATE quote_items SET sort_order = ? WHERE id = ? AND quote_id = ?');
+    const tx = db.transaction(() => {
+      order.forEach((qitemId, idx) => {
+        update.run(idx, qitemId, quoteId);
+      });
+    });
+    tx();
+    res.json({ ok: true });
   });
 
   // PUT /api/quotes/:id/custom-items/:cid — zero quantity removes the item

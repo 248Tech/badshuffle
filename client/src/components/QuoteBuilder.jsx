@@ -52,7 +52,8 @@ function ConflictStopSignIcon({ className, title }) {
     <span className={className} role="img" title={title} aria-label="Inventory conflict">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="#c00" stroke="#8b0000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" />
-        <path d="M12 8v4M12 16h.01" stroke="#fff" strokeWidth="1.2" fill="none" />
+        <line x1="12" y1="8" x2="12" y2="13" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        <circle cx="12" cy="16.5" r="1.1" fill="#fff" stroke="none" />
       </svg>
     </span>
   );
@@ -87,6 +88,12 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
   // Per-item price override inline editing
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [priceInput, setPriceInput] = useState('');
+  // Drag-to-reorder
+  const dragItemRef = useRef(null);
+  const [dragOverId, setDragOverId] = useState(null);
+  // Per-item discount
+  const [editingDiscountId, setEditingDiscountId] = useState(null);
+  const [discountForm, setDiscountForm] = useState({ type: 'percent', amount: '' });
   // Adjustments form
   const [showAdjForm, setShowAdjForm] = useState(false);
   const [adjForm, setAdjForm] = useState({ label: '', type: 'discount', value_type: 'percent', amount: '' });
@@ -296,6 +303,83 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
     }
   };
 
+  function itemEffectivePrice(item) {
+    const base = item.unit_price_override != null ? item.unit_price_override : (item.unit_price ?? 0);
+    if (item.discount_type === 'percent' && item.discount_amount > 0) return base * (1 - item.discount_amount / 100);
+    if (item.discount_type === 'fixed' && item.discount_amount > 0) return Math.max(0, base - item.discount_amount);
+    return base;
+  }
+
+  const startDiscountEdit = (item) => {
+    setEditingDiscountId(item.qitem_id);
+    setDiscountForm({
+      type: item.discount_type && item.discount_type !== 'none' ? item.discount_type : 'percent',
+      amount: item.discount_amount > 0 ? String(item.discount_amount) : ''
+    });
+  };
+
+  const commitDiscountEdit = async (item) => {
+    const amt = parseFloat(discountForm.amount);
+    const hasDiscount = !isNaN(amt) && amt > 0;
+    setEditingDiscountId(null);
+    try {
+      await api.updateQuoteItem(quoteId, item.qitem_id, {
+        discount_type: hasDiscount ? discountForm.type : 'none',
+        discount_amount: hasDiscount ? amt : 0
+      });
+      onItemsChange();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
+  const clearDiscount = async (item) => {
+    try {
+      await api.updateQuoteItem(quoteId, item.qitem_id, { discount_type: 'none', discount_amount: 0 });
+      onItemsChange();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDragStart = (e, item) => {
+    dragItemRef.current = item.qitem_id;
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, item) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverId(item.qitem_id);
+  };
+
+  const handleDrop = async (e, targetItem) => {
+    e.preventDefault();
+    setDragOverId(null);
+    const srcId = dragItemRef.current;
+    if (!srcId || srcId === targetItem.qitem_id) return;
+    const list = [...(items || [])];
+    const srcIdx = list.findIndex(i => i.qitem_id === srcId);
+    const tgtIdx = list.findIndex(i => i.qitem_id === targetItem.qitem_id);
+    if (srcIdx < 0 || tgtIdx < 0) return;
+    const reordered = [...list];
+    const [moved] = reordered.splice(srcIdx, 1);
+    reordered.splice(tgtIdx, 0, moved);
+    // Optimistic update
+    onItemsChange();
+    try {
+      await api.reorderQuoteItems(quoteId, reordered.map(i => i.qitem_id));
+      onItemsChange();
+    } catch (err) {
+      toast.error('Could not save new order');
+    }
+  };
+
+  const handleDragEnd = () => {
+    dragItemRef.current = null;
+    setDragOverId(null);
+  };
+
   const clearPriceOverride = async (item) => {
     try {
       await api.updateQuoteItem(quoteId, item.qitem_id, { unit_price_override: null });
@@ -352,16 +436,28 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
             const qty = item.quantity ?? 1;
             const basePrice = item.unit_price ?? 0;
             const hasOverride = item.unit_price_override != null;
-            const unitPrice = hasOverride ? item.unit_price_override : basePrice;
+            const overridePrice = hasOverride ? item.unit_price_override : basePrice;
+            const hasDiscount = item.discount_type && item.discount_type !== 'none' && item.discount_amount > 0;
+            const unitPrice = itemEffectivePrice(item);
             const lineTotal = unitPrice * qty;
             const lineLabor = (Number(item.labor_hours) || 0) * qty;
             const itemId = item.id ?? item.item_id;
             const avail = itemId != null ? availability[itemId] : null;
             const isEditingPrice = editingPriceId === item.qitem_id;
+            const isEditingDiscount = editingDiscountId === item.qitem_id;
             const isOversold = avail && (avail.status === 'reserved' || avail.status === 'potential');
             const isSubrental = !!(item.is_subrental || item.is_subrental === 1);
             return (
-              <div key={item.qitem_id} className={`${styles.quoteItem} ${item.hidden_from_quote ? styles.quoteItemHidden : ''} ${isOversold ? styles.quoteItemOversold : ''}`}>
+              <div
+                key={item.qitem_id}
+                className={`${styles.quoteItem} ${item.hidden_from_quote ? styles.quoteItemHidden : ''} ${isOversold ? styles.quoteItemOversold : ''} ${dragOverId === item.qitem_id ? styles.quoteItemDragOver : ''}`}
+                draggable
+                onDragStart={e => handleDragStart(e, item)}
+                onDragOver={e => handleDragOver(e, item)}
+                onDrop={e => handleDrop(e, item)}
+                onDragEnd={handleDragEnd}
+              >
+                <span className={styles.dragHandle} title="Drag to reorder">⠿</span>
                 <div className={styles.thumbWrap}>
                   {item.photo_url ? (
                     <img
@@ -424,21 +520,68 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
                     <button type="button" className={styles.priceEditSave} onClick={() => commitPriceEdit(item)} title="Save">✓</button>
                     <button type="button" className={styles.priceEditCancel} onClick={() => setEditingPriceId(null)} title="Cancel">✕</button>
                   </span>
+                ) : isEditingDiscount ? (
+                  <span className={styles.priceEditWrap} onClick={e => e.stopPropagation()}>
+                    <select
+                      className={styles.adjSelect}
+                      value={discountForm.type}
+                      onChange={e => setDiscountForm(f => ({ ...f, type: e.target.value }))}
+                    >
+                      <option value="percent">%</option>
+                      <option value="fixed">$</option>
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className={styles.priceInput}
+                      value={discountForm.amount}
+                      onChange={e => setDiscountForm(f => ({ ...f, amount: e.target.value }))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') commitDiscountEdit(item);
+                        if (e.key === 'Escape') setEditingDiscountId(null);
+                      }}
+                      placeholder={discountForm.type === 'percent' ? '10' : '5.00'}
+                      autoFocus
+                    />
+                    <button type="button" className={styles.priceEditSave} onClick={() => commitDiscountEdit(item)} title="Apply discount">✓</button>
+                    <button type="button" className={styles.priceEditCancel} onClick={() => setEditingDiscountId(null)} title="Cancel">✕</button>
+                  </span>
                 ) : (
-                  <span
-                    className={`${styles.unitPrice} ${hasOverride ? styles.unitPriceOverride : ''}`}
-                    onClick={e => { e.stopPropagation(); startPriceEdit(item); }}
-                    title={hasOverride ? `Override: $${unitPrice.toFixed(2)} (base: $${basePrice.toFixed(2)}). Click to edit.` : `$${basePrice.toFixed(2)} — click to override for this quote`}
-                    role="button"
-                  >
-                    ${unitPrice.toFixed(2)}
-                    {hasOverride && (
+                  <span className={styles.priceCol} onClick={e => e.stopPropagation()}>
+                    <span
+                      className={`${styles.unitPrice} ${hasOverride ? styles.unitPriceOverride : ''} ${hasDiscount ? styles.unitPriceDiscounted : ''}`}
+                      onClick={() => startPriceEdit(item)}
+                      title={hasOverride ? `Override: $${overridePrice.toFixed(2)} (base: $${basePrice.toFixed(2)}). Click to edit.` : `$${basePrice.toFixed(2)} — click to override for this quote`}
+                      role="button"
+                    >
+                      ${unitPrice.toFixed(2)}
+                      {hasOverride && (
+                        <button
+                          type="button"
+                          className={styles.clearOverrideBtn}
+                          onClick={e => { e.stopPropagation(); clearPriceOverride(item); }}
+                          title="Reset to base price"
+                        >✕</button>
+                      )}
+                    </span>
+                    {hasDiscount ? (
+                      <span
+                        className={styles.discountBadge}
+                        onClick={() => startDiscountEdit(item)}
+                        role="button"
+                        title="Click to edit discount"
+                      >
+                        -{item.discount_type === 'percent' ? `${item.discount_amount}%` : `$${Number(item.discount_amount).toFixed(2)}`}
+                        <button type="button" className={styles.clearOverrideBtn} onClick={e => { e.stopPropagation(); clearDiscount(item); }} title="Remove discount">✕</button>
+                      </span>
+                    ) : (
                       <button
                         type="button"
-                        className={styles.clearOverrideBtn}
-                        onClick={e => { e.stopPropagation(); clearPriceOverride(item); }}
-                        title="Reset to base price"
-                      >✕</button>
+                        className={styles.discountBtn}
+                        onClick={() => startDiscountEdit(item)}
+                        title="Add item discount"
+                      >%</button>
                     )}
                   </span>
                 )}

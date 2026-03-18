@@ -92,6 +92,24 @@ module.exports = function createV1Router(db, opts) {
     let company_logo = company.company_logo ?? '';
     const signed_company_logo = (company_logo && /^\d+$/.test(String(company_logo).trim()))
       ? getSignedFileServePath(String(company_logo).trim(), '/api/v1/files') : null;
+    // Check expiration
+    const now = new Date().toISOString().slice(0, 10);
+    const isExpired = !!(quote.expires_at && quote.expires_at < now);
+
+    // Fetch payment policy and rental terms if linked
+    let payment_policy = null;
+    let rental_terms = null;
+    try {
+      if (quote.payment_policy_id) {
+        payment_policy = db.prepare('SELECT * FROM payment_policies WHERE id = ?').get(quote.payment_policy_id);
+      }
+    } catch (e) {}
+    try {
+      if (quote.rental_terms_id) {
+        rental_terms = db.prepare('SELECT * FROM rental_terms WHERE id = ?').get(quote.rental_terms_id);
+      }
+    } catch (e) {}
+
     res.json({
       ...quote,
       items,
@@ -101,6 +119,9 @@ module.exports = function createV1Router(db, opts) {
       company_email: company.company_email ?? '',
       company_logo: company_logo,
       signed_company_logo,
+      is_expired: isExpired,
+      payment_policy,
+      rental_terms,
     });
   });
 

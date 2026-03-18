@@ -4,13 +4,19 @@
 
 BadShuffle is a self-hosted inventory and quoting tool for event rental businesses. It runs as two local Windows executables (server + client), or via Docker. Stack: Node/Express + sql.js SQLite on the back end, React + Vite on the front end.
 
-## Current state: v0.4.4 (latest release)
+## Current state: v0.4.5 (latest release)
 
 Latest release:
 
 ```
-release: v0.4.4 — quote filtering + 2-step creation wizard, public quote live messaging, picker-level availability, theme/map settings, extension extraction hardening, contract_description support
+release: v0.4.5 — line-item discounts, quote expiration, payment policies, rental terms, item accessories, UI scale, public quote parity fixes, and repo/readme polish
 ```
+
+### What shipped in v0.4.5
+- **Quote pricing + layout polish** — Drag-to-reorder line items, per-item discounts, status-colored quote cards, and stronger conflict visibility.
+- **Public quote parity** — Public quote route and page now respect quote expiration, show rental/payment policy content, and calculate totals using discounted pricing.
+- **Inventory + operator UX** — Item accessories can be linked in Inventory, Messages can jump straight to the related quote, and UI scale can be adjusted globally from Settings.
+- **Repo hygiene** — README, quickstart, license, gitignore, and AI coordination docs were refreshed for a cleaner release surface.
 
 ### What shipped in v0.4.4
 - **Quote list + create flow** — Quotes page now supports search/status/date/venue/balance filters, and a 2-step quote creation wizard with optional Google Places address autocomplete.
@@ -132,10 +138,10 @@ docker-entrypoint.sh  — Creates /data/uploads, execs CMD
 
 ## Git state
 
-- `badshuffle.lock` deleted (runtime lock file, ignored going forward)
-- v0.4.3 adds public catalog pages, Docker files, dev-login flow, and AI settings support on the main release line
+- Runtime lockfiles, uploads, and local editor config are now ignored
+- Canonical release line is `v0.4.5`
 
-Canonical version is v0.4.4 (0.x pre-release until 1.0).
+Canonical version is v0.4.5 (0.x pre-release until 1.0).
 
 ## Known stubs / incomplete items
 

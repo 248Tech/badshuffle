@@ -169,6 +169,20 @@ export const api = {
   getContractTemplates: () => request('/templates/contract-templates'),
   createContractTemplate: (body) => request('/templates/contract-templates', { method: 'POST', body }),
   deleteContractTemplate: (id) => request(`/templates/contract-templates/${id}`, { method: 'DELETE' }),
+  // Payment policies
+  getPaymentPolicies: () => request('/templates/payment-policies'),
+  createPaymentPolicy: (body) => request('/templates/payment-policies', { method: 'POST', body }),
+  updatePaymentPolicy: (id, body) => request(`/templates/payment-policies/${id}`, { method: 'PUT', body }),
+  deletePaymentPolicy: (id) => request(`/templates/payment-policies/${id}`, { method: 'DELETE' }),
+  // Rental terms
+  getRentalTerms: () => request('/templates/rental-terms'),
+  createRentalTerms: (body) => request('/templates/rental-terms', { method: 'POST', body }),
+  updateRentalTerms: (id, body) => request(`/templates/rental-terms/${id}`, { method: 'PUT', body }),
+  deleteRentalTerms: (id) => request(`/templates/rental-terms/${id}`, { method: 'DELETE' }),
+  // Item accessories (permanent)
+  getItemAccessories: (id) => request(`/items/${id}/accessories`),
+  addItemAccessory: (id, body) => request(`/items/${id}/accessories`, { method: 'POST', body }),
+  removeItemAccessory: (id, accessoryId) => request(`/items/${id}/accessories/${accessoryId}`, { method: 'DELETE' }),
 
   // Leads
   getLeads: (params = {}) => {

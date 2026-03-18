@@ -28,6 +28,62 @@ module.exports = function makeRouter(db) {
     res.json({ deleted: true });
   });
 
+  // ── Payment policies ─────────────────────────────────────
+  router.get('/payment-policies', (req, res) => {
+    res.json({ policies: db.prepare('SELECT * FROM payment_policies ORDER BY name').all() });
+  });
+  router.post('/payment-policies', (req, res) => {
+    const { name, body_text, is_default } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name required' });
+    if (is_default) db.prepare('UPDATE payment_policies SET is_default = 0').run();
+    const r = db.prepare(
+      "INSERT INTO payment_policies (name, body_text, is_default) VALUES (?, ?, ?)"
+    ).run(name, body_text || null, is_default ? 1 : 0);
+    res.status(201).json(db.prepare('SELECT * FROM payment_policies WHERE id = ?').get(r.lastInsertRowid));
+  });
+  router.put('/payment-policies/:id', (req, res) => {
+    const { name, body_text, is_default } = req.body || {};
+    const row = db.prepare('SELECT * FROM payment_policies WHERE id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    if (is_default) db.prepare('UPDATE payment_policies SET is_default = 0').run();
+    db.prepare('UPDATE payment_policies SET name = ?, body_text = ?, is_default = ? WHERE id = ?')
+      .run(name ?? row.name, body_text !== undefined ? body_text : row.body_text, is_default ? 1 : 0, req.params.id);
+    res.json(db.prepare('SELECT * FROM payment_policies WHERE id = ?').get(req.params.id));
+  });
+  router.delete('/payment-policies/:id', (req, res) => {
+    const r = db.prepare('DELETE FROM payment_policies WHERE id = ?').run(req.params.id);
+    if (r.changes === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ deleted: true });
+  });
+
+  // ── Rental terms ─────────────────────────────────────────
+  router.get('/rental-terms', (req, res) => {
+    res.json({ terms: db.prepare('SELECT * FROM rental_terms ORDER BY name').all() });
+  });
+  router.post('/rental-terms', (req, res) => {
+    const { name, body_text, is_default } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name required' });
+    if (is_default) db.prepare('UPDATE rental_terms SET is_default = 0').run();
+    const r = db.prepare(
+      "INSERT INTO rental_terms (name, body_text, is_default) VALUES (?, ?, ?)"
+    ).run(name, body_text || null, is_default ? 1 : 0);
+    res.status(201).json(db.prepare('SELECT * FROM rental_terms WHERE id = ?').get(r.lastInsertRowid));
+  });
+  router.put('/rental-terms/:id', (req, res) => {
+    const { name, body_text, is_default } = req.body || {};
+    const row = db.prepare('SELECT * FROM rental_terms WHERE id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    if (is_default) db.prepare('UPDATE rental_terms SET is_default = 0').run();
+    db.prepare('UPDATE rental_terms SET name = ?, body_text = ?, is_default = ? WHERE id = ?')
+      .run(name ?? row.name, body_text !== undefined ? body_text : row.body_text, is_default ? 1 : 0, req.params.id);
+    res.json(db.prepare('SELECT * FROM rental_terms WHERE id = ?').get(req.params.id));
+  });
+  router.delete('/rental-terms/:id', (req, res) => {
+    const r = db.prepare('DELETE FROM rental_terms WHERE id = ?').run(req.params.id);
+    if (r.changes === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ deleted: true });
+  });
+
   // GET /api/templates
   router.get('/', (req, res) => {
     const list = db.prepare('SELECT id, name, subject, is_default, created_at FROM email_templates ORDER BY name').all();

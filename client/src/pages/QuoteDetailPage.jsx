@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import QuoteBuilder from '../components/QuoteBuilder.jsx';
 import QuoteExport from '../components/QuoteExport.jsx';
@@ -13,7 +13,14 @@ import styles from './QuoteDetailPage.module.css';
 const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
 
 function effectivePrice(it) {
-  return it.unit_price_override != null ? it.unit_price_override : (it.unit_price || 0);
+  const base = it.unit_price_override != null ? it.unit_price_override : (it.unit_price || 0);
+  if (it.discount_type === 'percent' && it.discount_amount > 0) {
+    return base * (1 - it.discount_amount / 100);
+  }
+  if (it.discount_type === 'fixed' && it.discount_amount > 0) {
+    return Math.max(0, base - it.discount_amount);
+  }
+  return base;
 }
 
 function computeAdjustmentsTotal(adjustments, preTaxBase) {
@@ -46,13 +53,14 @@ function computeTotals(items, customItems, adjustments, taxRate) {
 export default function QuoteDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
 
   const [quote, setQuote] = useState(null);
   const [customItems, setCustomItems] = useState([]);
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(!!(location.state?.autoEdit));
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [showAI, setShowAI] = useState(false);
@@ -96,6 +104,9 @@ export default function QuoteDetailPage() {
   const [showDamageForm, setShowDamageForm] = useState(false);
   const [damageForm, setDamageForm] = useState({ title: '', amount: '', note: '' });
   const [damageSaving, setDamageSaving] = useState(false);
+  // Payment policies + rental terms lists (for edit form selectors)
+  const [paymentPolicies, setPaymentPolicies] = useState([]);
+  const [rentalTermsList, setRentalTermsList] = useState([]);
 
   const load = useCallback(() => {
     api.getQuote(id)
@@ -111,6 +122,10 @@ export default function QuoteDetailPage() {
           rental_end: data.rental_end || '',
           delivery_date: data.delivery_date || '',
           pickup_date: data.pickup_date || '',
+          expires_at: data.expires_at || '',
+          expiration_message: data.expiration_message || '',
+          payment_policy_id: data.payment_policy_id != null ? String(data.payment_policy_id) : '',
+          rental_terms_id: data.rental_terms_id != null ? String(data.rental_terms_id) : '',
           notes: data.notes || '',
           venue_name: data.venue_name || '',
           venue_email: data.venue_email || '',
@@ -144,7 +159,7 @@ export default function QuoteDetailPage() {
     api.getQuoteFiles(id).then(d => setQuoteFiles(d.files || [])).catch(() => setQuoteFiles([]));
   }, [id]);
 
-  // Load contract and contract templates when editing (quote settings opened via title click)
+  // Load contract, contract templates, payment policies, rental terms when editing
   useEffect(() => {
     if (!editing || !id) return;
     api.getQuoteContract(id)
@@ -159,6 +174,12 @@ export default function QuoteDetailPage() {
     api.getContractTemplates()
       .then(d => setContractTemplates(d.contractTemplates || []))
       .catch(() => setContractTemplates([]));
+    api.getPaymentPolicies()
+      .then(d => setPaymentPolicies(d.policies || []))
+      .catch(() => {});
+    api.getRentalTerms()
+      .then(d => setRentalTermsList(d.terms || []))
+      .catch(() => {});
   }, [editing, id]);
 
   useEffect(() => {
@@ -319,6 +340,10 @@ export default function QuoteDetailPage() {
         rental_end: form.rental_end || null,
         delivery_date: form.delivery_date || null,
         pickup_date: form.pickup_date || null,
+        expires_at: form.expires_at || null,
+        expiration_message: form.expiration_message || null,
+        payment_policy_id: form.payment_policy_id ? Number(form.payment_policy_id) : null,
+        rental_terms_id: form.rental_terms_id ? Number(form.rental_terms_id) : null,
         notes: null,
         venue_name: form.venue_name || null,
         venue_email: form.venue_email || null,
@@ -697,6 +722,19 @@ export default function QuoteDetailPage() {
               <textarea rows={2} value={form.quote_notes || ''} onChange={e => setForm(f => ({ ...f, quote_notes: e.target.value }))} placeholder="Internal or client-facing notes for this quote" />
             </div>
             <div className={styles.formSection}>
+              <h4 className={styles.formSectionTitle}>Quote Expiration</h4>
+              <div className={styles.formRow}>
+                <div className="form-group">
+                  <label>Expires at</label>
+                  <input type="date" value={form.expires_at || ''} onChange={e => setForm(f => ({ ...f, expires_at: e.target.value }))} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Expiration message (shown to client)</label>
+                <textarea rows={2} value={form.expiration_message || ''} onChange={e => setForm(f => ({ ...f, expiration_message: e.target.value }))} placeholder="This quote has expired. Please reach out to renew." />
+              </div>
+            </div>
+            <div className={styles.formSection}>
               <h4 className={styles.formSectionTitle}>Client information</h4>
               <div className={styles.formRow}>
                 <div className="form-group"><label>First name</label><input value={form.client_first_name || ''} onChange={e => setForm(f => ({ ...f, client_first_name: e.target.value }))} /></div>
@@ -725,6 +763,29 @@ export default function QuoteDetailPage() {
               <label>Tax rate (%)</label>
               <input type="number" min="0" step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))} placeholder="From settings if blank" />
             </div>
+            {(paymentPolicies.length > 0 || rentalTermsList.length > 0) && (
+              <div className={styles.formSection}>
+                <h4 className={styles.formSectionTitle}>Payment &amp; terms</h4>
+                {paymentPolicies.length > 0 && (
+                  <div className="form-group">
+                    <label>Payment policy</label>
+                    <select value={form.payment_policy_id || ''} onChange={e => setForm(f => ({ ...f, payment_policy_id: e.target.value }))}>
+                      <option value="">— None —</option>
+                      {paymentPolicies.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                )}
+                {rentalTermsList.length > 0 && (
+                  <div className="form-group">
+                    <label>Rental terms</label>
+                    <select value={form.rental_terms_id || ''} onChange={e => setForm(f => ({ ...f, rental_terms_id: e.target.value }))}>
+                      <option value="">— None —</option>
+                      {rentalTermsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
             <div className={styles.formSection}>
               <h4 className={styles.formSectionTitle}>Contract</h4>
               <p className={styles.notes}>Contract text shown to the client on the public quote page. Client can sign from the public link. Add templates on the Templates page, then choose one below or edit manually.</p>

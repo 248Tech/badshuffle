@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../components/Toast.jsx';
 import styles from './MessagesPage.module.css';
@@ -44,6 +45,7 @@ function relativeTime(dateStr) {
 }
 
 export default function MessagesPage() {
+  const navigate = useNavigate();
   const toast = useToast();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -166,6 +168,15 @@ export default function MessagesPage() {
             <div className={styles.threadDetail}>
               <div className={styles.detailHeader}>
                 <h2 className={styles.detailTitle}>{selectedThread.quote_name}</h2>
+                {selectedThread.quote_id && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => navigate(`/quotes/${selectedThread.quote_id}`)}
+                  >
+                    View Quote →
+                  </button>
+                )}
               </div>
               <div className={styles.messageList}>
                 {[...selectedThread.messages].reverse().map(msg => (

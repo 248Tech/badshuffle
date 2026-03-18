@@ -13,7 +13,8 @@ function ConflictStopSignIcon({ className }) {
     <span className={className} role="img" title="Inventory conflict" aria-label="Inventory conflict">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="#c00" stroke="#8b0000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" />
-        <path d="M12 8v4M12 16h.01" stroke="#fff" strokeWidth="1.2" fill="none" />
+        <line x1="12" y1="8" x2="12" y2="13" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        <circle cx="12" cy="16.5" r="1.1" fill="#fff" stroke="none" />
       </svg>
     </span>
   );
@@ -26,6 +27,14 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
   const remaining = quote.remaining_balance != null ? quote.remaining_balance : (hasTotal ? contractTotal - (quote.amount_paid || 0) : null);
   const overpaid = !!quote.overpaid;
   const showBalance = showRemainingBalance(quote);
+
+  function getBorderClass() {
+    if (hasConflict || quote.has_unsigned_changes) return styles.borderConflict;
+    const s = quote.status || 'draft';
+    if (s === 'approved' || s === 'confirmed' || s === 'closed') return styles.borderSigned;
+    if (s === 'sent') return styles.borderSent;
+    return styles.borderDraft;
+  }
 
   const date = quote.event_date
     ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString()
@@ -42,7 +51,7 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
 
   return (
     <div
-      className={`card ${styles.card} ${selectable ? styles.selectable : ''} ${selectable && selected ? styles.selected : ''}`}
+      className={`card ${styles.card} ${getBorderClass()} ${selectable ? styles.selectable : ''} ${selectable && selected ? styles.selected : ''}`}
       onClick={selectable ? handleCardClick : undefined}
       role={selectable ? 'button' : undefined}
       tabIndex={selectable ? 0 : undefined}
@@ -91,6 +100,9 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
       <div className={styles.actions} onClick={e => e.stopPropagation()}>
         <button type="button" className="btn btn-primary btn-sm" onClick={handleOpen}>
           Open →
+        </button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/quotes/${quote.id}`, { state: { autoEdit: true } }); }}>
+          Edit
         </button>
         {onDuplicate && (
           <button type="button" className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onDuplicate(quote); }}>

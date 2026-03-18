@@ -1,32 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import ItemCard from './ItemCard.jsx';
 import styles from './ItemGrid.module.css';
 
 export default function ItemGrid({ items, loading, onEdit, onDelete, onAddToQuote, showHidden }) {
-  const [search, setSearch] = useState('');
-  const [filtered, setFiltered] = useState(items || []);
-
-  useEffect(() => {
-    if (!search.trim()) {
-      setFiltered(items || []);
-    } else {
-      const q = search.toLowerCase();
-      setFiltered((items || []).filter(i => i.title.toLowerCase().includes(q)));
-    }
-  }, [search, items]);
-
-  const visible = showHidden ? filtered : filtered.filter(i => !i.hidden);
+  const visible = showHidden ? (items || []) : (items || []).filter(i => !i.hidden);
 
   return (
     <div className={styles.wrapper}>
       <div className={styles.toolbar}>
-        <input
-          className={styles.search}
-          type="search"
-          placeholder="Search items…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
         <span className={styles.count}>{visible.length} items</span>
       </div>
 

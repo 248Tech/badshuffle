@@ -237,6 +237,39 @@ module.exports = function makeRouter(db) {
   });
 
   // GET /api/items/:id/associations
+  // GET /api/items/:id/accessories — permanent accessories for a product
+  router.get('/:id/accessories', (req, res) => {
+    const items = db.prepare(`
+      SELECT i.* FROM items i
+      JOIN item_accessories ia ON ia.accessory_id = i.id
+      WHERE ia.item_id = ?
+      ORDER BY i.title ASC
+    `).all(req.params.id);
+    res.json({ items });
+  });
+
+  // POST /api/items/:id/accessories
+  router.post('/:id/accessories', (req, res) => {
+    const { accessory_id } = req.body;
+    if (!accessory_id) return res.status(400).json({ error: 'accessory_id required' });
+    try {
+      db.prepare(
+        'INSERT OR IGNORE INTO item_accessories (item_id, accessory_id) VALUES (?, ?)'
+      ).run(req.params.id, accessory_id);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  // DELETE /api/items/:id/accessories/:accessory_id
+  router.delete('/:id/accessories/:accessory_id', (req, res) => {
+    db.prepare(
+      'DELETE FROM item_accessories WHERE item_id = ? AND accessory_id = ?'
+    ).run(req.params.id, req.params.accessory_id);
+    res.json({ deleted: true });
+  });
+
   router.get('/:id/associations', (req, res) => {
     const items = db.prepare(`
       SELECT i.* FROM items i

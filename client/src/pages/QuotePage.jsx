@@ -49,11 +49,13 @@ export default function QuotePage() {
     api.getQuotes(params).then(d => setQuotes(d.quotes || [])).finally(() => setLoading(false));
   }, [filters.search, filters.status, filters.event_from, filters.event_to, filters.has_balance, filters.venue]);
 
-  useEffect(() => {
+  const loadConflicts = useCallback(() => {
     api.getConflicts()
       .then(d => setQuoteIdsWithConflict(new Set((d.conflicts || []).map(c => c.quote_id))))
-      .catch(() => setQuoteIdsWithConflict(new Set()));
+      .catch(() => {});
   }, []);
+
+  useEffect(() => { loadConflicts(); }, [loadConflicts]);
 
   useEffect(() => {
     let cancelled = false;
@@ -558,7 +560,8 @@ export default function QuotePage() {
                         <span className={styles.conflictStopSignList} title="Inventory conflict">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="#c00" stroke="#8b0000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                             <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" />
-                            <path d="M12 8v4M12 16h.01" stroke="#fff" strokeWidth="1.2" fill="none" />
+                            <line x1="12" y1="8" x2="12" y2="13" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+                            <circle cx="12" cy="16.5" r="1.1" fill="#fff" stroke="none" />
                           </svg>
                         </span>
                       )}
@@ -591,6 +594,9 @@ export default function QuotePage() {
                     <td className={styles.colActions}>
                       <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate(`/quotes/${q.id}`)}>
                         Open
+                      </button>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate(`/quotes/${q.id}`, { state: { autoEdit: true } })}>
+                        Edit
                       </button>
                       <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleDuplicateOne(q)}>
                         Duplicate

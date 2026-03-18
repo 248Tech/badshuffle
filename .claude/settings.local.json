@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(node -e \"require\\(''''./db''''\\); console.log\\(''''db ok''''\\)\")"
-    ]
-  }
-}

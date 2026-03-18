@@ -6,21 +6,41 @@ import s from './PublicQuotePage.module.css';
 
 const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
 
-function computeTotals(items, customItems, taxRate) {
+function effectivePrice(item) {
+  const base = item.unit_price_override != null ? item.unit_price_override : (item.unit_price || 0);
+  if (item.discount_type === 'percent' && item.discount_amount > 0) {
+    return base * (1 - item.discount_amount / 100);
+  }
+  if (item.discount_type === 'fixed' && item.discount_amount > 0) {
+    return Math.max(0, base - item.discount_amount);
+  }
+  return base;
+}
+
+function computeAdjustmentsTotal(adjustments, preTaxBase) {
+  return (adjustments || []).reduce((sum, adj) => {
+    const val = adj.value_type === 'percent' ? preTaxBase * (adj.amount / 100) : adj.amount;
+    return sum + (adj.type === 'discount' ? -val : val);
+  }, 0);
+}
+
+function computeTotals(items, customItems, adjustments, taxRate) {
   const list = items || [];
   const equipment = list.filter(it => !isLogistics(it));
   const logistics = list.filter(it => isLogistics(it));
-  const subtotal = equipment.reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
-  const deliveryTotal = logistics.reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
+  const subtotal = equipment.reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
+  const deliveryTotal = logistics.reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
   const ciList = customItems || [];
   const customSubtotal = ciList.reduce((sum, ci) => sum + (ci.unit_price || 0) * (ci.quantity || 1), 0);
-  const taxableEquipment = equipment.filter(it => it.taxable !== 0).reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
-  const taxableDelivery = logistics.filter(it => it.taxable !== 0).reduce((sum, it) => sum + (it.unit_price || 0) * (it.quantity || 1), 0);
+  const taxableEquipment = equipment.filter(it => it.taxable !== 0).reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
+  const taxableDelivery = logistics.filter(it => it.taxable !== 0).reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
   const taxableCustom = ciList.filter(ci => ci.taxable !== 0).reduce((sum, ci) => sum + (ci.unit_price || 0) * (ci.quantity || 1), 0);
+  const preTaxBase = subtotal + deliveryTotal + customSubtotal;
+  const adjTotal = computeAdjustmentsTotal(adjustments, preTaxBase);
   const rate = parseFloat(taxRate) || 0;
   const tax = (taxableEquipment + taxableDelivery + taxableCustom) * (rate / 100);
-  const grandTotal = subtotal + deliveryTotal + customSubtotal + tax;
-  return { subtotal, deliveryTotal, customSubtotal, tax, total: grandTotal, rate };
+  const grandTotal = preTaxBase + adjTotal + tax;
+  return { subtotal, deliveryTotal, customSubtotal, adjTotal, tax, total: grandTotal, rate };
 }
 
 function fmt(n) {
@@ -30,7 +50,9 @@ function fmt(n) {
 function ItemDetailModal({ item, resolveImageUrl, onClose }) {
   if (!item) return null;
   const name = item.label || item.title;
-  const unitPrice = item.unit_price != null ? item.unit_price : 0;
+  const unitPrice = effectivePrice(item);
+  const originalUnitPrice = item.unit_price_override != null ? item.unit_price_override : (item.unit_price || 0);
+  const showDiscount = unitPrice !== originalUnitPrice;
   const qty = item.quantity ?? 1;
   const lineTotal = unitPrice * qty;
   const imgUrl = resolveImageUrl(item.photo_url, item.signed_photo_url);
@@ -51,6 +73,11 @@ function ItemDetailModal({ item, resolveImageUrl, onClose }) {
         <div className={s.detailPriceBlock}>
           <span className={s.detailUnitPrice}>{fmt(unitPrice)}</span>
           <span className={s.detailPerUnit}>per unit</span>
+          {showDiscount && (
+            <span className={s.detailLine}>
+              Base price {fmt(originalUnitPrice)}
+            </span>
+          )}
           {qty > 1 && (
             <span className={s.detailLine}>
               {qty} &times; {fmt(unitPrice)} = {fmt(lineTotal)}
@@ -187,7 +214,7 @@ export default function PublicQuotePage() {
   }
 
   const taxRate = quote.tax_rate != null ? quote.tax_rate : 0;
-  const totals = computeTotals(quote.items, quote.customItems, taxRate);
+  const totals = computeTotals(quote.items, quote.customItems, quote.adjustments, taxRate);
   const equipmentItems = (quote.items || []).filter(it => !isLogistics(it));
   const logisticsItems = (quote.items || []).filter(it => isLogistics(it));
   const customItems = quote.customItems || [];
@@ -195,6 +222,7 @@ export default function PublicQuotePage() {
     ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
     : null;
   const isApproved = quote.status === 'approved';
+  const isExpired = !!quote.is_expired;
   const hasClient = quote.client_first_name || quote.client_last_name || quote.client_email || quote.client_phone || quote.client_address;
   const hasVenue = quote.venue_name || quote.venue_email || quote.venue_phone || quote.venue_address;
 
@@ -293,6 +321,7 @@ export default function PublicQuotePage() {
                 <tbody>
                   {equipmentItems.map(item => {
                     const itemImgUrl = resolveImageUrl(item.photo_url, item.signed_photo_url);
+                    const unitPrice = effectivePrice(item);
                     return (
                       <tr key={item.qitem_id}>
                         <td className={s.tdImg}>
@@ -310,8 +339,8 @@ export default function PublicQuotePage() {
                           </button>
                         </td>
                         <td className={s.right}>{item.quantity ?? 1}</td>
-                        <td className={s.right}>{fmt(item.unit_price)}</td>
-                        <td className={s.right}>{fmt((item.unit_price || 0) * (item.quantity || 1))}</td>
+                        <td className={s.right}>{fmt(unitPrice)}</td>
+                        <td className={s.right}>{fmt(unitPrice * (item.quantity || 1))}</td>
                       </tr>
                     );
                   })}
@@ -323,6 +352,7 @@ export default function PublicQuotePage() {
                       </tr>
                       {logisticsItems.map(item => {
                         const itemImgUrl = resolveImageUrl(item.photo_url, item.signed_photo_url);
+                        const unitPrice = effectivePrice(item);
                         return (
                           <tr key={item.qitem_id}>
                             <td className={s.tdImg}>
@@ -340,8 +370,8 @@ export default function PublicQuotePage() {
                               </button>
                             </td>
                             <td className={s.right}>{item.quantity ?? 1}</td>
-                            <td className={s.right}>{fmt(item.unit_price)}</td>
-                            <td className={s.right}>{fmt((item.unit_price || 0) * (item.quantity || 1))}</td>
+                            <td className={s.right}>{fmt(unitPrice)}</td>
+                            <td className={s.right}>{fmt(unitPrice * (item.quantity || 1))}</td>
                           </tr>
                         );
                       })}
@@ -407,6 +437,12 @@ export default function PublicQuotePage() {
                   <span>{fmt(totals.customSubtotal)}</span>
                 </div>
               )}
+              {totals.adjTotal !== 0 && (
+                <div className={s.totalsRow}>
+                  <span>{totals.adjTotal < 0 ? 'Discounts' : 'Surcharges'}</span>
+                  <span>{fmt(totals.adjTotal)}</span>
+                </div>
+              )}
               {totals.rate > 0 && (
                 <div className={s.totalsRow}>
                   <span>Tax ({totals.rate}%)</span>
@@ -429,8 +465,38 @@ export default function PublicQuotePage() {
           </div>
         )}
 
+        {/* ── Rental Terms ────────────────────────────────── */}
+        {quote.rental_terms && quote.rental_terms.body_text && (
+          <div className={s.section}>
+            <div className={s.contractCard}>
+              <div className={s.sectionHeader}>Rental Terms</div>
+              <div className={s.contractBody} style={{ whiteSpace: 'pre-wrap' }}>{quote.rental_terms.body_text}</div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Payment Policy ──────────────────────────────── */}
+        {quote.payment_policy && quote.payment_policy.body_text && (
+          <div className={s.section}>
+            <div className={s.contractCard}>
+              <div className={s.sectionHeader}>Payment Policy</div>
+              <div className={s.contractBody} style={{ whiteSpace: 'pre-wrap' }}>{quote.payment_policy.body_text}</div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Expiration notice ──────────────────────────── */}
+        {isExpired && (
+          <div className={s.section}>
+            <div className={s.expiredBanner}>
+              <div className={s.errorIcon}>&#9888;</div>
+              <p>{quote.expiration_message || 'This quote has expired. Please reach out to renew.'}</p>
+            </div>
+          </div>
+        )}
+
         {/* ── Contract ───────────────────────────────────── */}
-        {quote.contract && (quote.contract.body_html || quote.contract.signed_at) && (
+        {!isExpired && quote.contract && (quote.contract.body_html || quote.contract.signed_at) && (
           <div className={s.section}>
             <div className={s.contractCard}>
               <div className={s.sectionHeader}>Contract</div>
@@ -480,6 +546,15 @@ export default function PublicQuotePage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Expired placeholder when contract would normally show */}
+        {isExpired && quote.contract && !quote.contract.signed_at && (
+          <div className={s.section}>
+            <div className={s.expiredBanner}>
+              <p>Signature disabled — this quote has expired.</p>
             </div>
           </div>
         )}
@@ -560,7 +635,7 @@ export default function PublicQuotePage() {
           <button className={s.btnPrint} onClick={() => window.print()}>
             Print / Save PDF
           </button>
-          {!isApproved && (
+          {!isExpired && !isApproved && (
             <button
               className={s.btnApprove}
               onClick={handleApprove}

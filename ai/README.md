@@ -17,6 +17,6 @@ This folder holds **consolidated project documentation** so future AI sessions c
 
 ## Relation to `ai/` (lowercase)
 
-The repo also has an **`ai/`** folder (lowercase) with coordination docs: HANDOFF.md, STATUS.md, CURSOR_BRIEFING.md, DECISIONS.md, TODO.md, README.md. Those are for Claude/Cursor workflow and task handoff. This **`AI/`** folder is for **system context**: what the app does, how it’s built, and what’s left to do — so any AI (or human) can onboard quickly.
+The repo also has an **`ai/`** folder (lowercase) with coordination docs: HANDOFF.md, STATUS.md, CURSOR_BRIEFING.md, DECISIONS.md, TODO.md, README.md. Those are for agent workflow and task handoff. This **`AI/`** folder is for **system context**: what the app does, how it’s built, and what’s left to do — so any AI (or human) can onboard quickly.
 
 When you change the system (e.g. add pull sheets, new routes, new tables), update the relevant file here (e.g. FEATURES.md, DATA_MODELS.md, ARCHITECTURE.md) so the next session stays in sync.

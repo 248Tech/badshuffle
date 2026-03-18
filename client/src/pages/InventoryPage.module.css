@@ -94,6 +94,82 @@
   border-top: 1px solid var(--color-border);
 }
 
+.accessoriesSection {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.assocTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 4px;
+}
+
+.assocSub {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0 0 12px;
+}
+
+.accessoryList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.accessoryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.accessoryAdd {
+  position: relative;
+}
+
+.accessoryDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  margin-top: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 4px 0;
+}
+
+.accessoryDropdownItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.accessoryDropdownItem:hover {
+  background: var(--color-surface);
+}
+
 .categoryNav {
   display: flex;
   flex-wrap: wrap;

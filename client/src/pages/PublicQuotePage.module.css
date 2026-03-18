@@ -803,6 +803,33 @@
 .msgSendBtn:hover:not(:disabled) { background: #2563eb; }
 .msgSendBtn:disabled { opacity: .55; cursor: not-allowed; }
 
+/* ── Expiration banner ───────────────────────────────────── */
+.expiredBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-left: 4px solid #f97316;
+  border-radius: 8px;
+  padding: 16px 20px;
+  color: #9a3412;
+}
+
+.expiredBanner .errorIcon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.expiredBanner p {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 560px) {
   .infoGrid { grid-template-columns: 1fr; }

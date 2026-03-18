@@ -290,13 +290,13 @@
   color: var(--color-text);
 }
 .categoryBtnActive {
-  background: #188ec5;
-  border-color: #188ec5;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
 }
 .categoryBtnActive:hover {
-  background: #1579ad;
-  border-color: #1579ad;
+  background: color-mix(in srgb, var(--color-primary) 80%, #000);
+  border-color: color-mix(in srgb, var(--color-primary) 80%, #000);
   color: #fff;
 }
 
@@ -369,13 +369,13 @@
   color: var(--color-text);
 }
 .viewToggleActive {
-  background: #188ec5;
-  border-color: #188ec5;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
 }
 .viewToggleActive:hover {
-  background: #1579ad;
-  border-color: #1579ad;
+  background: color-mix(in srgb, var(--color-primary) 80%, #000);
+  border-color: color-mix(in srgb, var(--color-primary) 80%, #000);
   color: #fff;
 }
 
@@ -465,8 +465,8 @@
 }
 .pageBtn:hover:not(:disabled) {
   background: var(--color-surface);
-  border-color: #188ec5;
-  color: #188ec5;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 .pageBtn:disabled {
   opacity: 0.4;
@@ -500,13 +500,13 @@
   border-color: var(--color-border);
 }
 .pageNumBtnActive {
-  background: #188ec5;
-  border-color: #188ec5;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
 }
 .pageNumBtnActive:hover {
-  background: #1579ad;
-  border-color: #1579ad;
+  background: color-mix(in srgb, var(--color-primary) 80%, #000);
+  border-color: color-mix(in srgb, var(--color-primary) 80%, #000);
   color: #fff;
 }
 
@@ -616,7 +616,7 @@
 }
 .pickerTile:hover {
   background: var(--color-surface);
-  border-color: #188ec5;
+  border-color: var(--color-primary);
 }
 
 .tileThumbWrap {
@@ -752,6 +752,44 @@
   cursor: pointer;
   line-height: 1;
 }
+
+/* Price + discount column wrapper */
+.priceCol {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.unitPriceDiscounted { color: #7c3aed; }
+
+.discountBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #7c3aed;
+  background: #ede9fe;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.discountBadge:hover { background: #ddd6fe; }
+
+.discountBtn {
+  font-size: 10px;
+  padding: 1px 4px;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  line-height: 1.4;
+  opacity: 0.5;
+}
+.discountBtn:hover { opacity: 1; color: #7c3aed; border-color: #7c3aed; }
 
 /* Adjustments section */
 .adjHeader {

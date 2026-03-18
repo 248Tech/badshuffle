@@ -22,7 +22,8 @@ export default function SettingsPage() {
     google_places_api_key: '',
     tax_rate: '0',
     currency: 'USD',
-    ui_theme: 'default'
+    ui_theme: 'default',
+    ui_scale: '100'
   });
   const [quoteInventory, setQuoteInventory] = useState({
     quote_inventory_filter_mode: 'popular',
@@ -75,12 +76,16 @@ export default function SettingsPage() {
           google_places_api_key: s.google_places_api_key || '',
           tax_rate: s.tax_rate || '0',
           currency: s.currency || 'USD',
-          ui_theme: s.ui_theme || 'default'
+          ui_theme: s.ui_theme || 'default',
+          ui_scale: s.ui_scale || '100'
         });
         // Apply saved theme on load
         const t = s.ui_theme || 'default';
         if (t === 'default') document.documentElement.removeAttribute('data-theme');
         else document.documentElement.setAttribute('data-theme', t);
+        // Apply saved scale on load
+        const scale = parseFloat(s.ui_scale) || 100;
+        document.documentElement.style.fontSize = (scale / 100) * 14 + 'px';
         setQuoteInventory({
           quote_inventory_filter_mode: s.quote_inventory_filter_mode || 'popular',
           quote_inventory_max_categories: s.quote_inventory_max_categories || '10',
@@ -134,6 +139,12 @@ export default function SettingsPage() {
     else document.documentElement.setAttribute('data-theme', themeId);
   };
 
+  const handleScaleChange = (val) => {
+    const clamped = Math.min(150, Math.max(75, Number(val)));
+    setForm(f => ({ ...f, ui_scale: String(clamped) }));
+    document.documentElement.style.fontSize = (clamped / 100) * 14 + 'px';
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -152,6 +163,7 @@ export default function SettingsPage() {
         ...aiFeatures,
       });
       localStorage.setItem('bs_theme', form.ui_theme || 'default');
+      localStorage.setItem('bs_ui_scale', form.ui_scale || '100');
       toast.success('Settings saved');
     } catch (e) {
       toast.error(e.message);
@@ -247,6 +259,28 @@ export default function SettingsPage() {
                 )}
               </button>
             ))}
+          </div>
+
+          <div style={{ marginTop: 20 }}>
+            <label style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', display: 'block', marginBottom: 8 }}>
+              UI Scale: {form.ui_scale}%
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: 320 }}>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>75%</span>
+              <input
+                type="range"
+                min="75"
+                max="150"
+                step="5"
+                value={form.ui_scale}
+                onChange={e => handleScaleChange(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>150%</span>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 6 }}>
+              Adjusts text and element size across the app. Default: 100%.
+            </p>
           </div>
         </div>
 

@@ -23,8 +23,9 @@ All features below are implemented unless marked as stub or partial.
 ## Price Overrides
 
 - **Per-line price override:** `quote_items.unit_price_override` (REAL, nullable). NULL = use inventory unit_price. Set inline in QuoteBuilder (click price → input → Enter/Esc to confirm/cancel). Override shown in purple with ✕ reset button.
-- **Effective price:** `effectivePrice(it) = it.unit_price_override ?? it.unit_price` — used in all total computations (QuoteDetailPage, public quote, QuoteExport).
-- **Logic location:** `server/routes/quotes.js` (PUT /:id/items/:qitem_id accepts `unit_price_override`; GET /:id returns it), QuoteBuilder (inline edit UI), QuoteDetailPage (`effectivePrice`, `computeTotals`).
+- **Per-item discount:** `quote_items.discount_type` (`none` | `percent` | `fixed`) + `quote_items.discount_amount` (REAL). Inline edit in QuoteBuilder (discount badge click → popover). Applied in `effectivePrice()` in QuoteDetailPage and PublicQuotePage.
+- **Effective price:** `effectivePrice(it)` — applies `unit_price_override` then discount. Used in all total computations (QuoteDetailPage, PublicQuotePage, QuoteExport).
+- **Logic location:** `server/routes/quotes.js` (PUT /:id/items/:qitem_id accepts `unit_price_override`, `discount_type`, `discount_amount`; GET /:id returns them), QuoteBuilder (inline edit UI), QuoteDetailPage (`effectivePrice`, `computeTotals`).
 
 ## Quote Adjustments (Discounts & Surcharges)
 
@@ -51,6 +52,26 @@ All features below are implemented unless marked as stub or partial.
 - **Contract templates:** Reusable body snippets; CRUD at `/api/templates/contract-templates`. Used to populate contract body.
 - **Change logs:** contract_logs table stores each body change (user, old/new body). Shown in Contract tab.
 - **Logic location:** `server/routes/quotes.js` (contract, contract/logs), `server/index.js` (public POST contract/sign), `client/src/pages/QuoteDetailPage.jsx` (Contract tab), `client/src/pages/PublicQuotePage.jsx` (sign).
+
+## Quote Expiration
+
+- **Fields:** `quotes.expires_at` (TEXT date, YYYY-MM-DD) + `quotes.expiration_message` (TEXT). Set in QuoteDetailPage edit form.
+- **Public quote behavior:** If `expires_at < today`, `is_expired = true` is returned by the public quote API. PublicQuotePage shows a customizable expiration banner and hides the contract signature block (replaced with an "expired" placeholder). If the contract was already signed, it remains visible.
+- **Logic location:** `server/api/v1.js` (expiration check, injects `is_expired`), `server/routes/quotes.js` (`PUT /:id` saves `expires_at`, `expiration_message`), `client/src/pages/QuoteDetailPage.jsx` (form fields), `client/src/pages/PublicQuotePage.jsx` + `PublicQuotePage.module.css` (banner + expired state).
+
+## Payment Policies
+
+- **Table:** `payment_policies` (id, name, body_text, is_default, created_at).
+- **Routes:** `GET/POST/PUT/DELETE /api/templates/payment-policies` (operator+).
+- **Quote linkage:** `quotes.payment_policy_id` (nullable FK). Selectable in QuoteDetailPage edit form. Shown as a "Payment Policy" section on the public quote page when set.
+- **Logic location:** `server/routes/templates.js`, `server/api/v1.js` (fetches linked policy for public quote), `client/src/pages/TemplatesPage.jsx` (CRUD section), `client/src/pages/QuoteDetailPage.jsx` (selector), `client/src/pages/PublicQuotePage.jsx` (display).
+
+## Rental Terms
+
+- **Table:** `rental_terms` (id, name, body_text, is_default, created_at).
+- **Routes:** `GET/POST/PUT/DELETE /api/templates/rental-terms` (operator+).
+- **Quote linkage:** `quotes.rental_terms_id` (nullable FK). Selectable in QuoteDetailPage edit form. Shown as a "Rental Terms" section on the public quote page when set.
+- **Logic location:** `server/routes/templates.js`, `server/api/v1.js` (fetches linked terms for public quote), `client/src/pages/TemplatesPage.jsx` (CRUD section), `client/src/pages/QuoteDetailPage.jsx` (selector), `client/src/pages/PublicQuotePage.jsx` (display).
 
 ## Billing
 
@@ -144,7 +165,12 @@ All features below are implemented unless marked as stub or partial.
 - **Extension:** Download extension ZIP (public); extension tokens for API (admin). ExtensionPage.
 - **Import:** Inventory from CSV/XLSX/Sheets (sheets.js); leads from CSV/XLSX/Sheets with column mapping (leads preview/import). ImportPage.
 - **Stats:** Item usage (times quoted, etc.); StatsPage, ItemDetailPage.
-- **Settings:** Company, tax, currency, SMTP/IMAP; `count_oos_oversold`; AI provider keys (Claude, OpenAI, Gemini) and per-feature enable/model settings; `ui_theme`, `google_places_api_key`, `map_default_style`. SettingsPage (operator).
+- **Settings:** Company, tax, currency, SMTP/IMAP; `count_oos_oversold`; AI provider keys (Claude, OpenAI, Gemini) and per-feature enable/model settings; `ui_theme`, `google_places_api_key`, `map_default_style`; `ui_scale` (75–150%, applied as root font-size). SettingsPage (operator).
+- **UI Scale:** Range slider 75–150% (step 5) in SettingsPage. Applies immediately via `document.documentElement.style.fontSize = (scale/100)*14 + 'px'`. Persisted to `localStorage` (`bs_ui_scale`) and loaded by `main.jsx` before first render.
+- **Quote tile borders:** `QuoteCard.jsx` shows colored left border by status — draft=yellow, sent=blue, approved/confirmed/closed=green, conflict or unsigned changes=red.
+- **Conflict stop sign:** SVG uses `<line>` + `<circle>` for a visible white ! on the red octagon. Present in QuoteCard, QuoteBuilder, QuotePage.
+- **Drag-to-reorder quote items:** HTML5 drag handles (⠿) per line item in QuoteBuilder. On drop calls `PUT /api/quotes/:id/items/reorder` with ordered IDs; server updates `sort_order` in a single DB transaction.
+- **Item accessories (permanent):** `item_accessories` table (item_id → accessory_id, UNIQUE, ON DELETE CASCADE). CRUD at `GET/POST/DELETE /api/items/:id/accessories`. InventoryPage edit form shows current accessories list and search-to-add. These permanent accessories are data-only — the quote builder does not yet auto-add them when the parent item is added (future enhancement).
 - **Admin:** Users, approve/reject, roles, system settings (autokill, update check). AdminPage (admin).
 
 Where a feature is only partially implemented or has known gaps, see **KNOWN_GAPS.md**.

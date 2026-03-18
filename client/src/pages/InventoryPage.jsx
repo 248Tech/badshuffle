@@ -25,6 +25,10 @@ export default function InventoryPage() {
   const [search, setSearch] = useState('');
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  // Permanent accessories for the item being edited
+  const [accessories, setAccessories] = useState([]);
+  const [accessorySearch, setAccessorySearch] = useState('');
+  const [accessoryResults, setAccessoryResults] = useState([]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -40,8 +44,25 @@ export default function InventoryPage() {
     api.getCategories().then(d => setCategories(d.categories || [])).catch(() => {});
   }, []);
 
+  const loadAccessories = useCallback((itemId) => {
+    if (!itemId) return;
+    api.getItemAccessories(itemId).then(d => setAccessories(d.items || [])).catch(() => {});
+  }, []);
+
+  const searchAccessories = useCallback(async (q) => {
+    if (!q.trim()) { setAccessoryResults([]); return; }
+    try {
+      const d = await api.getItems({ search: q });
+      setAccessoryResults((d.items || []).filter(i => !i.hidden));
+    } catch { setAccessoryResults([]); }
+  }, []);
+
   const handleEdit = (item) => {
     setEditingItem(item);
+    setAccessories([]);
+    setAccessorySearch('');
+    setAccessoryResults([]);
+    loadAccessories(item.id);
     setForm({
       title: item.title,
       photo_url: item.photo_url || '',
@@ -254,6 +275,53 @@ export default function InventoryPage() {
           {editingItem && (
             <div className={styles.assocSection}>
               <AssociationList itemId={editingItem.id} />
+              <div className={styles.accessoriesSection}>
+                <h4 className={styles.assocTitle}>Permanent accessories</h4>
+                <p className={styles.assocSub}>These links are saved with the item now. Quote auto-add is planned, but not wired yet.</p>
+                {accessories.length > 0 && (
+                  <ul className={styles.accessoryList}>
+                    {accessories.map(acc => (
+                      <li key={acc.id} className={styles.accessoryRow}>
+                        <span>{acc.title}</span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={async () => {
+                            await api.removeItemAccessory(editingItem.id, acc.id);
+                            loadAccessories(editingItem.id);
+                          }}
+                        >Remove</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className={styles.accessoryAdd}>
+                  <input
+                    className={styles.searchInput}
+                    placeholder="Search items to add as accessory…"
+                    value={accessorySearch}
+                    onChange={e => { setAccessorySearch(e.target.value); searchAccessories(e.target.value); }}
+                  />
+                  {accessoryResults.length > 0 && (
+                    <ul className={styles.accessoryDropdown}>
+                      {accessoryResults.filter(r => r.id !== editingItem.id && !accessories.find(a => a.id === r.id)).map(r => (
+                        <li key={r.id}>
+                          <button
+                            type="button"
+                            className={styles.accessoryDropdownItem}
+                            onClick={async () => {
+                              await api.addItemAccessory(editingItem.id, { accessory_id: r.id });
+                              setAccessorySearch('');
+                              setAccessoryResults([]);
+                              loadAccessories(editingItem.id);
+                            }}
+                          >{r.title}</button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

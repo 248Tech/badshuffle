@@ -13,6 +13,26 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 
 ---
 
+## [0.4.5] - 2026-03-18
+
+### Added
+- **Per-item quote pricing controls** — Quote lines now support discount metadata (`discount_type`, `discount_amount`) alongside drag-to-reorder for cleaner quote composition.
+- **Reusable quote policy content** — New payment policy and rental terms templates can be managed centrally and attached to individual quotes.
+- **Item accessory relationships** — Inventory items can now store accessory links for future quote-builder automation.
+- **Repo metadata polish** — Added a real `LICENSE` file and refreshed the GitHub-facing README for clearer discovery and evaluation.
+
+### Changed
+- **Public quote experience** — Quote expiration is now surfaced consistently, discounted pricing is reflected in public totals, and public approvals/signatures respect expiration state.
+- **Operator UX** — Added UI scale controls, direct quote navigation from Messages, clearer quote status borders, and more polished quote-builder pricing affordances.
+- **Quickstart and discoverability** — README now leads with product value, deployment options, badges, keywords, and a cleaner getting-started flow.
+
+### Fixed
+- **Legacy public quote API parity** — `/api/quotes/public/:token` now returns expiration status, payment policy data, rental terms, and discount fields so the public React page matches the new backend feature set.
+- **Accessory messaging accuracy** — InventoryPage no longer claims permanent accessories auto-add to quotes before that behavior exists.
+- **Local runtime noise** — `.gitignore` now correctly excludes local lockfiles, runtime uploads, and editor-specific config so release diffs stay focused.
+
+---
+
 ## [0.4.4] - 2026-03-18
 
 ### Added

@@ -4,8 +4,15 @@
   flex-direction: column;
   gap: 10px;
   position: relative;
+  border-left: 3px solid var(--color-border);
 }
 .card.selected { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* Status border colors */
+.borderDraft    { border-left-color: #eab308; }
+.borderSent     { border-left-color: #3b82f6; }
+.borderSigned   { border-left-color: #22c55e; }
+.borderConflict { border-left-color: #ef4444; }
 .card.selectable { padding-left: 36px; }
 .checkboxWrap { position: absolute; top: 12px; left: 12px; }
 .checkboxWrap input { cursor: pointer; }

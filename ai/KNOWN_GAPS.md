@@ -59,6 +59,7 @@ Areas that are incomplete, stubbed, or represent technical debt. Use this to kno
 - **Local/trusted use:** CORS allows localhost and extension; JWT_SECRET must be set in production. Public quote and approve-by-token are unauthenticated by design (token is secret link).
 - **File storage:** Files on disk in `uploads/`; no S3 or external storage. photo_url can be external URL (proxied) or file id (served via /api/files/:id/serve with signed URL for public).
 - **Bundles:** item_associations represent parent/child; UI can show components but current quote builder does not auto-expand bundles into line items (add parent or children manually).
+- **Permanent accessories:** `item_accessories` table exists and is managed in InventoryPage. When a product is added to a quote, its permanent accessories are NOT automatically added — that auto-add behavior is not yet implemented. The data is stored and surfaced on item edit; the quote builder must be updated to query and auto-insert accessories when the parent item is added.
 
 ---
 

@@ -1,118 +1,64 @@
-# BadShuffle v0.4.4
+# BadShuffle v0.4.5
 
-A self-hosted quoting, inventory, and client-facing sales tool for event rental businesses. Build and share quotes, run a public catalog, track availability conflicts, sync inventory from Goodshuffle Pro, and keep client conversations tied to each quote.
+![Release](https://img.shields.io/badge/release-0.4.5-0a7ea4)
+![Status](https://img.shields.io/badge/status-pre--release-c79200)
+![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
+![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Windows%20EXE-2ea44f)
+![License](https://img.shields.io/badge/license-MIT-111111)
 
-## About
+BadShuffle is a self-hosted event rental software platform for quoting, inventory management, client approvals, messaging, and public catalog publishing. It combines internal operator workflows with SEO-friendly public surfaces, optional AI assistance, and local-first deployment choices instead of recurring SaaS lock-in.
 
-BadShuffle is built for rental teams that need quoting, inventory visibility, public quote/client collaboration, and operator workflows in one local-first app without recurring SaaS lock-in.
+**Keywords:** event rental software, rental inventory management, quote builder, client portal, self-hosted CRM, Goodshuffle sync, public product catalog, event operations software.
 
 *Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history.*
 
 ---
 
-## What's New in v0.4.4
+## Why This Repo Is Worth Reviewing
 
-- **Quote pipeline upgrades** — New 2-step quote creation wizard (event details + client info), plus filters on the Quotes page for search, venue, status, date range, and outstanding balance.
-- **Public quote messaging** — Clients can now send messages directly from a public quote page, with live polling and persistent quote thread history via `/api/quotes/public/:token/messages`.
-- **Availability clarity in Quote Builder** — Inventory picker and line items now show stock vs already-booked quantities, oversold warnings, and clearer conflict/availability indicators.
-- **Theme and mapping settings** — New Settings controls for UI theme (`default`, `shadcn`, `material`, `chakra`), Google Places API key, and map default style (`map` or `sat`).
-- **Extension + inventory schema** — Extension scraper was rebuilt for more reliable Goodshuffle extraction, and now captures `contract_description` into the `items` table.
-- **Dev/runtime quality-of-life** — Server can auto-select the next open localhost port if 3001 is occupied, writes selected port to lockfile, and Vite proxy now follows that lockfile port in dev.
+- **Real product scope** — Inventory, quotes, approvals, messages, templates, files, SEO catalog pages, and operational tooling live in one codebase.
+- **Full-stack ownership** — React/Vite frontend, Express API, SQLite/sql.js persistence, Chrome extension, Docker deployment, and Windows packaging all ship together.
+- **Domain complexity** — Availability conflicts, per-line pricing overrides, reusable rental/payment policies, and public quote signing target actual event-rental workflows.
+- **Deployment pragmatism** — Run it locally, on a LAN, in Docker, or as packaged Windows executables.
 
-## What's New in v0.4.3
+## What’s New In v0.4.5
 
-- **Public catalog** — New no-auth catalog at `/catalog` and `/catalog/item/:id`, with server-rendered SEO pages, JSON-LD, `robots.txt`, `sitemap.xml`, and `/api/public/*` endpoints.
-- **Docker deployment** — New `Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml`, and entrypoint support for persistent `/data` storage and single-container deployment.
-- **Dev launch improvements** — New `npm run dev:host` and `npm run dev:docker` flows, plus a dev-only `/api/auth/dev-login` path that can auto-create/login a local admin while you build.
-- **AI integration settings** — Settings now store encrypted Claude, OpenAI, and Gemini keys and expose per-feature enable/model controls.
-- **Operator UX refresh** — Mobile sidebar/overlay, stronger touch targets, category chips on Inventory, drag-and-drop quote item ordering, and broader responsive polish across the app shell.
-- **Production serving** — The Express server now serves the built client in Docker/production mode, and respects `APP_URL`, `DB_PATH`, and `UPLOADS_DIR`.
+- **Quote pricing controls** — Drag-to-reorder line items, per-item discounts, clearer status borders, and improved conflict visibility.
+- **Public quote upgrades** — Quote expiration, reusable rental terms and payment policies, public totals that honor discounted pricing, and approval/signing rules that now respect expiration.
+- **Operator quality-of-life** — UI scale setting, direct “View Quote” navigation from Messages, and item accessory relationships in Inventory.
+- **Repo polish** — Faster quickstart, badges, license file, cleaner Git hygiene, and a tighter GitHub presentation for discoverability.
 
-## What's New in v0.4.2
+## Core Features
 
-- **Inventory availability & conflict detection** — Backend and frontend detect when reserved quantities exceed stock. New `/api/availability` endpoints: conflicts (items over-reserved), subrental-needs (shortfall items), and per-quote conflict check. Conflicts consider quote status and rental date ranges (delivery → pickup).
-- **Vendor / subrental system** — New `vendors` table and CRUD API. Inventory items support `is_subrental` and `vendor_id`. Vendor management page in the UI; vendor selection in the item editor.
-- **Rental date fields** — Quotes now have `rental_start`, `rental_end`, `delivery_date`, and `pickup_date`; editable and visible in the quote editor.
-- **Dashboard improvements** — Conflicts panel (items with reserved quantities exceeding stock) and Subrental Needs panel (items that must be sourced externally).
-- **Quote builder** — Conflict indicator icon next to line items that overlap with other reservations.
-- **Settings** — New option `count_oos_oversold`: controls whether out-of-stock items count toward dashboard conflict detection.
-- **API additions** — Client helpers: `getVendors`, `createVendor`, `updateVendor`, `deleteVendor`, `getConflicts`, `getSubrentalNeeds`, `getQuoteConflicts`.
-- **Dev infrastructure** — Initial Bun support testing in the dev workflow (non-breaking); server can run under Bun in development; `npm install` and `node index.js` still work as fallbacks.
+- **Inventory management** — Searchable catalog with photos, categories, subrental support, vendor links, associations, and accessory relationships.
+- **Quote workflow** — Event quotes, custom items, price overrides, line-item discounts, adjustments, contract text, approvals, signatures, and public sharing.
+- **Availability awareness** — Quote conflict checks, oversold detection, subrental needs, and inventory-aware quote building.
+- **Public-facing surfaces** — Client quote page, live quote messaging, SEO catalog pages, `robots.txt`, sitemap generation, and JSON-LD metadata.
+- **Comms and files** — SMTP send, IMAP reply capture, media library uploads, and quote-linked attachments.
+- **Import and sync** — Google Sheets import plus a Chrome extension for syncing items from Goodshuffle Pro.
+- **Optional AI** — Per-feature provider settings for OpenAI, Anthropic, and Gemini without making AI a hard dependency.
 
-## What's New in v0.4.0
+## What This Demonstrates
 
-- **UI improvements** — Cleaner, more organized experience across the app for daily operations
-- **Inventory management** — Sorting changes, item categories, and category filtering to organize and find products faster
-- **Tile view for products** — Visual browse of inventory alongside list view
-- **Company logo** — Branded feel in settings and customer-facing views
-- **Client view of quote page** — Shareable quote page for customers; better presentation beyond internal workflows
-- **API with OpenAPI support** — Versioned API and OpenAPI spec for integrations, tooling, and future expansion
-- **Security audit** — Full security audit plus [redacted] changes for a more secure, stable, and at least 17% more mysterious platform
+- Shipping a product with both internal tools and customer-facing flows.
+- Evolving a live schema with safe startup migrations.
+- Balancing delivery speed with deployment portability.
+- Writing software that can be evaluated as both a business tool and an engineering portfolio piece.
 
-## What's New in v0.3.2
+## Near-Term Roadmap
 
-- **Quote detail header** — New QuoteHeader component: quote name, status badge, metadata (date, guests, items), and actions in a clear layout with flex and responsive wrapping
-- **Button hierarchy** — Primary: Send to Client; Secondary: Edit; Ghost: Copy link, AI Suggest, Duplicate; Danger: Delete
-- **Status badge** — More visible draft/sent/approved badge (larger, uppercase)
-- **UI redesign strategy** — `docs/UI_UX_REDESIGN_STRATEGY.md` with priority plan, design system rules, and concrete recommendations for quote detail and spacing
-- **Billing page** — Overpaid quotes list for sales (refund due); remaining balance on quote quickview
+- **Quote detail cleanup** — Condense client/venue display in `QuoteDetailPage` view mode.
+- **Mobile optimization** — Tight responsive pass across quote editing, tabs, messages, and modal-heavy screens.
+- **Send preview** — Inline preview of quote email/public link before sending.
+- **Operations depth** — Pull sheets and richer warehouse workflows.
 
-## What's New in v0.3.1
-
-- **Quotes page view toggle** — Switch between List and Tile view from the Quotes page header
-- **Contract total on quickview** — Each quote card/tile and list row shows the computed contract total
-- **Duplicate on Quotes page** — Duplicate button on each quote quickview (and in list row actions); duplicates full quote (details, line items, custom items)
-- **Multi-select and batch actions** — Select one or more quotes via checkboxes; "Duplicate (n)" and "Delete (n)" in a batch bar with confirmation for batch delete
-
-## What's New in v0.3.0
-
-- **Quote approval from public link** — Clients can approve a quote from the public link; "Approve this Quote" button on the shared quote page
-- **Contracts** — Add a contract to any quote (Contract tab); clients sign on the public page (agree + name); full change log (who changed what and when)
-- **Lead timeline** — Activity log per lead: created, quote linked, email sent, reply received; click a lead on the Leads page to see the timeline
-- **Contract change logs** — Every contract edit is recorded with timestamp, user email, and a summary of what changed
-
-## What's New in v0.2.0
-
-- **Files** — media library for uploading images, PDFs, and documents; attach files to outbound emails
-- **Custom quote items** — add one-off line items to any quote with a title, price, quantity, and photo picked from your media library or inventory
-- **Messages** — log all outbound quote emails and automatically ingest client replies via IMAP polling; two-pane thread view with unread badges
-- **SMTP send** — "Send to Client" now actually delivers email via SMTP (configured in Settings) and logs the outbound message
-- **IMAP auto-poll** — BadShuffle checks your inbox every 5 minutes for replies and links them back to the originating quote
-
----
-
-## Features
-
-- **Inventory management** — Add, edit, hide, and search rental items with photos; optional subrental flag and vendor link
-- **Quote builder** — Create event quotes, add items with quantities and labels, custom one-off line items, per-line price overrides, discounts/surcharges, stock/booking awareness, and conflict indicators for over-reserved items
-- **Public catalog** — SEO-optimized, no-auth browsable catalog at `/catalog`; server-rendered HTML with JSON-LD, robots.txt, sitemap.xml; React SPA counterpart; JSON API at `/api/public/*`
-- **Files / media library** — Upload images and documents; serve them inline for use in quotes and emails
-- **Messages** — Full outbound + inbound email log linked to quotes; IMAP polling for client replies
-- **AI settings** — Store encrypted Claude/OpenAI/Gemini keys and choose per-feature AI providers from Settings; AI-assisted flows remain optional
-- **Usage stats** — See which items are quoted most often and track per-guest-count brackets
-- **Availability & conflicts** — Dashboard panels for items over-reserved (conflicts) and items needing subrental; per-quote conflict check; rental date fields on quotes (rental_start/end, delivery_date, pickup_date)
-- **Vendors** — Manage subrental vendors; link items to vendors; Vendors page in the UI
-- **Google Sheets import** — Bulk-import inventory from a published Sheet URL
-- **Chrome extension** — One-click sync of items from your Goodshuffle Pro catalog page directly into BadShuffle
-- **Standalone executables** — Package into two Windows `.exe` files that run without Node.js installed
-
----
-
-## Coming soon
-
-Planned improvements and roadmap (see [ai/KNOWN_GAPS.md](ai/KNOWN_GAPS.md) and [ai/TODO.md](ai/TODO.md) for details):
-
-- **Pull sheets** — Generate warehouse pull lists from approved quotes (order → pull → load → deliver → return). Not yet implemented.
-- **Role badge** — Show Admin / Operator badge in the header next to the current user.
-- **Email on role change** — Notify users when an admin changes their role.
-- **Send modal preview** — Inline preview of the quote email or public link before sending.
-- **Inventory reservation** — Use `quantity_in_stock` to reserve or track items going out on quotes (today it’s display-only).
+More context lives in [ai/KNOWN_GAPS.md](ai/KNOWN_GAPS.md) and [ai/TODO.md](ai/TODO.md).
 
 ---
 
 ## Project Structure
 
-```
+```text
 badshuffle/
 ├── server/          Express API + sql.js SQLite (port 3001)
 │   ├── index.js
@@ -128,33 +74,29 @@ badshuffle/
 │   │   └── components/
 │   └── serve.js     Zero-dep static server used by the packaged exe
 ├── extension/       Chrome MV3 extension (load unpacked)
-│   ├── manifest.json
-│   ├── content.js   Scrapes Goodshuffle catalog pages
-│   ├── background.js  Posts items to localhost:3001
-│   └── popup.html
-├── ai/              Project context for developers and AI (overview, architecture, features, data models, workflows, TODO, gaps, setup)
+├── ai/              Architecture notes, features, workflows, roadmap, setup
 ├── Dockerfile       Multi-stage build (Bun → client, Node:20 → server)
-├── docker-compose.yml  Production deployment with persistent /data volume
+├── docker-compose.yml
 └── scripts/
-    └── postpackage.js  Copies build output → dist/
 ```
 
 ---
 
-## Requirements (development)
+## Requirements
 
-| Requirement | Version |
-|---|---|
-| Node.js | 14.x (for building `.exe` packages only) |
-| Bun | 1.1+ (dev server and installs) |
-| Docker | 24+ (optional, for containerized runs) |
-| Chrome | any modern version |
+| Requirement | Version | Notes |
+|---|---|---|
+| Bun | 1.1+ | Recommended for repo scripts and dev flow |
+| Node.js | 20+ | Fine for general local tooling and fallback runtime |
+| Node.js | 14.x | Only required for current `pkg` executable targets |
+| Docker | 24+ | Optional |
+| Chrome | Current | Optional, for the extension |
 
-> Node 14 is only required if you want to **build the executables** (`pkg` targets node14). The dev server runs under Bun (1.1+). If Bun is not installed, `npm install` and `node index.js` still work as fallbacks.
+> The scripted dev flow assumes Bun is installed. The packaged `.exe` build still targets Node 14 because of `pkg`.
 
 ---
 
-## Quickstart / Dev Launch
+## Quickstart
 
 ### 1. Clone and install
 
@@ -164,17 +106,27 @@ cd badshuffle
 npm run install:all
 ```
 
-### 2. Configure `.env` (recommended)
+If you do not have Bun yet, install Bun first or fall back to:
 
-Copy `.env.example` to `.env`, then set any values you need:
-
-```env
-OPENAI_API_KEY=sk-...                 # optional
-PORT=3001                             # optional
-APP_URL=http://localhost:3001         # optional, used by catalog sitemap/canonical URLs
+```bash
+npm install
+npm install --prefix server
+npm install --prefix client
 ```
 
-### 3. Pick a launch mode
+### 2. Configure `.env`
+
+Copy `.env.example` to `.env`, then set the values you care about:
+
+```env
+PORT=3001
+APP_URL=http://localhost:3001
+OPENAI_API_KEY=sk-...
+```
+
+`APP_URL` matters for public catalog canonicals, signed file URLs, and sitemap output.
+
+### 3. Start the app
 
 **Local development**
 
@@ -182,18 +134,16 @@ APP_URL=http://localhost:3001         # optional, used by catalog sitemap/canoni
 npm run dev
 ```
 
-- Starts the API on `http://localhost:3001`
-- Starts the Vite app on `http://localhost:5173`
-- Use this for normal desktop development
+- API: `http://localhost:3001`
+- Client: `http://localhost:5173`
 
-**LAN / phone testing**
+**LAN / device testing**
 
 ```bash
 npm run dev:host
 ```
 
-- Same as local dev, but Vite is exposed on your network
-- Open `http://<your-pc-ip>:5173` from another device
+Use `http://<your-pc-ip>:5173` from another device on the same network.
 
 **Containerized development**
 
@@ -201,40 +151,38 @@ npm run dev:host
 npm run dev:docker
 ```
 
-- Builds and runs the app via `docker-compose.dev.yml`
-- Useful when you want to validate the container path locally
-
-**Docker / production-style run**
+**Production-style Docker run**
 
 ```bash
 docker compose up -d --build
 ```
 
-- Serves both the API and built client from `http://localhost:3001`
-- Persists the DB and uploads in the `badshuffle_data` Docker volume
+That serves the API and built client from `http://localhost:3001` with DB/uploads persisted in the `badshuffle_data` volume.
 
-### 4. Dev login behavior
+### 4. Development auth
 
-When the client is running in Vite dev mode, BadShuffle can auto-create and log in a local admin account through the dev-only `/api/auth/dev-login` route. The seeded credentials are:
+In Vite dev mode, BadShuffle can auto-create and log in a local admin account through `/api/auth/dev-login`.
 
 - `admin@admin.com`
 - `admin123`
 
 That route is disabled when `NODE_ENV=production`.
 
-### 5. Load the Chrome extension
+### 5. Optional: load the Chrome extension
 
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
-3. Click **Load unpacked** and select the `extension/` folder
-4. Browse to your Goodshuffle Pro catalog and use the "Sync to BadShuffle" button
+3. Click **Load unpacked**
+4. Select the `extension/` folder
+5. Visit Goodshuffle Pro and use the sync action
 
-**Locked out?** Run `npm run create-admin -- --email your@email.com --password yournewpassword` from the repo root.
+### 6. Troubleshooting
 
-**Connection refused on login?** If you see `ECONNREFUSED` or a proxy error at `/api/auth/login`, the frontend cannot reach the backend. Fix it by:
-- Running the app from the repo root with `npm run dev` or `npm run dev:host` so both the API and client are up together.
-- Avoiding client-only launches when you expect `/api/*` calls to work.
-- Recreating an admin after a DB reset with `npm run create-admin -- --email admin@admin.com --password admin123` once the server is back up.
+**Locked out?** Run `npm run create-admin -- --email your@email.com --password yournewpassword`.
+
+**Frontend can’t reach the API?** If `/api/auth/login` fails with `ECONNREFUSED`, start both services from the repo root with `npm run dev` or `npm run dev:host`.
+
+**Why is `badshuffle.lock` missing from git?** It is a local runtime file used to communicate the active dev port and should stay uncommitted.
 
 ---
 
@@ -346,7 +294,7 @@ dist/
 ### Running the packaged app
 
 1. Copy the `dist/` folder anywhere on the target machine
-2. (Optional) Copy `.env.example` → `.env` and add your OpenAI key
+2. (Optional) Copy `.env.example` → `.env` and add any AI provider keys you want
 3. Double-click **`START.bat`** (or run each exe separately)
 4. The browser opens to `http://localhost:5173` automatically
 
@@ -371,6 +319,9 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | GET | `/items/:id/associations` | Get related items |
 | POST | `/items/:id/associations` | Add association |
 | DELETE | `/items/:id/associations/:child` | Remove association |
+| GET | `/items/:id/accessories` | List saved accessory links for an item |
+| POST | `/items/:id/accessories` | Add an accessory link |
+| DELETE | `/items/:id/accessories/:accessoryId` | Remove an accessory link |
 
 ### Quotes
 
@@ -388,12 +339,33 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | POST | `/quotes/:id/items` | Add inventory item to quote |
 | PUT | `/quotes/:id/items/:qitemId` | Update quote item (quantity `0` removes it) |
 | DELETE | `/quotes/:id/items/:qitemId` | Remove quote item |
+| PUT | `/quotes/:id/items/reorder` | Update line-item order |
 | POST | `/quotes/:id/custom-items` | Add custom line item |
 | PUT | `/quotes/:id/custom-items/:cid` | Update custom item (quantity `0` removes it) |
 | DELETE | `/quotes/:id/custom-items/:cid` | Remove custom item |
 | GET | `/quotes/public/:token` | Public quote view (no auth) |
 | GET | `/quotes/public/:token/messages` | Public quote thread (no auth) |
 | POST | `/quotes/public/:token/messages` | Post client message to quote thread (no auth) |
+
+### Templates
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/templates` | List email templates |
+| POST | `/templates` | Create email template |
+| PUT | `/templates/:id` | Update email template |
+| DELETE | `/templates/:id` | Delete email template |
+| GET | `/templates/contract-templates` | List contract templates |
+| POST | `/templates/contract-templates` | Create contract template |
+| DELETE | `/templates/contract-templates/:id` | Delete contract template |
+| GET | `/templates/payment-policies` | List payment policies |
+| POST | `/templates/payment-policies` | Create payment policy |
+| PUT | `/templates/payment-policies/:id` | Update payment policy |
+| DELETE | `/templates/payment-policies/:id` | Delete payment policy |
+| GET | `/templates/rental-terms` | List rental terms |
+| POST | `/templates/rental-terms` | Create rental terms |
+| PUT | `/templates/rental-terms/:id` | Update rental terms |
+| DELETE | `/templates/rental-terms/:id` | Delete rental terms |
 
 ### Files
 
@@ -457,8 +429,10 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | GET | `/settings` | Get all settings |
 | PUT | `/settings` | Update settings |
 | POST | `/settings/test-imap` | Test IMAP connection |
+| GET | `/v1/docs` | Swagger UI for the versioned API |
+| GET | `/v1/openapi.json` | Raw OpenAPI document |
 
-Client helpers in `client/src/api.js`: `getVendors`, `createVendor`, `updateVendor`, `deleteVendor`, `getConflicts`, `getSubrentalNeeds`, `getQuoteConflicts`, `getQuoteAvailabilityItems`, `getPublicMessages`, `sendPublicMessage`.
+Client helpers in `client/src/api.js`: `getVendors`, `getConflicts`, `getQuoteAvailabilityItems`, `reorderQuoteItems`, `getPaymentPolicies`, `getRentalTerms`, `getItemAccessories`, `getPublicMessages`, `sendPublicMessage`.
 
 ---
 
@@ -473,7 +447,7 @@ Client helpers in `client/src/api.js`: `getVendors`, `createVendor`, `updateVend
 | Email receive | [imapflow](https://imapflow.com/) + [mailparser](https://nodemailer.com/extras/mailparser/) |
 | Extension | Chrome MV3 (no build step) |
 | Packaging | [pkg](https://github.com/vercel/pkg) 5.8.1 |
-| AI | OpenAI GPT-4o-mini (optional) |
+| AI | Optional OpenAI, Anthropic, and Gemini provider integrations |
 
 `sql.js` is used instead of `better-sqlite3` because it requires no Python / node-gyp compilation, making it portable across machines without a C++ build toolchain.
 
@@ -494,4 +468,4 @@ Client helpers in `client/src/api.js`: `getVendors`, `createVendor`, `updateVend
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).
