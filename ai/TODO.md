@@ -1,12 +1,12 @@
 # BadShuffle — TODO / FIXME / Unfinished
 
-Aggregated from the codebase and existing `ai/` docs. Updated 2026-03-18.
+Aggregated from the codebase and existing `ai/` docs. Updated 2026-03-19.
 
 ---
 
 ## Active / In-Progress
 
-### Post-v0.4.5 polish backlog
+### Post-v0.0.3 polish backlog
 
 - [ ] **Task 13: Condense client/venue info display** — QuoteDetailPage view mode: make the client/venue info block more compact (tighter layout, less vertical whitespace). Edit form is fine; view-mode display needs condensing.
 - [ ] **Task 14: Mobile optimization** — Responsive layout pass. Known pain points: QuoteBuilder on narrow screens (table overflow), QuoteDetailPage tabs, MessagesPage split-pane, modals. Start with `@media (max-width: 640px)` rules in the heavy pages.
@@ -62,3 +62,4 @@ Aggregated from the codebase and existing `ai/` docs. Updated 2026-03-18.
 | Role badge in nav | Low | Data already available |
 | Email on role change | Low | SMTP already wired |
 | OpenAPI spec sync | Low | Only matters if API consumers use the spec |
+

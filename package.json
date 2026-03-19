@@ -1,6 +1,6 @@
 {
   "name": "badshuffle",
-  "version": "0.4.6",
+  "version": "0.0.4",
   "private": true,
   "scripts": {
     "dev": "concurrently \"bun run --cwd server dev\" \"bun run --cwd client dev\"",

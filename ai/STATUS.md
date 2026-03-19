@@ -1,13 +1,15 @@
 # STATUS
 
-**Released v0.4.5** (2026-03-18): Post-v0.4.4 enhancement batch shipped. Highlights: quote line-item discounts, quote expiration, reusable payment/rental terms, item accessories, UI scale, quote card polish, public quote parity fixes, and GitHub/docs cleanup.
+**Released v0.0.4** (2026-03-19): Startup stability hotfix shipped. Fixed inventory empty-state crash caused by an undefined `search` reference and added graceful `getItems` error handling during sql.js initialization.
 
-**Released v0.4.4** (2026-03-18): Quote-page filters + date-range picker, 2-step quote creation wizard with optional Google Places autocomplete, public quote live messaging thread (`/api/quotes/public/:token/messages`), availability picker endpoint (`/api/availability/quote/:id/items`), UI theme/map settings, robust extension scraping, and item `contract_description` persistence.
+**Released v0.0.3** (2026-03-18): Post-v0.0.2 enhancement batch shipped. Highlights: quote line-item discounts, quote expiration, reusable payment/rental terms, item accessories, UI scale, quote card polish, public quote parity fixes, and GitHub/docs cleanup.
+
+**Released v0.0.2** (2026-03-18): Quote-page filters + date-range picker, 2-step quote creation wizard with optional Google Places autocomplete, public quote live messaging thread (`/api/quotes/public/:token/messages`), availability picker endpoint (`/api/availability/quote/:id/items`), UI theme/map settings, robust extension scraping, and item `contract_description` persistence.
 
 ## Current Task
 Release is complete. Remaining product polish items live in `TODO.md`.
 
-## Post-v0.4.4 Enhancement Batch
+## Post-v0.0.2 Enhancement Batch
 
 ### Completed (release batch)
 
@@ -56,7 +58,7 @@ Release is complete. Remaining product polish items live in `TODO.md`.
 - **Task 13:** Condense client/venue info display on `QuoteDetailPage` (make it more compact in view mode)
 - **Task 14:** Mobile version optimization (responsive layout pass across pages)
 
-## Quote Flow + Public Messaging + Theming — v0.4.4
+## Quote Flow + Public Messaging + Theming — v0.0.2
 
 ### Quote creation, filtering, and availability UX
 - **Quotes page:** `client/src/pages/QuotePage.jsx` now includes:
@@ -93,7 +95,7 @@ Release is complete. Remaining product polish items live in `TODO.md`.
 - **Lockfile metadata:** `server/services/singleInstance.js` can update lock metadata (including active port), and Vite reads the lockfile port (`client/vite.config.js`).
 - **Cross-platform env setting:** `server/package.json` uses `cross-env` in `dev` script.
 
-## Public Catalog + Docker + Dev UX — v0.4.3
+## Public Catalog + Docker + Dev UX — v0.0.1
 
 ### Public Catalog
 - **Server:** `server/routes/publicCatalog.js` — no-auth router factory. Endpoints:
@@ -164,9 +166,9 @@ Release is complete. Remaining product polish items live in `TODO.md`.
 ---
 
 ## Current Task (previous)
-Completed: Per-line price overrides + quote-level adjustments; previously: Availability & Conflict Detection (shipped in v0.4.2).
+Completed: Per-line price overrides + quote-level adjustments; previously: Availability & Conflict Detection (shipped in pre-v0.0.1).
 
-## Per-line Price Overrides & Quote Adjustments — pre-v0.4.3 foundation
+## Per-line Price Overrides & Quote Adjustments — pre-v0.0.1 foundation
 
 ### Feature 7 — `unit_price_override` on `quote_items`
 - **DB:** `ALTER TABLE quote_items ADD COLUMN unit_price_override REAL` (try/catch migration, nullable; NULL = use items.unit_price).
@@ -194,9 +196,9 @@ Completed: Per-line price overrides + quote-level adjustments; previously: Avail
 ---
 
 ## Current Task (previous)
-Completed: Availability & Conflict Detection (shipped before v0.4.3); previously: Bun adoption.
+Completed: Availability & Conflict Detection (shipped before v0.0.1); previously: Bun adoption.
 
-## Availability & Conflict Detection — pre-v0.4.3 foundation
+## Availability & Conflict Detection — pre-v0.0.1 foundation
 
 ### Backend: schema additions (`server/db.js`)
 - **`vendors` table**: `id`, `name`, `contact_name`, `contact_email`, `contact_phone`, `notes`
@@ -258,7 +260,7 @@ Completed: Availability & Conflict Detection (shipped before v0.4.3); previously
 ## Current Task (previous)
 Completed: Bun adoption (Phases 0–3); previously: Quote Client Info + Send Flow + Layout.
 
-## Bun Adoption — v0.4.1 prep
+## Bun Adoption — pre-v0.0.1 prep
 
 ### Phase 0 — Baseline inspection
 Confirmed stack before touching anything: Node v24.14.0, npm as package manager, no `.nvmrc`, no Bun installed. Three workspaces: root (orchestration only), `server/` (CJS, `node index.js`), `client/` (ESM, Vite). Identified key risks: `sql.js` WASM loading under Bun, `--prefix` vs `--cwd` flag mismatch, `pkg`-based `.exe` packaging left untouched.
@@ -485,3 +487,4 @@ Help: `node server/cli.js --help`
 
 ## Next Steps
 - Optional: add more target fields to lead import (e.g. guest count, delivery address) if sheet columns expand.
+
