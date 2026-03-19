@@ -1,6 +1,6 @@
-# BadShuffle v0.4.5
+# BadShuffle v0.4.6
 
-![Release](https://img.shields.io/badge/release-0.4.5-0a7ea4)
+![Release](https://img.shields.io/badge/release-0.4.6-0a7ea4)
 ![Status](https://img.shields.io/badge/status-pre--release-c79200)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
 ![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Windows%20EXE-2ea44f)
@@ -21,12 +21,10 @@ BadShuffle is a self-hosted event rental software platform for quoting, inventor
 - **Domain complexity** — Availability conflicts, per-line pricing overrides, reusable rental/payment policies, and public quote signing target actual event-rental workflows.
 - **Deployment pragmatism** — Run it locally, on a LAN, in Docker, or as packaged Windows executables.
 
-## What’s New In v0.4.5
+## What’s New In v0.4.6
 
-- **Quote pricing controls** — Drag-to-reorder line items, per-item discounts, clearer status borders, and improved conflict visibility.
-- **Public quote upgrades** — Quote expiration, reusable rental terms and payment policies, public totals that honor discounted pricing, and approval/signing rules that now respect expiration.
-- **Operator quality-of-life** — UI scale setting, direct “View Quote” navigation from Messages, and item accessory relationships in Inventory.
-- **Repo polish** — Faster quickstart, badges, license file, cleaner Git hygiene, and a tighter GitHub presentation for discoverability.
+- **Fresh-start inventory stability** — Fixed a blank-page crash when no items exist by removing an undefined empty-state reference in `ItemGrid`.
+- **Startup fetch resilience** — `InventoryPage` now safely handles transient `getItems` failures during sql.js initialization and falls back to an empty list.
 
 ## Core Features
 

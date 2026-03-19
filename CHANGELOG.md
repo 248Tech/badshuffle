@@ -13,6 +13,14 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 
 ---
 
+## [0.4.6] - 2026-03-19
+
+### Fixed
+- **Inventory empty-state crash on fresh startup** — Removed an undefined `search` reference in `ItemGrid` that could throw a `ReferenceError` when items were empty.
+- **Unhandled inventory load rejection during sql.js init** — `InventoryPage` now catches failed `getItems` requests so startup fetch failures degrade gracefully instead of cascading into a blank page.
+
+---
+
 ## [0.4.5] - 2026-03-18
 
 ### Added

@@ -35,7 +35,7 @@ export default function InventoryPage() {
     const params = {};
     if (search) params.search = search;
     if (selectedCategory) params.category = selectedCategory;
-    api.getItems(params).then(d => setItems(d.items || [])).finally(() => setLoading(false));
+    api.getItems(params).then(d => setItems(d.items || [])).catch(() => {}).finally(() => setLoading(false));
   }, [search, selectedCategory]);
 
   useEffect(() => { load(); }, [load]);

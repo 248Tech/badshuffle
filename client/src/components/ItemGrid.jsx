@@ -25,7 +25,6 @@ export default function ItemGrid({ items, loading, onEdit, onDelete, onAddToQuot
             <path d="M16 3l4 4-4 4M8 3L4 7l4 4"/>
           </svg>
           <p>No items found</p>
-          {search && <p>Try a different search term</p>}
         </div>
       )}
 
