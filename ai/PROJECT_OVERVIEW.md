@@ -30,9 +30,10 @@ There is **no pull-sheet or warehouse-fulfillment module** in the codebase; oper
 | **Files**      | Upload/list/delete files; attach to quotes; serve with auth or signed URL |
 | **Messages**   | Outbound emails logged; inbound replies via IMAP poll; thread view per quote |
 | **Templates**  | Email templates (CRUD, default); contract templates (reusable contract body) |
-| **Settings**   | Company, tax, currency, SMTP/IMAP, count_oos_oversold (operator-only) |
+| **Settings**   | Company, tax, currency, SMTP/IMAP, count_oos_oversold, packaged update controls (operator-only) |
 | **Availability** | Conflicts (reserved > stock), subrental-needs, per-quote conflict check; dashboard panels; quote builder conflict icons |
 | **Vendors**    | CRUD vendors; items can have is_subrental and vendor_id; Vendors page |
+| **Updates**    | Authenticated packaged updater routes for release status/list/install (`/api/updates*`) |
 | **Admin**      | Users, roles, approval, system settings (autokill, update check) (admin-only) |
 | **Presence**   | In-memory “who’s online” and current path (PUT/GET /api/presence) |
 

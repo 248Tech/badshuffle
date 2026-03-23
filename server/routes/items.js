@@ -70,6 +70,65 @@ module.exports = function makeRouter(db) {
     res.json({ items, total });
   });
 
+  // POST /api/items/bulk-upsert — accepts { items: [...] }, used by extension JSON export
+  router.post('/bulk-upsert', (req, res) => {
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    if (!items.length) return res.status(400).json({ error: 'items array required' });
+
+    let created = 0, updated = 0, errors = 0;
+    for (const it of items) {
+      const { title, photo_url, hidden = 0, quantity_in_stock, unit_price,
+              category, description, contract_description, taxable, labor_hours } = it;
+      if (!title) { errors++; continue; }
+      try {
+        const existing = db.prepare('SELECT id FROM items WHERE title = ? COLLATE NOCASE').get(title);
+        if (existing) {
+          db.prepare(`
+            UPDATE items SET
+              photo_url = COALESCE(?, photo_url),
+              source = 'extension',
+              hidden = ?,
+              quantity_in_stock = COALESCE(?, quantity_in_stock),
+              unit_price = COALESCE(?, unit_price),
+              category = COALESCE(?, category),
+              description = COALESCE(?, description),
+              contract_description = COALESCE(?, contract_description),
+              taxable = COALESCE(?, taxable),
+              labor_hours = COALESCE(?, labor_hours),
+              updated_at = datetime('now')
+            WHERE id = ?
+          `).run(
+            photo_url || null, hidden ? 1 : 0,
+            quantity_in_stock != null ? quantity_in_stock : null,
+            unit_price != null ? unit_price : null,
+            category || null, description || null, contract_description || null,
+            taxable != null ? (taxable ? 1 : 0) : null,
+            labor_hours != null ? labor_hours : null,
+            existing.id
+          );
+          updated++;
+        } else {
+          db.prepare(`
+            INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price,
+                               category, description, contract_description, taxable, labor_hours)
+            VALUES (?, ?, 'extension', ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            title, photo_url || null, hidden ? 1 : 0,
+            quantity_in_stock != null ? quantity_in_stock : 0,
+            unit_price != null ? unit_price : 0,
+            category || null, description || null, contract_description || null,
+            taxable != null ? (taxable ? 1 : 0) : 1,
+            labor_hours != null ? labor_hours : 0
+          );
+          created++;
+        }
+      } catch (e) {
+        errors++;
+      }
+    }
+    res.json({ created, updated, errors, total: items.length });
+  });
+
   // POST /api/items/upsert — must come BEFORE /:id route
   router.post('/upsert', (req, res) => {
     const {

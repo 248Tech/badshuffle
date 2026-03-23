@@ -1,5 +1,7 @@
 # STATUS
 
+**Released v0.0.5** (2026-03-23): In-app update flow shipped for packaged builds (`/api/updates` status/list/apply + Settings updates console), plus extension sync hardening (configurable server URL, persisted scraped payload export) and Import-page Extension JSON fallback backed by `POST /api/items/bulk-upsert`.
+
 **Released v0.0.4** (2026-03-19): Startup stability hotfix shipped. Fixed inventory empty-state crash caused by an undefined `search` reference and added graceful `getItems` error handling during sql.js initialization.
 
 **Released v0.0.3** (2026-03-18): Post-v0.0.2 enhancement batch shipped. Highlights: quote line-item discounts, quote expiration, reusable payment/rental terms, item accessories, UI scale, quote card polish, public quote parity fixes, and GitHub/docs cleanup.

@@ -16,6 +16,7 @@ All features below are implemented unless marked as stub or partial.
 ## Quote Item Management
 
 - Add/update/remove line items (inventory items) on a quote: quantity, label, sort_order. PATCH for hidden_from_quote.
+- **Bulk upsert ingestion:** `POST /api/items/bulk-upsert` accepts `{ items: [...] }` and create/updates by case-insensitive title (used by Extension JSON fallback import).
 - **Hide from quote:** `quote_items.hidden_from_quote` — item stays on quote for internal/operations but excluded from client-facing totals and public view. Toggle in QuoteBuilder.
 - **Zero-quantity removal behavior:** Updating a quote item or custom item with `quantity = 0` removes the line and logs activity.
 - **Logic location:** `server/routes/quotes.js` (POST/PUT/DELETE quote items and custom items), `client/src/components/QuoteBuilder.jsx`.
@@ -108,6 +109,14 @@ All features below are implemented unless marked as stub or partial.
 - **Public message thread:** GET/POST `/api/quotes/public/:token/messages` for client-visible conversation history and message posting from the public quote page.
 - **Logic location:** `server/index.js` and `server/api/v1.js` (public route), `client/src/pages/PublicQuotePage.jsx`.
 
+## In-App Updates (Packaged Builds)
+
+- **Status/list/apply API:** Authenticated routes `GET /api/updates`, `GET /api/updates/releases`, and `POST /api/updates/apply` expose current version, GitHub release data, and packaged install workflow.
+- **Asset swap/restart flow:** Applying an update downloads release assets (`badshuffle-server.exe`, `badshuffle-client.exe`, `www.zip`), writes `_update.bat`, exits current process, and relaunches server after swap/extract.
+- **Dev-mode guardrail:** Update install route returns an explicit error in non-packaged/dev mode.
+- **Settings UI:** Settings page includes update status badge, release picker, release notes preview, install action, and health polling until restart completes.
+- **Logic location:** `server/routes/updates.js`, `server/index.js`, `client/src/pages/SettingsPage.jsx`, `client/src/api.js`.
+
 ## Pull Sheets
 
 - **Not implemented.** No pull_sheets table, no routes, no UI. Operations workflow (order → pull sheet → warehouse → load → delivery) is not in the codebase.
@@ -162,10 +171,10 @@ All features below are implemented unless marked as stub or partial.
 - **Dashboard:** GET `/api/quotes/summary` (byStatus, revenueByStatus, upcoming, byMonth). DashboardPage. Also Conflicts and Subrental Needs panels (see Availability & Conflict Detection).
 - **Presence:** PUT/GET `/api/presence` — in-memory “who’s online” and path. Client reports path on route change; Sidebar can show team online.
 - **AI suggest:** POST `/api/ai/suggest` (OpenAI) for item suggestions; AISuggestModal on quote.
-- **Extension:** Download extension ZIP (public); extension tokens for API (admin). ExtensionPage.
-- **Import:** Inventory from CSV/XLSX/Sheets (sheets.js); leads from CSV/XLSX/Sheets with column mapping (leads preview/import). ImportPage.
+- **Extension:** Download extension ZIP (public); extension tokens for API (admin); configurable server URL in popup; JSON export fallback from cached scraped payload when sync fails.
+- **Import:** Inventory from CSV/XLSX/Sheets (sheets.js); leads from CSV/XLSX/Sheets with column mapping (leads preview/import); Extension JSON import tab for pasted payloads.
 - **Stats:** Item usage (times quoted, etc.); StatsPage, ItemDetailPage.
-- **Settings:** Company, tax, currency, SMTP/IMAP; `count_oos_oversold`; AI provider keys (Claude, OpenAI, Gemini) and per-feature enable/model settings; `ui_theme`, `google_places_api_key`, `map_default_style`; `ui_scale` (75–150%, applied as root font-size). SettingsPage (operator).
+- **Settings:** Company, tax, currency, SMTP/IMAP; `count_oos_oversold`; AI provider keys (Claude, OpenAI, Gemini) and per-feature enable/model settings; `ui_theme`, `google_places_api_key`, `map_default_style`; `ui_scale` (75–150%, applied as root font-size); updates panel for packaged install flow. SettingsPage (operator).
 - **UI Scale:** Range slider 75–150% (step 5) in SettingsPage. Applies immediately via `document.documentElement.style.fontSize = (scale/100)*14 + 'px'`. Persisted to `localStorage` (`bs_ui_scale`) and loaded by `main.jsx` before first render.
 - **Quote tile borders:** `QuoteCard.jsx` shows colored left border by status — draft=yellow, sent=blue, approved/confirmed/closed=green, conflict or unsigned changes=red.
 - **Conflict stop sign:** SVG uses `<line>` + `<circle>` for a visible white ! on the red octagon. Present in QuoteCard, QuoteBuilder, QuotePage.

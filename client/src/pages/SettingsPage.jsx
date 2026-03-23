@@ -54,6 +54,15 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingImap, setTestingImap] = useState(false);
+
+  // Updates
+  const [updateInfo, setUpdateInfo]         = useState(null);
+  const [updateReleases, setUpdateReleases] = useState(null);
+  const [selectedTag, setSelectedTag]       = useState('');
+  const [updateChecking, setUpdateChecking] = useState(false);
+  const [updateApplying, setUpdateApplying] = useState(false);
+  const [updateStatus, setUpdateStatus]     = useState('');   // 'restarting' | ''
+  const [updateError, setUpdateError]       = useState('');
   const [logoUploading, setLogoUploading] = useState(false);
   const logoInputRef = React.useRef(null);
   const [systemCategories, setSystemCategories] = useState([]);
@@ -61,6 +70,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     api.getCategories().then(d => setSystemCategories(d.categories || [])).catch(() => setSystemCategories([]));
+    api.getUpdateStatus().then(setUpdateInfo).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -132,6 +142,50 @@ export default function SettingsPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const handleCheckUpdates = async () => {
+    setUpdateChecking(true);
+    setUpdateError('');
+    setUpdateReleases(null);
+    try {
+      const data = await api.getUpdateReleases();
+      const releases = data.releases || [];
+      setUpdateReleases(releases);
+      const newer = releases.find(r => r.is_newer);
+      setSelectedTag(newer ? newer.tag : (releases[0]?.tag || ''));
+      // refresh cached status
+      api.getUpdateStatus().then(setUpdateInfo).catch(() => {});
+    } catch (e) {
+      setUpdateError(e.message || 'Could not reach GitHub');
+    } finally {
+      setUpdateChecking(false);
+    }
+  };
+
+  const handleApplyUpdate = async () => {
+    if (!selectedTag) return;
+    setUpdateApplying(true);
+    setUpdateError('');
+    try {
+      await api.applyUpdate(selectedTag);
+      setUpdateStatus('restarting');
+      // Poll /api/health until server comes back, then reload
+      const pollStart = Date.now();
+      const poll = () => {
+        setTimeout(async () => {
+          try {
+            const r = await fetch('/api/health');
+            if (r.ok) { window.location.reload(); return; }
+          } catch {}
+          if (Date.now() - pollStart < 60000) poll();
+        }, 2000);
+      };
+      poll();
+    } catch (e) {
+      setUpdateError(e.message || 'Update failed');
+      setUpdateApplying(false);
+    }
+  };
 
   const handleThemeChange = (themeId) => {
     setForm(f => ({ ...f, ui_theme: themeId }));
@@ -766,6 +820,90 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ── Updates ─────────────────────────────────────────────────── */}
+        <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>
+          <h3 className={styles.section}>Updates</h3>
+
+          <div className={styles.updateRow}>
+            <span className={styles.updateVersion}>
+              Current version: <strong>v{updateInfo?.current || '…'}</strong>
+              {updateInfo?.update_available && (
+                <span className={styles.updateBadge}>Update available</span>
+              )}
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleCheckUpdates}
+              disabled={updateChecking || updateStatus === 'restarting'}
+            >
+              {updateChecking ? 'Checking…' : 'Check for Updates'}
+            </button>
+          </div>
+
+          {updateError && (
+            <p className={styles.updateError}>{updateError}</p>
+          )}
+
+          {updateStatus === 'restarting' && (
+            <div className={styles.updateRestarting}>
+              <span className={styles.updateSpinner} />
+              Update installed — waiting for server to restart…
+            </div>
+          )}
+
+          {updateReleases && updateReleases.length > 0 && updateStatus !== 'restarting' && (
+            <div className={styles.updatePanel}>
+              <div className={styles.updateSelectRow}>
+                <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                  <label>Release</label>
+                  <select
+                    value={selectedTag}
+                    onChange={e => setSelectedTag(e.target.value)}
+                    disabled={updateApplying}
+                  >
+                    {updateReleases.map(r => (
+                      <option key={r.tag} value={r.tag}>
+                        {r.name || r.tag}{r.is_newer ? ' ★ newer' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {updateInfo?.is_pkg ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleApplyUpdate}
+                    disabled={updateApplying || !selectedTag}
+                    style={{ alignSelf: 'flex-end' }}
+                  >
+                    {updateApplying ? 'Installing…' : 'Install'}
+                  </button>
+                ) : (
+                  <span className={styles.hint} style={{ alignSelf: 'flex-end', paddingBottom: 6 }}>
+                    Auto-install only available in the packaged .exe build.
+                  </span>
+                )}
+              </div>
+
+              {/* What's New */}
+              {selectedTag && (() => {
+                const rel = updateReleases.find(r => r.tag === selectedTag);
+                return rel?.body ? (
+                  <details className={styles.whatsNew} open>
+                    <summary>What's New in {rel.name || rel.tag}</summary>
+                    <pre className={styles.whatsNewBody}>{rel.body.trim()}</pre>
+                  </details>
+                ) : null;
+              })()}
+            </div>
+          )}
+
+          {updateReleases && updateReleases.length === 0 && (
+            <p className={styles.hint} style={{ marginTop: 8 }}>No releases found.</p>
+          )}
         </div>
 
         <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>

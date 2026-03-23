@@ -81,6 +81,7 @@ export const api = {
   getItem: (id) => request(`/items/${id}`),
   createItem: (body) => request('/items', { method: 'POST', body }),
   upsertItem: (body) => request('/items/upsert', { method: 'POST', body }),
+  bulkUpsertItems: (items) => request('/items/bulk-upsert', { method: 'POST', body: { items } }),
   updateItem: (id, body) => request(`/items/${id}`, { method: 'PUT', body }),
   deleteItem: (id) => request(`/items/${id}`, { method: 'DELETE' }),
   getCategories: () => request('/items/categories'),
@@ -261,6 +262,11 @@ export const api = {
   },
   getConflicts:         ()        => request('/availability/conflicts'),
   getSubrentals:        ()        => request('/availability/subrentals'),
+
+  // Updates
+  getUpdateStatus:   ()      => request('/updates'),
+  getUpdateReleases: ()      => request('/updates/releases'),
+  applyUpdate:       (tag)   => request('/updates/apply', { method: 'POST', body: { tag } }),
 
   // Public catalog (no auth)
   catalog: {

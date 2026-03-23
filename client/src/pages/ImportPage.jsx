@@ -115,6 +115,7 @@ function InventoryImport() {
             <div className={styles.tabs}>
               <button type="button" className={`${styles.tab} ${activeTab === 'url' ? styles.tabActive : ''}`} onClick={() => setActiveTab('url')}>Google Sheet URL</button>
               <button type="button" className={`${styles.tab} ${activeTab === 'file' ? styles.tabActive : ''}`} onClick={() => setActiveTab('file')}>Upload File</button>
+              <button type="button" className={`${styles.tab} ${activeTab === 'extjson' ? styles.tabActive : ''}`} onClick={() => setActiveTab('extjson')}>Extension JSON</button>
             </div>
             {activeTab === 'url' && (
               <form onSubmit={handlePreview} className={styles.tabContent}>
@@ -138,6 +139,11 @@ function InventoryImport() {
                   )}
                   <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls,.gsheet" className={styles.fileInput} onChange={onFileInputChange} />
                 </label>
+              </div>
+            )}
+            {activeTab === 'extjson' && (
+              <div className={styles.tabContent}>
+                <ExtensionJsonImport />
               </div>
             )}
           </div>
@@ -188,6 +194,115 @@ function InventoryImport() {
         )}
       </div>
     </>
+  );
+}
+
+// ── Extension JSON import ────────────────────────────────────────────────────
+
+function ExtensionJsonImport() {
+  const toast = useToast();
+  const [json, setJson] = useState('');
+  const [parsed, setParsed] = useState(null);
+  const [parseError, setParseError] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const handleParse = () => {
+    setParseError('');
+    setParsed(null);
+    setResult(null);
+    try {
+      const data = JSON.parse(json.trim());
+      const items = Array.isArray(data) ? data : data.items;
+      if (!Array.isArray(items) || items.length === 0) throw new Error('Expected a JSON array of items');
+      const valid = items.filter(i => i && typeof i.title === 'string' && i.title.trim());
+      if (!valid.length) throw new Error('No items with a title found');
+      setParsed(valid);
+    } catch (e) {
+      setParseError(e.message);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!parsed) return;
+    setImporting(true);
+    try {
+      const data = await api.bulkUpsertItems(parsed);
+      setResult(data);
+      toast.success(`Import complete: ${data.created} new, ${data.updated} updated`);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const reset = () => { setJson(''); setParsed(null); setParseError(''); setResult(null); };
+
+  if (result) return (
+    <div className={styles.resultPane}>
+      <div className={styles.resultIcon}>✅</div>
+      <h2 className={styles.resultTitle}>Import Complete</h2>
+      <div className={styles.resultStats}>
+        <div className={styles.stat}><span>{result.created}</span> New items</div>
+        <div className={styles.stat}><span>{result.updated}</span> Updated</div>
+        <div className={styles.stat}><span>{result.errors}</span> Errors</div>
+        <div className={styles.stat}><span>{result.total}</span> Total</div>
+      </div>
+      <button className="btn btn-primary" onClick={reset}>Import Another</button>
+    </div>
+  );
+
+  return (
+    <div className={styles.form}>
+      <p className={styles.info}>
+        In the BadShuffle Chrome extension popup, click <strong>Copy JSON</strong> after visiting a Goodshuffle page, then paste it below.
+      </p>
+      {!parsed ? (
+        <>
+          <div className="form-group">
+            <label>Paste extension JSON</label>
+            <textarea
+              rows={8}
+              value={json}
+              onChange={e => { setJson(e.target.value); setParseError(''); }}
+              placeholder={'[\n  { "title": "Chiavari Chair", "unit_price": 5, ... }\n]'}
+              style={{ fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}
+            />
+          </div>
+          {parseError && <p style={{ color: 'var(--color-error, #e53)', fontSize: '13px' }}>{parseError}</p>}
+          <button className="btn btn-primary" onClick={handleParse} disabled={!json.trim()}>
+            Parse JSON →
+          </button>
+        </>
+      ) : (
+        <>
+          <p className={styles.info}>Found <strong>{parsed.length}</strong> items ready to import.</p>
+          <div className={styles.previewWrapper}>
+            <table className={styles.previewTable}>
+              <thead><tr><th>Title</th><th>Category</th><th>Price</th><th>Qty</th></tr></thead>
+              <tbody>
+                {parsed.slice(0, 10).map((it, i) => (
+                  <tr key={i}>
+                    <td>{it.title}</td>
+                    <td>{it.category || '—'}</td>
+                    <td>{it.unit_price != null ? `$${Number(it.unit_price).toFixed(2)}` : '—'}</td>
+                    <td>{it.quantity_in_stock ?? '—'}</td>
+                  </tr>
+                ))}
+                {parsed.length > 10 && <tr><td colSpan={4} style={{ opacity: .5 }}>…and {parsed.length - 10} more</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className={styles.formActions}>
+            <button type="button" className="btn btn-ghost" onClick={() => setParsed(null)}>← Back</button>
+            <button className="btn btn-primary" onClick={handleImport} disabled={importing}>
+              {importing ? <><span className="spinner" /> Importing…</> : `Import ${parsed.length} items →`}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

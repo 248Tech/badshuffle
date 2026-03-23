@@ -7,7 +7,8 @@
   "host_permissions": [
     "https://*.goodshuffle.com/*",
     "https://*.goodshuffle.pro/*",
-    "http://localhost:3001/*"
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js",

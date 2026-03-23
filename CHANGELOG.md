@@ -8,6 +8,22 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.0.2** - Quote flow, public messaging, and theming release
 - **0.0.3** - Pricing controls, reusable policies, and UX polish release
 - **0.0.4** - Startup stability hotfix release
+- **0.0.5** - In-app updater and extension fallback import release
+
+---
+
+## [0.0.5] - 2026-03-23
+
+### Added
+- **Packaged in-app updater endpoints** - New authenticated routes `GET /api/updates`, `GET /api/updates/releases`, and `POST /api/updates/apply` provide current-version status, GitHub release listing, and package-aware release installation.
+- **Settings update console** - Settings now includes an Updates card with version status, release picker, "What's New" body preview, install trigger, and restart health polling.
+- **Extension JSON fallback import** - Import page adds an **Extension JSON** tab so scraped extension payloads can be pasted and imported directly.
+- **Bulk item ingestion route** - `POST /api/items/bulk-upsert` now supports extension fallback import with create/update counts in one request.
+
+### Changed
+- **Extension connectivity model** - Extension popup now stores a configurable server URL, and extension sync requests use that stored target instead of a hardcoded localhost API endpoint.
+- **Extension recovery behavior** - Background sync now always saves the last scraped payload so the popup can export JSON even when network sync fails.
+- **Extension download URL resolution** - ExtensionPage download action now respects `VITE_API_BASE` instead of relying on a hardcoded absolute localhost URL.
 
 ---
 

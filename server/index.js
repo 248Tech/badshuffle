@@ -299,6 +299,7 @@ async function start() {
   app.use('/api/presence',      auth, require('./routes/presence')());
   app.use('/api/vendors',       auth, require('./routes/vendors')(db));
   app.use('/api/availability',  auth, require('./routes/availability')(db));
+  app.use('/api/updates',       auth, require('./routes/updates')(db));
 
   // Public catalog — no auth (JSON API + server-rendered HTML + sitemap + robots)
   app.use(require('./routes/publicCatalog')(db));

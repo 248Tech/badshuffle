@@ -164,6 +164,12 @@
   <div class="body">
     <!-- Token connect section -->
     <div class="connect-card" id="connectCard">
+      <div class="connect-title">Server</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input class="token-input" id="serverInput" type="text" placeholder="http://192.168.1.x:3001" style="flex:1" />
+        <button class="save-btn" id="serverSaveBtn" style="white-space:nowrap">Set</button>
+      </div>
+      <div id="serverMsg" style="margin-bottom:6px"></div>
       <div class="connect-title">API Token</div>
       <div id="connectForm">
         <div class="connect-desc">Paste your extension token from the BadShuffle Extension page.</div>
@@ -177,6 +183,19 @@
         <span class="connected-badge">✓ Connected</span>
         <button class="disconnect-btn" id="disconnectBtn">Disconnect</button>
       </div>
+    </div>
+
+    <!-- JSON export fallback (when network sync fails) -->
+    <div class="connect-card" id="exportCard" style="display:none">
+      <div class="connect-title">Manual Export</div>
+      <div style="font-size:11px;opacity:.7;line-height:1.4;margin-bottom:8px">
+        If sync fails, copy scraped items as JSON and paste them in BadShuffle → Import → Inventory Sheet → Extension JSON.
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="save-btn" id="copyJsonBtn" style="flex:1">Copy JSON</button>
+        <span id="copyJsonMsg" style="font-size:11px"></span>
+      </div>
+      <div id="exportItemCount" style="font-size:11px;opacity:.55;margin-top:4px"></div>
     </div>
 
     <div class="status-card" id="statusCard">
@@ -198,7 +217,7 @@
       </div>
     </div>
 
-    <a href="http://localhost:5173" target="_blank" class="open-btn">
+    <a href="#" target="_blank" class="open-btn" id="openBtn">
       Open BadShuffle →
     </a>
 

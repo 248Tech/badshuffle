@@ -4,11 +4,14 @@
  * Content scripts cannot do cross-origin fetch in MV3; background can.
  */
 
-const API_BASE = 'http://localhost:3001/api';
+const DEFAULT_SERVER = 'http://localhost:3001';
 
-async function getExtToken() {
+async function getConfig() {
   return new Promise(resolve => {
-    chrome.storage.local.get(['extToken'], r => resolve(r.extToken || null));
+    chrome.storage.local.get(['extToken', 'serverUrl'], r => resolve({
+      extToken: r.extToken || null,
+      apiBase: (r.serverUrl || DEFAULT_SERVER).replace(/\/$/, '') + '/api'
+    }));
   });
 }
 
@@ -18,8 +21,8 @@ function authHeaders(extToken) {
   return headers;
 }
 
-async function upsertItem(item, extToken) {
-  const resp = await fetch(`${API_BASE}/items/upsert`, {
+async function upsertItem(item, extToken, apiBase) {
+  const resp = await fetch(`${apiBase}/items/upsert`, {
     method: 'POST',
     headers: authHeaders(extToken),
     body: JSON.stringify({
@@ -39,10 +42,10 @@ async function upsertItem(item, extToken) {
   return resp.json();
 }
 
-async function saveLead(lead, extToken) {
+async function saveLead(lead, extToken, apiBase) {
   if (!lead) return;
   try {
-    await fetch(`${API_BASE}/leads`, {
+    await fetch(`${apiBase}/leads`, {
       method: 'POST',
       headers: authHeaders(extToken),
       body: JSON.stringify(lead)
@@ -53,14 +56,14 @@ async function saveLead(lead, extToken) {
 }
 
 async function syncItems(items, parentChildPairs, lead) {
-  const extToken = await getExtToken();
+  const { extToken, apiBase } = await getConfig();
   const results = { created: 0, updated: 0, errors: 0 };
   const titleToId = {};
 
   // Upsert all items first
   for (const item of items) {
     try {
-      const data = await upsertItem(item, extToken);
+      const data = await upsertItem(item, extToken, apiBase);
       titleToId[item.title] = data.item.id;
       if (data.created) results.created++;
       else results.updated++;
@@ -77,7 +80,7 @@ async function syncItems(items, parentChildPairs, lead) {
     if (!parentId || !childId) continue;
 
     try {
-      await fetch(`${API_BASE}/items/${parentId}/associations`, {
+      await fetch(`${apiBase}/items/${parentId}/associations`, {
         method: 'POST',
         headers: authHeaders(extToken),
         body: JSON.stringify({ child_id: childId })
@@ -89,7 +92,7 @@ async function syncItems(items, parentChildPairs, lead) {
 
   // Save lead contact info if found
   if (lead) {
-    await saveLead(lead, extToken);
+    await saveLead(lead, extToken, apiBase);
   }
 
   return results;
@@ -99,6 +102,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type !== 'SYNC_ITEMS') return;
 
   const { items = [], parentChildPairs = [], lead = null } = message;
+
+  // Always persist the raw scraped items so the popup can export them even if sync fails
+  if (items.length > 0) {
+    chrome.storage.local.set({ lastScrapedItems: items, lastScrapedAt: new Date().toISOString() });
+  }
 
   syncItems(items, parentChildPairs, lead)
     .then(results => {

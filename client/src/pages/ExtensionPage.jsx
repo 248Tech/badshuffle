@@ -103,9 +103,8 @@ export default function ExtensionPage() {
             <div className={styles.downloadMeta}>Chrome Extension · Manifest V3</div>
           </div>
         </div>
-        {/* Absolute URL — the client.exe (port 5173) has no proxy to port 3001 */}
         <a
-          href="http://localhost:3001/api/extension/download"
+          href={`${import.meta.env.VITE_API_BASE || ''}/api/extension/download`}
           download
           className={`btn btn-primary ${styles.downloadBtn}`}
         >

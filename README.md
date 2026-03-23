@@ -1,6 +1,6 @@
-# BadShuffle v0.0.4
+# BadShuffle v0.0.5
 
-![Release](https://img.shields.io/badge/release-0.0.4-0a7ea4)
+![Release](https://img.shields.io/badge/release-0.0.5-0a7ea4)
 ![Status](https://img.shields.io/badge/status-pre--release-c79200)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
 ![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Windows%20EXE-2ea44f)
@@ -21,10 +21,12 @@ BadShuffle is a self-hosted event rental software platform for quoting, inventor
 - **Domain complexity** — Availability conflicts, per-line pricing overrides, reusable rental/payment policies, and public quote signing target actual event-rental workflows.
 - **Deployment pragmatism** — Run it locally, on a LAN, in Docker, or as packaged Windows executables.
 
-## What’s New In v0.0.4
+## What’s New In v0.0.5
 
-- **Fresh-start inventory stability** — Fixed a blank-page crash when no items exist by removing an undefined empty-state reference in `ItemGrid`.
-- **Startup fetch resilience** — `InventoryPage` now safely handles transient `getItems` failures during sql.js initialization and falls back to an empty list.
+- **In-app updater (packaged builds)** — Settings now has an Updates panel that checks GitHub releases, shows release notes, and installs a selected version with restart detection.
+- **Authenticated update API** — Added `/api/updates`, `/api/updates/releases`, and `/api/updates/apply` for release status/list/install flows.
+- **Extension recovery workflow** — Chrome extension now supports custom server URL configuration, keeps the last scraped items, and can export them as JSON if direct sync fails.
+- **Manual extension JSON import** — Import page adds an Extension JSON tab, backed by `POST /api/items/bulk-upsert` for fast create/update ingestion.
 
 ## Core Features
 
@@ -33,7 +35,7 @@ BadShuffle is a self-hosted event rental software platform for quoting, inventor
 - **Availability awareness** — Quote conflict checks, oversold detection, subrental needs, and inventory-aware quote building.
 - **Public-facing surfaces** — Client quote page, live quote messaging, SEO catalog pages, `robots.txt`, sitemap generation, and JSON-LD metadata.
 - **Comms and files** — SMTP send, IMAP reply capture, media library uploads, and quote-linked attachments.
-- **Import and sync** — Google Sheets import plus a Chrome extension for syncing items from Goodshuffle Pro.
+- **Import and sync** — Google Sheets import plus a Chrome extension for syncing items from Goodshuffle Pro, with manual JSON fallback import.
 - **Optional AI** — Per-feature provider settings for OpenAI, Anthropic, and Gemini without making AI a hard dependency.
 
 ## What This Demonstrates
@@ -61,7 +63,7 @@ badshuffle/
 ├── server/          Express API + sql.js SQLite (port 3001)
 │   ├── index.js
 │   ├── db.js        sql.js shim that mirrors better-sqlite3's API
-│   ├── routes/      items, quotes, sheets, stats, ai, files, messages, settings, vendors, availability, publicCatalog
+│   ├── routes/      items, quotes, sheets, stats, ai, files, messages, settings, vendors, availability, updates, extension, publicCatalog
 │   ├── services/    singleInstance, updateCheck, emailPoller (IMAP)
 │   └── lib/         authMiddleware, crypto, imageProxy
 ├── client/          React + Vite SPA (port 5173 in dev)
@@ -312,6 +314,7 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | GET | `/items` | List items (`?search=`, `?hidden=`, `?category=`) |
 | POST | `/items` | Create item |
 | POST | `/items/upsert` | Create or update by title (used by extension) |
+| POST | `/items/bulk-upsert` | Bulk create/update by title (used by Extension JSON import) |
 | PUT | `/items/:id` | Update item |
 | DELETE | `/items/:id` | Delete item |
 | GET | `/items/:id/associations` | Get related items |
@@ -401,6 +404,14 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | PUT | `/vendors/:id` | Update vendor |
 | DELETE | `/vendors/:id` | Delete vendor |
 
+### Updates
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/updates` | Current version + cached update check status |
+| GET | `/updates/releases` | Fetch GitHub releases and flag newer tags |
+| POST | `/updates/apply` | Download selected release assets and restart (packaged `.exe` mode only) |
+
 ### Public Catalog (no auth)
 
 | Method | Path | Description |
@@ -430,7 +441,7 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 | GET | `/v1/docs` | Swagger UI for the versioned API |
 | GET | `/v1/openapi.json` | Raw OpenAPI document |
 
-Client helpers in `client/src/api.js`: `getVendors`, `getConflicts`, `getQuoteAvailabilityItems`, `reorderQuoteItems`, `getPaymentPolicies`, `getRentalTerms`, `getItemAccessories`, `getPublicMessages`, `sendPublicMessage`.
+Client helpers in `client/src/api.js`: `getVendors`, `getConflicts`, `getQuoteAvailabilityItems`, `reorderQuoteItems`, `getPaymentPolicies`, `getRentalTerms`, `getItemAccessories`, `bulkUpsertItems`, `getUpdateStatus`, `getUpdateReleases`, `applyUpdate`, `getPublicMessages`, `sendPublicMessage`.
 
 ---
 

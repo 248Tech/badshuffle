@@ -5,7 +5,7 @@
 - **Monolith:** Single Node.js server (Express) and single React SPA. No microservices.
 - **Database:** SQLite via **sql.js** (WASM). Synchronous API; DB persisted to `badshuffle.db` after every write (see `db.js` `_save()`). Path is pkg-aware (next to exe when packaged).
 - **Auth:** JWT (Bearer). Role stored in DB and fetched via `GET /api/auth/me`; not embedded in JWT so role changes take effect on next page load.
-- **Optional services:** IMAP polling (emailPoller) for inbound replies; startup update check (GitHub releases API). Both are optional and fail gracefully.
+- **Optional services:** IMAP polling (emailPoller) for inbound replies; startup update check (GitHub releases API). In packaged builds, authenticated update-install routes are also available. All update behavior is designed to fail gracefully.
 
 ## Folder Structure
 
@@ -21,9 +21,10 @@ badshuffle/
 │   ├── routes/
 │   │   ├── auth.js        # Login, logout, setup, forgot, reset, /me, extension-token, test-mail
 │   │   ├── quotes.js      # Quote CRUD, send/approve/revert, contract, files, payments, activity, custom items, filtered quote list
-│   │   ├── items.js       # Items CRUD, categories, associations (bundles), is_subrental, vendor_id, contract_description
+│   │   ├── items.js       # Items CRUD, categories, associations (bundles), is_subrental, vendor_id, contract_description, bulk-upsert
 │   │   ├── availability.js # Conflicts, subrental-needs, quote conflict check, picker stock endpoint
 │   │   ├── vendors.js     # Vendors CRUD
+│   │   ├── updates.js     # Release status/list/apply flow for packaged updater
 │   │   ├── leads.js       # Leads CRUD, preview/import (CSV/XLSX/Sheets), events
 │   │   ├── templates.js   # Email + contract templates
 │   │   ├── files.js       # Upload, list, delete; stored in uploads/
