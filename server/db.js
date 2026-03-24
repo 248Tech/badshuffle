@@ -67,6 +67,13 @@ class DB {
     fs.writeFileSync(DB_PATH, Buffer.from(data));
   }
 
+  reload(buffer) {
+    const newRaw = new this._SQL.Database(buffer);
+    this._raw.close();
+    this._raw = newRaw;
+    this._save();
+  }
+
   prepare(sql) { return new Statement(this, sql); }
 
   exec(sql) {
@@ -112,6 +119,7 @@ async function initDb() {
   }
 
   const db = new DB(raw);
+  db._SQL = SQL; // stored for reload() after DB import
 
   db.pragma('foreign_keys = ON');
 
@@ -607,6 +615,18 @@ async function initDb() {
 
   // Availability setting
   db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run('count_oos_oversold', '0');
+
+  // Message settings
+  const messageDefaults = { message_email_signature: '', message_theme: 'default', message_auto_attach_pdf: '0' };
+  for (const [k, v] of Object.entries(messageDefaults)) {
+    db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
+  }
+
+  // Inventory UI settings
+  const inventoryDefaults = { inventory_default_view: 'grid', inventory_items_per_page: '48' };
+  for (const [k, v] of Object.entries(inventoryDefaults)) {
+    db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
+  }
 
   // AI settings
   const aiDefaults = {

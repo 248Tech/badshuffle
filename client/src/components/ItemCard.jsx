@@ -44,6 +44,7 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSou
             src={api.proxyImageUrl(item.photo_url)}
             alt={item.title}
             className={styles.img}
+            loading="lazy"
             onError={() => setImgError(true)}
           />
         ) : (
@@ -51,6 +52,7 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSou
             src="/placeholder.png"
             alt=""
             className={styles.img}
+            loading="lazy"
             aria-hidden
           />
         )}
@@ -74,13 +76,14 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSou
               <button
                 className={styles.overlayBtn}
                 title="Add to project"
+                aria-label={`Add ${item.title} to project`}
                 onClick={() => onAddToQuote(item)}
               >
                 +
               </button>
             )}
             {onEdit && (
-              <button className={styles.overlayBtn} title="Edit item" onClick={() => onEdit(item)}>
+              <button className={styles.overlayBtn} title="Edit item" aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}>
                 <EditIcon />
               </button>
             )}
@@ -89,6 +92,7 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSou
             <button
               className={`${styles.overlayBtn} ${styles.overlayBtnDanger}`}
               title="Delete item"
+              aria-label={`Delete ${item.title}`}
               onClick={() => onDelete(item)}
             >
               <TrashIcon />

@@ -1,6 +1,6 @@
 # BadShuffle — TODO / FIXME / Unfinished
 
-Aggregated from the codebase and existing `ai/` docs. Updated 2026-03-23.
+Aggregated from the codebase and existing `ai/` docs. Updated 2026-03-24.
 
 ---
 
@@ -8,197 +8,186 @@ Aggregated from the codebase and existing `ai/` docs. Updated 2026-03-23.
 
 See full design spec: `ai/UXDesign/BADSHUFFLE_REDESIGN.md`
 
-### Phase 1 — Foundation (start here)
+### Phase 1 — Foundation ✅ COMPLETE
 
-- [ ] **UX-1: Background layer separation**
-  - Scope: UI only — 1 line change
-  - Files: `client/src/theme.css`
-  - Behavior: Change `body { background: var(--color-bg) }` → `body { background: var(--color-surface) }`. Immediately creates foreground/background depth on all screens.
-  - Priority: **Critical** — highest ROI change in the entire project
-  - Next tool: Aider
-  - Follow-up: Cursor (verify all 4 themes look correct)
-
-- [ ] **UX-2: Add derived color tokens**
-  - Scope: UI only
-  - Files: `client/src/theme.css`
-  - Behavior: Add `--color-primary-subtle` and `--color-primary-hover` using `color-mix()` to all 5 `:root` blocks (default + 4 themes). These replace scattered inline `rgba()` calls throughout the codebase.
-  - Priority: **Critical** — required by sidebar, quote builder, and inventory changes
-  - Next tool: Aider
-  - Follow-up: Cursor (grep for remaining inline rgba primary references and replace)
-
-- [ ] **UX-3: Button active micro-interaction**
-  - Scope: UI only
-  - Files: `client/src/theme.css`
-  - Behavior: Add `transition: ..., transform 0.1s` and `.btn:active { transform: scale(0.97) }` to the `.btn` class. Every button in the app presses visually.
-  - Priority: **High**
-  - Next tool: Aider
-
-- [ ] **UX-4: Card hover elevation**
-  - Scope: UI only
-  - Files: `client/src/theme.css`
-  - Behavior: Add `transition: box-shadow 0.2s ease` and `.card:hover { box-shadow: var(--shadow-md) }` to `.card`. Do NOT add `transform` to generic `.card` — only lift transforms for inventory cards.
-  - Priority: **High**
-  - Next tool: Aider
-
-- [ ] **UX-5: Content area padding + max-width**
-  - Scope: UI only
-  - Files: `client/src/components/Layout.module.css`
-  - Behavior: Main content area gets `padding: 24px 32px`, `max-width: 1440px`. Mobile: `padding: 16px`. Adds breathing room across all pages.
-  - Priority: **High**
-  - Next tool: Aider
-  - Follow-up: Cursor (check for pages that override layout padding with their own and normalize)
-
-- [ ] **UX-6: Sidebar active state upgrade**
-  - Scope: UI only
-  - Files: `client/src/components/Sidebar.module.css`
-  - Behavior: Active nav item gets pill background (`var(--color-primary-subtle)`) + left accent bar (3px, `var(--color-primary)`). Hover state gets `var(--color-primary-hover)` background. Section groups get 20–24px vertical gap. See design memo section 6.2 for exact CSS.
-  - Priority: **High**
-  - Next tool: Aider
-  - Follow-up: Cursor (verify all themes, check icon alignment)
+- [x] **UX-1: Background layer separation** — done (`body { background: var(--color-surface) }` in theme.css)
+- [x] **UX-2: Add derived color tokens** — done (`--color-primary-subtle`, `--color-primary-hover` in all 5 `:root` blocks)
+- [x] **UX-3: Button active micro-interaction** — done (`.btn:active { transform: scale(0.97) }`)
+- [x] **UX-4: Card hover elevation** — done (`.card:hover { box-shadow: var(--shadow-md) }`)
+- [x] **UX-5: Content area padding + max-width** — done (`padding: 24px 32px`, `max-width: 1440px` on `.mainInner`)
+- [x] **UX-6: Sidebar active state upgrade** — done (left accent bar + hover state)
 
 ---
 
-### Phase 2 — Core Screens
+### Phase 2 — Core Screens ✅ COMPLETE
 
-- [ ] **UX-7: Dashboard KPI card redesign**
-  - Scope: UI only — no data changes
-  - Files: `client/src/pages/DashboardPage.jsx`, `client/src/pages/DashboardPage.module.css`
-  - Behavior: KPI cards get left accent border (4px, `--color-primary`/`--color-success`/`--color-accent`), value at 28px bold, label at 12px muted uppercase. Each KPI card wrapped in `.card`. See design memo section 7.1 for exact CSS classes.
-  - Priority: **High**
-  - Next tool: Aider
-  - Follow-up: Cursor (spacing consistency, icon sizing if icons are added)
-
-- [ ] **UX-8: Dashboard empty states**
-  - Scope: UI only
-  - Files: `client/src/pages/DashboardPage.jsx`, `DashboardPage.module.css`
-  - Behavior: All empty sections (no upcoming events, no conflicts, no activity) use `.empty-state` utility class with descriptive message + action link. No blank/dead sections.
-  - Priority: **Medium**
-  - Next tool: Cursor
-
-- [ ] **UX-9: Inventory filter bar — single-row scroll**
-  - Scope: UI only
-  - Files: `client/src/pages/InventoryPage.module.css`
-  - Behavior: Category pill bar becomes `overflow-x: auto`, `flex-wrap: nowrap`, scrollbar hidden. Active pill filled (`var(--color-primary)` bg, white text), inactive outlined. Single horizontal row regardless of category count.
-  - Priority: **High**
-  - Next tool: Aider
-
-- [ ] **UX-10: Inventory item card — hover overlay + lift**
-  - Scope: UI only
-  - Files: `client/src/components/ItemCard.jsx`, `client/src/components/ItemCard.module.css`
-  - Behavior: Card gets `overflow: hidden`, image at 4:3 aspect-ratio. Hover state shows overlay div (rgba dark) with "Add to Quote" + "Edit" buttons centered. At rest: no action buttons visible. Card lifts on hover: `transform: translateY(-2px)`, `box-shadow: var(--shadow-md)`. Out-of-stock badge overlaid on image (bottom-left). Existing click behavior unchanged.
-  - Priority: **High**
-  - Next tool: Aider
-  - Follow-up: Cursor (image loading states, placeholder styling)
-
-- [ ] **UX-11: Table row styling — Leads page**
-  - Scope: UI only
-  - Files: `client/src/pages/LeadsPage.module.css`
-  - Behavior: `td { padding: 14px 16px }`. Row hover: `background: var(--color-surface)`. Header: 11px uppercase, sticky, `background: var(--color-surface)`. Remove heavy inner borders. Key column (name) semibold. Table wrapped in `.card`. See design memo section 7.5.
-  - Priority: **Medium**
-  - Next tool: Aider
-
-- [ ] **UX-12: Table row styling — Billing page**
-  - Scope: UI only
-  - Files: `client/src/pages/BillingPage.module.css`
-  - Behavior: Same treatment as UX-11 (Leads). Apply consistently.
-  - Priority: **Medium**
-  - Next tool: Aider
+- [x] **UX-7: Dashboard KPI card redesign** — done (`border-left: 4px solid var(--color-primary)`, 30px bold values)
+- [x] **UX-8: Dashboard empty states** — done (`.empty-state` used throughout dashboard sections)
+- [x] **UX-9: Inventory filter bar — single-row scroll** — done (`overflow-x: auto`, `flex-wrap: nowrap` in InventoryPage.module.css)
+- [x] **UX-10: Inventory item card — hover overlay + lift** — done (ItemCard.module.css: overlay, 4:3 image, `translateY(-2px)`)
+- [x] **UX-11: Table row styling — Leads page** — done (`padding: 14px 16px`, sticky header, hover state)
+- [x] **UX-12: Table row styling — Billing page** — done (same treatment applied)
 
 ---
 
-### Phase 3 — Critical Flow
+### Phase 3 — Critical Flow ✅ COMPLETE
 
-- [ ] **UX-13: Quote Builder item cards**
-  - Scope: UI only — no data or logic changes
-  - Files: `client/src/components/QuoteBuilder.jsx`, `client/src/components/QuoteBuilder.module.css`
-  - Behavior: Each quote line item becomes a card (not a table row). Layout: drag handle → thumbnail (56×56) → info block → discount badge → qty controls → unit price → line total → remove (hover only). See design memo section 7.3 for exact CSS. Drag behavior unchanged.
-  - Priority: **Critical**
-  - Next tool: Aider
-  - Follow-up: Cursor (spacing, mobile collapse behavior)
-
-- [ ] **UX-14: Quote Builder — add-to-quote flash animation**
-  - Scope: UI only
-  - Files: `client/src/components/QuoteBuilder.jsx`, `QuoteBuilder.module.css`
-  - Behavior: When a new item is added to the quote, the new item card animates in with a 400ms background flash (`addedFlash` keyframe: primary-subtle → bg). Class added on mount, removed after animation. No toast needed for this action.
-  - Priority: **Medium**
-  - Next tool: Cursor
-
-- [ ] **UX-15: Quote Builder — summary panel sticky + total emphasis**
-  - Scope: UI only
-  - Files: `client/src/components/QuoteBuilder.module.css`, `client/src/pages/QuoteDetailPage.module.css`
-  - Behavior: Summary panel gets `position: sticky`, `top: 20px`, `box-shadow: var(--shadow-md)`. Total line: 24px, bold, `color: var(--color-primary)`. "Send to Client" button: full width, `btn-primary`, bottom of summary panel. Secondary actions (Copy Link, Duplicate, Export) grouped as a row below primary CTA. Delete: small, `--color-danger`, separated below. Top action bar cleaned up: quote name + status badge left; Save + secondary dropdown right.
-  - Priority: **Critical**
-  - Next tool: Aider
-  - Follow-up: Cursor (sticky behavior on mobile, overflow scroll)
-
-- [ ] **UX-16: Import flow — stepper component**
-  - Scope: UI only — no data or API changes
-  - Files: `client/src/pages/ImportPage.jsx`, `client/src/pages/ImportPage.module.css`
-  - New file: `client/src/components/Stepper.jsx` (optional extraction)
-  - Behavior: Add a stepper (step indicators + connector line) above the content in each ImportPage tab that has multiple steps. Each step's content isolated in a `.card`. Only active step is expanded. Stepper shows: Upload → Map Columns → Review & Import. "Next" button advances step. "Back" button regresses. Final step shows "Import" as primary CTA. Existing upload/mapping/review logic unchanged.
-  - Priority: **High**
-  - Next tool: Aider
-  - Follow-up: Cursor (step transition animation, mobile layout)
-
-- [ ] **UX-17: Messages empty state + thread list upgrade**
-  - Scope: UI only
-  - Files: `client/src/pages/MessagesPage.jsx`, `client/src/pages/MessagesPage.module.css`
-  - Behavior: Empty state: large icon + "No messages yet" + "Start a conversation by sending a quote to a client" + "→ Go to Quotes" link. Thread list rows: 56px min-height, contact name bold, quote name muted, last message preview truncated, timestamp right-aligned, unread badge. Active thread: `--color-primary-subtle` bg + left accent. Message bubbles: outbound right-aligned primary-subtle bg, inbound left-aligned surface bg, 75% max-width, rounded corners.
-  - Priority: **Medium**
-  - Next tool: Aider
-  - Follow-up: Cursor (bubble alignment edge cases)
+- [x] **UX-13: Quote Builder item cards** — done (padding upgraded to `12px 14px`, thumbnail 48×48, hover shadow, `border-radius: var(--radius)`)
+- [x] **UX-14: Quote Builder — add-to-quote flash animation** — done (`newlyAddedItemId` state, `quoteItemAdded` class applied on add)
+- [x] **UX-15: Quote Builder — summary panel sticky + total emphasis** — done (`.exportCol { position: sticky; top: 24px }`, `.totalsValueGrand { font-size: 24px; color: var(--color-primary) }`)
+- [x] **UX-16: Import flow — stepper component** — done (STEPS array, step state, `.stepper` CSS in ImportPage)
+- [x] **UX-17: Messages empty state + thread list upgrade** — done (`.empty` with icon, thread rows `min-height: 56px`, active state)
 
 ---
 
-### Phase 4 — Polish
+### Phase 4 — Polish 🔄 IN PROGRESS
 
-- [ ] **UX-18: Skeleton loaders**
-  - Scope: UI only
-  - Files: `client/src/theme.css`, then per-page files
-  - Behavior: Add `.skeleton` shimmer class to `theme.css`. Replace `Loading…` text and spinner-only states with skeleton placeholders on: Dashboard KPI area, Inventory grid, Quote item list, Table bodies.
-  - Priority: **Medium**
-  - Next tool: Cursor
+- [x] **UX-18: Skeleton loaders** — done (ItemGrid: 8-card skeleton grid + CSS; DashboardPage: KPI + chart skeletons; LeadsPage: skeleton table rows)
+- [ ] **UX-19: Cross-theme QA pass** — Manually load all 4 themes (default, shadcn, material, chakra). Verify: background separation, primary-subtle token, sidebar active, KPI accents. **Requires visual review.**
+- [ ] **UX-20: Mobile responsive pass** — QuoteBuilder two-panel stacks at <1024px, import stepper compact at <768px, messages split-pane collapses, all tables get horizontal scroll at <768px. **(Partially done — needs spot-check.)**
 
-- [ ] **UX-19: Cross-theme QA pass**
-  - Scope: QA only
-  - Files: none (visual review)
-  - Behavior: Load all 4 themes (default, shadcn, material, chakra). Verify: background separation works, primary-subtle derived token renders correctly, sidebar active state visible, KPI accents visible, no hardcoded color escapes into wrong theme color.
-  - Priority: **High** (must happen before any merge)
-  - Next tool: Cursor
+---
 
-- [ ] **UX-20: Mobile responsive pass**
-  - Scope: UI only
-  - Files: QuoteBuilder, ImportPage, MessagesPage, Tables
-  - Behavior: QuoteBuilder two-panel stacks vertically at <1024px. Import stepper becomes compact at <768px. Messages split-pane collapses to single-pane with back navigation. All tables get horizontal scroll container at <768px.
-  - Priority: **Medium**
-  - Next tool: Cursor
+## 🐛 Bug / Theme Compat Fixes ✅ DONE THIS SESSION
+
+- [x] `FilesPage.module.css` — `var(--color-bg-elevated)` undefined → `var(--color-surface)`
+- [x] `DashboardPage.module.css` — hardcoded `#1a8fc1` → `var(--color-primary)`
+- [x] `DashboardPage.jsx` — inline `borderLeftColor: '#1a8fc1'` removed; `#16b2a5` → `var(--color-accent)`; bar fallback → `var(--color-primary)`
+- [x] Focus rings (`rgba(26,143,193,0.12)`) → `var(--color-primary-subtle)` in InventoryPage, LeadsPage, QuotePage
+- [x] `Layout.module.css` — added `max-width: 1440px` on `.mainInner`
 
 ---
 
 ## Active / In-Progress (Existing Backlog)
 
-### Post-v0.0.3 polish backlog
+- [ ] **Task 13: Condense client/venue info display** — QuoteDetailPage view mode: make the client/venue info block more compact (tighter layout, less vertical whitespace).
+- [ ] **Task 14: Mobile optimization** — Responsive layout pass. Known pain points: QuoteBuilder on narrow screens (table overflow), QuoteDetailPage tabs, MessagesPage split-pane, modals.
 
-- [ ] **Task 13: Condense client/venue info display** — QuoteDetailPage view mode: make the client/venue info block more compact (tighter layout, less vertical whitespace). Edit form is fine; view-mode display needs condensing.
-- [ ] **Task 14: Mobile optimization** — Responsive layout pass. Known pain points: QuoteBuilder on narrow screens (table overflow), QuoteDetailPage tabs, MessagesPage split-pane, modals. Start with `@media (max-width: 640px)` rules in the heavy pages.
+---
+
+## 🚀 New: Performance & Optimization
+
+- [ ] **PERF-1: Lazy-load page components** — Currently all pages are bundled together. Add `React.lazy()` + `Suspense` for heavy pages (QuoteDetailPage, ImportPage, SettingsPage, AdminPage). Reduces initial bundle parse time.
+  - Files: `client/src/App.jsx`
+  - Priority: **High**
+
+- [x] **PERF-2: Image lazy loading** — done (`loading="lazy"` added to ItemCard.jsx img tags). Still needed: `FilesPage.jsx`, `PublicCatalogPage.jsx`.
+  - Files: `FilesPage.jsx`, `PublicCatalogPage.jsx` (remaining)
+  - Priority: **High** — inventory grids can have 200+ images
+
+- [ ] **PERF-3: Debounce search inputs** — Several search inputs (QuotePage filter, InventoryPage) trigger API calls on every keystroke. Unify debounce to 300ms across all search inputs.
+  - Files: `InventoryPage.jsx`, `QuotePage.jsx`, `BillingPage.jsx`
+  - Priority: **Medium**
+
+- [ ] **PERF-4: Memoize QuoteBuilder item list** — `QuoteBuilder.jsx` re-renders the full item list on every `localQty` keystroke. Wrap item map in `useMemo` keyed to `items` and `newlyAddedItemId`.
+  - Files: `QuoteBuilder.jsx`
+  - Priority: **Medium**
+
+- [ ] **PERF-5: Virtual list for large inventory grids** — Inventory grids with 500+ items cause jank. Consider `react-window` or manual `IntersectionObserver` pagination. (Already has server-side pagination in QuoteBuilder picker — extend to InventoryPage grid.)
+  - Files: `InventoryPage.jsx`, `ItemGrid.jsx`
+  - Priority: **Low** (pagination mitigates this for most users)
+
+---
+
+## ♿ Accessibility (a11y)
+
+- [x] **A11Y-1: Add `aria-label` to icon-only buttons** — done for ItemCard overlay buttons and QuoteBuilder remove button. Remaining: drag handles ⠿ in QuoteBuilder. — Several buttons render only emoji/SVG with no text (e.g., remove buttons `×`, drag handles ⠿, overlay action buttons in ItemCard). Screen readers announce nothing useful.
+  - Files: `QuoteBuilder.jsx`, `ItemCard.jsx`, `ItemCard.module.css`
+  - Priority: **High**
+
+- [ ] **A11Y-2: Keyboard navigation for inventory card overlay** — The hover overlay on ItemCard (Add to Quote / Edit) is unreachable by keyboard. Add `tabIndex` to the card and show overlay on `:focus-within`.
+  - Files: `ItemCard.jsx`, `ItemCard.module.css`
+  - Priority: **High**
+
+- [ ] **A11Y-3: Focus trap in modals** — Modals (delete confirm, discount edit, custom item form) do not trap focus — Tab escapes the modal into background content.
+  - Files: `QuoteDetailPage.jsx`, `QuoteBuilder.jsx`, modal components
+  - Priority: **Medium**
+
+- [x] **A11Y-4: `role="status"` on toast notifications** — done (`role="status"`, `aria-live="polite"`, `aria-atomic="false"` added to Toast container) — The Toast component should announce messages to screen readers via `aria-live="polite"`.
+  - Files: `client/src/components/Toast.jsx`
+  - Priority: **Medium**
+
+- [ ] **A11Y-5: Color-only status indicators** — Several status badges rely solely on color (red/green/yellow) with no icon or label difference. Fails WCAG 1.4.1 (Use of Color).
+  - Files: `QuoteCard.jsx`, `DashboardPage.jsx`, `BillingPage.jsx`
+  - Priority: **Medium**
+
+- [ ] **A11Y-6: Proper heading hierarchy** — Most pages use `<h1>` for the page title but skip to `<h3>` for sections. Fix to sequential `h1 → h2 → h3`.
+  - Files: Multiple page files
+  - Priority: **Low**
+
+---
+
+## 🔍 SEO / Meta (for public-facing pages)
+
+- [x] **SEO-1: `<title>` and `<meta description>` on public quote page** — done (`document.title = quote.name + ' — Quote'` set on load in PublicQuotePage.jsx) — `PublicQuotePage.jsx` renders with no page title or description. Clients who receive a quote link see a blank browser tab title. Add dynamic `<title>` via `document.title = quoteData.event_name`.
+  - Files: `PublicQuotePage.jsx`
+  - Priority: **High** — client-facing
+
+- [ ] **SEO-2: Open Graph tags on public catalog** — `PublicCatalogPage.jsx` and `PublicItemPage.jsx` are public pages. Add `<meta property="og:title">`, `og:description`, `og:image` via `react-helmet` or direct `document.querySelector`.
+  - Files: `PublicCatalogPage.jsx`, `PublicItemPage.jsx`
+  - Priority: **Medium**
+
+- [ ] **SEO-3: Canonical URL on public pages** — Public quote, catalog, and item pages should have `<link rel="canonical">` to avoid duplicate content if accessed through multiple URL patterns.
+  - Files: `PublicQuotePage.jsx`, `PublicCatalogPage.jsx`, `PublicItemPage.jsx`
+  - Priority: **Low** (app is a SaaS tool; public pages have limited SEO value)
+
+---
+
+## 🤝 User-Friendliness / UX Quality
+
+- [ ] **UXQ-1: Unsaved changes warning** — QuoteDetailPage edit form doesn't warn before navigating away with unsaved changes. Use `useBeforeUnload` + `useBlocker` (React Router v6) to show a confirmation dialog.
+  - Files: `QuoteDetailPage.jsx`
+  - Priority: **High** — users lose work silently
+
+- [x] **UXQ-2: Empty search results message** — done for LeadsPage (contextual "No leads match X" + Clear button) and InventoryPage/ItemGrid (contextual "No items match X" + Clear button) — When a search returns 0 results, show "No results for [query]" with a clear/reset button. Currently just shows an empty table with no explanation.
+  - Files: `LeadsPage.jsx`, `BillingPage.jsx`, `QuotePage.jsx`, `InventoryPage.jsx`
+  - Priority: **High**
+
+- [ ] **UXQ-3: Confirm before destructive actions** — Delete buttons (delete quote, delete item, delete lead, bulk delete files) trigger immediately or with a basic `window.confirm()`. Replace with inline confirm UI (button turns red + "Are you sure?" inline).
+  - Files: Multiple pages
+  - Priority: **High**
+
+- [ ] **UXQ-4: Keyboard shortcut to add item in QuoteBuilder** — Power users editing quotes should be able to type to search inventory and press Enter to add. Currently requires mouse click.
+  - Files: `QuoteBuilder.jsx`
+  - Priority: **Medium**
+
+- [ ] **UXQ-5: Print-friendly quote export** — `QuoteExport.module.css` exists with print styles but print action is buried. Add a keyboard shortcut `Ctrl+P` interceptor on QuoteDetailPage that triggers the export print view.
+  - Files: `QuoteDetailPage.jsx`
+  - Priority: **Medium**
+
+- [ ] **UXQ-6: Autosave indicator** — When a quote field changes (qty, price), show a subtle "Saving…" → "Saved ✓" indicator near the summary panel. Currently no feedback that changes persisted.
+  - Files: `QuoteBuilder.jsx`, `QuoteDetailPage.jsx`
+  - Priority: **Medium**
+
+- [x] **UXQ-7: Error boundary** — done (`ErrorBoundary.jsx` created, wraps `<App>` in `main.jsx`. Shows friendly message + reload button on crash) — The app has no React error boundary. A runtime error in any component crashes the entire UI with a blank screen. Add a top-level `<ErrorBoundary>` with a friendly fallback.
+  - Files: `client/src/main.jsx` or `App.jsx`
+  - Priority: **Medium**
+
+- [ ] **UXQ-8: Back navigation on detail pages** — ItemDetailPage, QuoteDetailPage, and LeadsPage detail view have no clear "← Back" navigation. The browser back button works, but there's no in-app affordance.
+  - Files: `ItemDetailPage.jsx`, `QuoteDetailPage.jsx`
+  - Priority: **Low**
+
+- [ ] **UXQ-9: `<title>` tag updates for app pages** — The browser tab always shows the default title. Each page should update `document.title` to reflect the current view (e.g., "Quote — John's Wedding | BadShuffle").
+  - Files: All main page files
+  - Priority: **Low**
 
 ---
 
 ## Backlog (not yet scheduled)
 
 ### Quote builder
-- [ ] **Drag-nest accessories (2-second hover)** — When dragging a quote item over another for 2 seconds, nest it as a temporary accessory under that item. Item accessories (permanent) are now stored in `item_accessories`; the auto-add-on-quote-item feature (add parent → accessories auto-appear) is not yet implemented.
-- [ ] **Auto-add permanent accessories** — When a product is added to a quote, automatically add its `item_accessories` as hidden/sub-items. Schema exists (`item_accessories` table); no route or UI implements the auto-add yet.
+- [ ] **Auto-add permanent accessories** — When a product is added to a quote, automatically add its `item_accessories` as sub-items. Schema exists (`item_accessories` table); no UI implements auto-add yet.
+- [ ] **Drag-nest accessories (2-second hover)** — When dragging a quote item over another for 2 seconds, nest it as a temporary accessory under that item.
 
 ### Templates / TemplatesPage
 - [ ] **Preview pane in send modal** — Render email body or public quote link preview in the Send to Client modal before sending.
 
 ### Inventory
-- [ ] **Outbound message attachment info** — Show info about attached quote/image in message detail view in MessagesPage (item 16 from original batch; messages currently show thread but not attachment metadata).
+- [ ] **Outbound message attachment info** — Show info about attached quote/image in message detail view in MessagesPage.
 
 ### Auth / admin
 - [ ] **Role badge in top nav** — Small "Admin" / "Operator" badge next to user email in header. Data already available (role in App.jsx → Sidebar).
-- [ ] **Email notification on role change** — When admin changes a user's role via `PUT /api/admin/users/:id/role`, send an email to that user. SMTP is already wired.
+- [ ] **Email notification on role change** — When admin changes a user's role, send an email to that user. SMTP is already wired.
 
 ### Lead import
 - [ ] **More target fields** — e.g. guest count, delivery address if sheet columns expand.
@@ -207,41 +196,36 @@ See full design spec: `ai/UXDesign/BADSHUFFLE_REDESIGN.md`
 
 ## API / Docs
 
-- **OpenAPI spec** — `server/api/openapi.json` has not been updated for recent additions (per-item discounts, quote expiration, payment policies, rental terms, item accessories, reorder endpoint). Update if API consumers rely on the spec.
+- **OpenAPI spec** — `server/api/openapi.json` has not been updated for recent additions (per-item discounts, quote expiration, payment policies, rental terms, item accessories, reorder endpoint, templates, files). Update if API consumers rely on the spec.
 
 ---
 
 ## Verified / No Action Needed
 
 - DB persistence (`sql.js` writes to disk after every mutation) — confirmed working.
-- Audit fields (`items.updated_at`, `quotes.updated_at`) — already set on PUT. No change needed.
+- Audit fields (`items.updated_at`, `quotes.updated_at`) — already set on PUT.
 - Contract sub-resource — fully implemented.
 - Lead timeline / activity log — fully implemented.
-- SMTP send — wired when `smtp_host` is configured in Settings; stub only when not configured.
+- SMTP send — wired when `smtp_host` is configured in Settings.
 
 ---
 
 ## Priority Summary
 
-| Item | Priority | Agent | Note |
-|------|----------|-------|------|
-| UX-1: Background separation | Critical | Aider | 1 line, instant improvement |
-| UX-2: Derived color tokens | Critical | Aider | Unblocks sidebar + inventory work |
-| UX-3: Button active scale | High | Aider | Global, immediate feel improvement |
-| UX-4: Card hover elevation | High | Aider | Global |
-| UX-5: Layout padding | High | Aider | Global breathing room |
-| UX-6: Sidebar active state | High | Aider | Key navigation clarity |
-| UX-7: Dashboard KPI cards | High | Aider | High visibility |
-| UX-9: Inventory filter bar | High | Aider | Stops category pill chaos |
-| UX-10: Inventory item cards | High | Aider | Major visual improvement |
-| UX-13: Quote item cards | Critical | Aider | Money screen |
-| UX-15: Summary panel | Critical | Aider | Money screen |
-| UX-16: Import stepper | High | Aider | Flow clarity |
-| UX-11/12: Table styling | Medium | Aider | Scanability |
-| UX-17: Messages | Medium | Aider | Empty state fix |
-| UX-14: Add-flash animation | Medium | Cursor | Polish |
-| UX-18: Skeleton loaders | Medium | Cursor | Polish |
-| UX-19: Theme QA | High | Cursor | Pre-merge gate |
-| UX-20: Mobile pass | Medium | Cursor | After desktop is solid |
-| Task 13: Condense venue block | Medium | Cursor | UI polish |
-| Task 14: Mobile optimization | Medium | Cursor | Responsive |
+| Item | Priority | Note |
+|------|----------|-------|
+| UX-19: Cross-theme QA | High | Pre-merge gate — visual review required |
+| PERF-1: Lazy-load pages | High | Reduces initial parse time |
+| PERF-2: Image lazy loading | High | 200+ images in inventory |
+| A11Y-1: aria-label icon buttons | High | Screen reader baseline |
+| A11Y-2: Keyboard inventory overlay | High | Tab navigation gap |
+| SEO-1: Public quote `<title>` | High | Client-facing |
+| UXQ-1: Unsaved changes warning | High | Data loss risk |
+| UXQ-2: Empty search feedback | High | Dead-end UX |
+| UXQ-3: Confirm destructive actions | High | Accidental deletion |
+| UX-20: Mobile pass | Medium | After desktop solid |
+| PERF-3: Debounce search | Medium | Excess API calls |
+| A11Y-3: Focus trap in modals | Medium | Keyboard trap |
+| UXQ-6: Autosave indicator | Medium | Trust + polish |
+| UXQ-7: Error boundary | Medium | Crash resilience |
+| Task 13: Condense venue block | Medium | View-mode polish |

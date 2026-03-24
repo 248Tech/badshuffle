@@ -100,6 +100,8 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
   const [adjSaving, setAdjSaving] = useState(false);
   // Picker availability (stock / already booked) for current page of items
   const [pickerAvailability, setPickerAvailability] = useState({});
+  // Flash animation for newly added items
+  const [newlyAddedItemId, setNewlyAddedItemId] = useState(null);
 
   const filterMode = settings.quote_inventory_filter_mode || 'popular';
   const maxCategories = Math.max(1, Math.min(15, parseInt(settings.quote_inventory_max_categories, 10) || 10));
@@ -207,6 +209,8 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
     try {
       setOptimisticInQuote(prev => new Set(prev).add(item.id));
       await api.addQuoteItem(quoteId, { item_id: item.id });
+      setNewlyAddedItemId(item.id);
+      setTimeout(() => setNewlyAddedItemId(null), 600);
       onItemsChange();
       toast.success(`Added ${item.title}`);
     } catch (e) {
@@ -452,7 +456,7 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
             return (
               <div
                 key={item.qitem_id}
-                className={`${styles.quoteItem} ${item.hidden_from_quote ? styles.quoteItemHidden : ''} ${isOversold ? styles.quoteItemOversold : ''} ${dragOverId === item.qitem_id ? styles.quoteItemDragOver : ''}`}
+                className={`${styles.quoteItem} ${itemId === newlyAddedItemId ? 'quoteItemAdded' : ''} ${item.hidden_from_quote ? styles.quoteItemHidden : ''} ${isOversold ? styles.quoteItemOversold : ''} ${dragOverId === item.qitem_id ? styles.quoteItemDragOver : ''}`}
                 draggable
                 onDragStart={e => handleDragStart(e, item)}
                 onDragOver={e => handleDragOver(e, item)}
@@ -608,6 +612,7 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
                   className={styles.removeBtn}
                   onClick={(e) => { e.stopPropagation(); removeItem(item.qitem_id, item.title); }}
                   title="Remove"
+                  aria-label={`Remove ${item.title} from quote`}
                 >✕</button>
               </div>
             );

@@ -11,6 +11,29 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.0.5** - In-app updater and extension fallback import release
 - **0.0.6** - UI foundation and layout redesign release
 - **0.0.7** - Projects-first workflow and operations tooling release
+- **0.0.8** - Navigation, admin backup, and UX polish release
+
+---
+
+## [0.0.8] - 2026-03-24
+
+### Added
+- **Admin database backup workflows** - Added `GET /api/admin/db/export` and `POST /api/admin/db/import`, plus Admin UI actions to download and restore SQLite `.db` backups.
+- **Directory workspace** - Added a dedicated Directory page that groups Leads and Vendors under one navigation entry.
+- **Dedicated settings subpages** - Added Inventory Settings and Message Settings pages with persisted settings scaffolding for inventory display and outbound messaging preferences.
+- **Global crash fallback** - Added a top-level React `ErrorBoundary` with a user-facing reload recovery screen.
+
+### Changed
+- **Sidebar information architecture** - Reworked navigation into grouped sections with collapsible mode, hover flyouts, unread/pending badges, and live team presence context.
+- **Inventory and leads loading/search UX** - Replaced spinner-only states with skeleton loaders, added contextual empty-search messages with reset actions, and lazy-loaded inventory thumbnails.
+- **Quote builder polish** - Added add-to-project flash feedback and refined line-item spacing/thumbnail treatment.
+- **Theme consistency pass** - Replaced remaining hardcoded accent/focus colors with theme tokens, fixed the Files page elevated-surface token mismatch, and added a max-width constraint to the main layout.
+- **Dashboard polish** - Updated KPI accent styling to use theme variables and improved loading presentation during data fetches.
+
+### Fixed
+- **Public quote browser tab title** - Public quote pages now set `document.title` from the active quote name.
+- **Toast accessibility** - Toast notifications now announce through `role="status"` and `aria-live`.
+- **Inventory card action labels** - Icon-only item card actions now expose accessible names for assistive technologies.
 
 ---
 

@@ -39,7 +39,7 @@
 .search:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(26,143,193,0.12);
+  box-shadow: 0 0 0 3px var(--color-primary-subtle);
 }
 
 .tableCard { padding: 0; overflow: hidden; }

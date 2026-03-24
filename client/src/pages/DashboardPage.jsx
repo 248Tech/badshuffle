@@ -30,7 +30,7 @@ function BarChart({ data, colorMap }) {
               className={styles.barFill}
               style={{
                 width: `${(d.value / max) * 100}%`,
-                background: (colorMap && colorMap[d.label]) || '#1a8fc1'
+                background: (colorMap && colorMap[d.label]) || 'var(--color-primary)'
               }}
             />
           </div>
@@ -57,7 +57,29 @@ export default function DashboardPage() {
     api.getSubrentals().then(d => setSubrentals(d.subrentals || [])).catch(() => {});
   }, []);
 
-  if (loading) return <div className="empty-state"><div className="spinner" /></div>;
+  if (loading) return (
+    <div className={styles.page}>
+      <div className="skeleton" style={{ height: 28, width: 160, marginBottom: 4 }} />
+      <div className={styles.statGrid}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className={`card ${styles.statCard}`}>
+            <div className="skeleton" style={{ height: 11, width: '55%' }} />
+            <div className="skeleton" style={{ height: 30, width: '40%', marginTop: 8 }} />
+          </div>
+        ))}
+      </div>
+      <div className={styles.charts}>
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className={`card ${styles.chartCard}`}>
+            <div className="skeleton" style={{ height: 11, width: '45%', marginBottom: 16 }} />
+            {Array.from({ length: 5 }).map((_, j) => (
+              <div key={j} className="skeleton" style={{ height: 22, marginBottom: 8 }} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
   if (!summary) return <p className={styles.error}>Failed to load dashboard data.</p>;
 
   const { total, byStatus = {}, revenueByStatus = {}, upcoming = [], byMonth = [] } = summary;
@@ -84,7 +106,7 @@ export default function DashboardPage() {
 
       {/* Stat cards */}
       <div className={styles.statGrid}>
-        <div className={styles.statCard} style={{ borderLeftColor: '#1a8fc1' }}>
+        <div className={styles.statCard}>
           <span className={styles.statLabel}>Total Projects</span>
           <span className={styles.statValue}>{total}</span>
         </div>
@@ -100,9 +122,9 @@ export default function DashboardPage() {
           <span className={styles.statLabel}>Sent to Client</span>
           <span className={styles.statValue} style={{ color: '#f59e0b' }}>{byStatus.sent || 0}</span>
         </div>
-        <div className={styles.statCard} style={{ borderLeftColor: '#16b2a5' }}>
+        <div className={styles.statCard} style={{ borderLeftColor: 'var(--color-accent)' }}>
           <span className={styles.statLabel}>Signed Revenue</span>
-          <span className={styles.statValue} style={{ color: '#16b2a5' }}>${(revenueByStatus.approved || 0).toFixed(0)}</span>
+          <span className={styles.statValue} style={{ color: 'var(--color-accent)' }}>${(revenueByStatus.approved || 0).toFixed(0)}</span>
         </div>
       </div>
 

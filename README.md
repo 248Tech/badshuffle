@@ -1,6 +1,6 @@
-# BadShuffle v0.0.7
+# BadShuffle v0.0.8
 
-![Release](https://img.shields.io/badge/release-0.0.7-0a7ea4)
+![Release](https://img.shields.io/badge/release-0.0.8-0a7ea4)
 ![Status](https://img.shields.io/badge/status-pre--release-c79200)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
 ![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Windows%20EXE-2ea44f)
@@ -21,13 +21,13 @@ BadShuffle is a self-hosted event rental software platform for project-centric q
 - **Domain complexity** — Availability conflicts, per-line pricing overrides, reusable rental/payment policies, and public quote signing target actual event-rental workflows.
 - **Deployment pragmatism** — Run it locally, on a LAN, in Docker, or as packaged Windows executables.
 
-## What’s New In v0.0.7
+## What’s New In v0.0.8
 
-- **Projects-first workflow pass** — UI terminology and key surfaces were aligned around “Projects” (formerly quote-centric wording), including project list sorting/filtering and streamlined creation/edit flow updates.
-- **Files + billing operations upgrade** — Files now support richer list/tile management, bulk actions, and linked-project inspection; Billing now includes stronger history tooling plus outstanding balance visibility.
-- **Project detail lifecycle polish** — Improved header/status UX (expiration + unsigned-change handling), better payment/file interactions, and clearer internal actions for confirm/revert/close workflows.
-- **Inventory model expansion** — Added item type support (`product` / `group` / `accessory`), stronger edit controls (photo upload/subrental toggles), and configurable source visibility indicators.
-- **Search/filter quality improvements** — Upgraded date-range picker with presets and month/year selectors, standardized search UX across pages, plus autocomplete/sort improvements in Leads and other operational tables.
+- **Navigation architecture refresh** — The sidebar is now grouped around workflows (Projects, Inventory, Messages, Directory, Settings), supports collapse + flyout behavior, and surfaces unread-message plus pending-admin counts alongside live team presence.
+- **Admin continuity tooling** — Admin now includes SQLite backup export/import so operators can migrate or restore data without leaving the app.
+- **New workspace surfaces** — Added a Directory hub for Leads/Vendors plus dedicated Inventory Settings and Message Settings screens for operational preferences.
+- **UX resilience pass** — Added skeleton loading states, contextual empty-search feedback, a global React error boundary, toast screen-reader announcements, and lazy-loaded inventory imagery.
+- **Theme and builder polish** — Replaced more hardcoded UI colors with theme tokens, fixed remaining surface-token mismatches, tightened quote-builder item presentation, and constrained the main content width for better wide-screen balance.
 
 ## Core Features
 
@@ -36,6 +36,7 @@ BadShuffle is a self-hosted event rental software platform for project-centric q
 - **Availability awareness** — Quote conflict checks, oversold detection, subrental needs, and inventory-aware quote building.
 - **Public-facing surfaces** — Client quote page, live quote messaging, SEO catalog pages, `robots.txt`, sitemap generation, and JSON-LD metadata.
 - **Comms and files** — SMTP send, IMAP reply capture, media library uploads, and quote-linked attachments.
+- **Operations + admin** — Role-aware navigation, user approval/admin tools, update controls, SQLite backup/restore, and directory-style lead/vendor management.
 - **Import and sync** — Google Sheets import plus a Chrome extension for syncing items from Goodshuffle Pro, with manual JSON fallback import.
 - **Optional AI** — Per-feature provider settings for OpenAI, Anthropic, and Gemini without making AI a hard dependency.
 
@@ -48,10 +49,10 @@ BadShuffle is a self-hosted event rental software platform for project-centric q
 
 ## Near-Term Roadmap
 
-- **Quote detail cleanup** — Condense client/venue display in `QuoteDetailPage` view mode.
-- **Mobile optimization** — Tight responsive pass across quote editing, tabs, messages, and modal-heavy screens.
-- **Send preview** — Inline preview of quote email/public link before sending.
-- **Operations depth** — Pull sheets and richer warehouse workflows.
+- **Cross-theme QA + responsive pass** — Finish theme verification and close remaining mobile layout gaps across quote editing, messages, and modal-heavy views.
+- **Performance follow-up** — Lazy-load heavy pages and finish image lazy loading on the remaining public/files surfaces.
+- **Workflow safety** — Add unsaved-changes warnings plus better inline confirmation patterns for destructive actions.
+- **Operations depth** — Send preview, pull sheets, and richer warehouse workflows.
 
 More context lives in [ai/KNOWN_GAPS.md](ai/KNOWN_GAPS.md) and [ai/TODO.md](ai/TODO.md).
 

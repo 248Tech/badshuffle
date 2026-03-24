@@ -71,6 +71,18 @@ export const api = {
     changeRole:         (id, role)   => request(`/admin/users/${id}/role`, { method: 'PUT', body: { role } }),
     getSystemSettings:  ()           => request('/admin/system'),
     updateSystemSettings: (body)     => request('/admin/system', { method: 'PUT', body }),
+    exportDb: () => {
+      const token = getToken();
+      return fetch(`${BASE}/admin/db/export`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.blob(); });
+    },
+    importDb: (file) => {
+      const token = getToken();
+      const form = new FormData();
+      form.append('db', file);
+      return fetch(`${BASE}/admin/db/import`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
+        .then(async resp => { const d = await resp.json().catch(() => ({})); if (!resp.ok) throw new Error(d.error || `HTTP ${resp.status}`); return d; });
+    },
   },
 
   // Items

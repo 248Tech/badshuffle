@@ -41,12 +41,16 @@
 .quoteItem, .pickerItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border);
   background: var(--color-bg);
   min-width: 0;
+  transition: box-shadow 0.15s;
+}
+.quoteItem:hover {
+  box-shadow: var(--shadow);
 }
 
 .pickerItem {
@@ -63,8 +67,8 @@
   gap: 4px;
 }
 .thumb {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   object-fit: cover;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
@@ -169,8 +173,8 @@
 .addCustomBtn:hover { filter: brightness(1.1); }
 
 .thumbPlaceholder {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -572,7 +576,7 @@
     padding: 6px 8px;
     gap: 8px;
   }
-  .thumb, .thumbPlaceholder { width: 32px; height: 32px; }
+  .thumb, .thumbPlaceholder { width: 36px; height: 36px; }
   .itemTitle, .itemTitleLink { font-size: 12px; }
   .unitPrice, .lineTotal, .laborHours { font-size: 11px; }
   .qtyControl button { width: 28px; height: 28px; }

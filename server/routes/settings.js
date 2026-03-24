@@ -14,6 +14,8 @@ const ALLOWED_KEYS = [
   'ai_email_draft_enabled', 'ai_email_draft_model',
   'ai_description_enabled', 'ai_description_model',
   'ui_theme',
+  'message_email_signature', 'message_theme', 'message_auto_attach_pdf',
+  'inventory_default_view', 'inventory_items_per_page',
 ];
 
 module.exports = function makeRouter(db) {

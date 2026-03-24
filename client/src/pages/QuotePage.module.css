@@ -65,7 +65,7 @@
 .filterSearchWrap { position: relative; display: flex; align-items: center; }
 .filterSearchIcon { position: absolute; left: 9px; color: var(--color-text-muted); pointer-events: none; }
 .filterInputSearch { width: 180px; max-width: 100%; padding: 6px 10px 6px 30px; font-size: 13px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg); color: var(--color-text); }
-.filterInputSearch:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(26,143,193,0.12); }
+.filterInputSearch:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-subtle); }
 .filterSelect { padding: 6px 10px; font-size: 13px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg); }
 .filterDate { padding: 6px 10px; font-size: 13px; border: 1px solid var(--color-border); border-radius: 6px; width: 140px; }
 .filterCheck { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text-muted); cursor: pointer; white-space: nowrap; }

@@ -326,11 +326,97 @@ function SystemTab() {
   );
 }
 
+// ── Database tab ──────────────────────────────────────────────────────────────
+
+function DatabaseTab() {
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importError, setImportError] = useState('');
+  const [importSuccess, setImportSuccess] = useState('');
+  const fileInputRef = React.useRef(null);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const blob = await api.admin.exportDb();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `badshuffle-backup-${new Date().toISOString().slice(0, 10)}.db`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Export failed: ' + e.message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleImport() {
+    if (!importFile) return;
+    if (!window.confirm('Replace the current database with the uploaded file? This cannot be undone. The page will reload after import.')) return;
+    setImporting(true);
+    setImportError('');
+    setImportSuccess('');
+    try {
+      await api.admin.importDb(importFile);
+      setImportSuccess('Database imported successfully. Reloading…');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (e) {
+      setImportError(e.message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <div className={styles.systemPane}>
+      <div className="card" style={{ padding: '20px 24px' }}>
+        <div className={styles.systemSection}>Export Database</div>
+        <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+          Download a binary backup of the current SQLite database. Use this to back up your data or migrate to another machine.
+        </p>
+        <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
+          {exporting ? 'Exporting…' : 'Download backup (.db)'}
+        </button>
+      </div>
+
+      <div className="card" style={{ padding: '20px 24px' }}>
+        <div className={styles.systemSection}>Import Database</div>
+        <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+          Restore a previously exported <code>.db</code> backup. <strong>This will replace all current data.</strong>
+        </p>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".db,application/octet-stream"
+            style={{ display: 'none' }}
+            onChange={e => { setImportFile(e.target.files[0] || null); setImportError(''); setImportSuccess(''); }}
+          />
+          <button className="btn btn-secondary" onClick={() => fileInputRef.current.click()}>
+            {importFile ? importFile.name : 'Choose .db file…'}
+          </button>
+          {importFile && (
+            <button className="btn btn-danger" onClick={handleImport} disabled={importing}>
+              {importing ? 'Importing…' : 'Import & replace database'}
+            </button>
+          )}
+        </div>
+        {importError && <p style={{ color: 'var(--color-danger)', fontSize: 13, marginTop: 10 }}>{importError}</p>}
+        {importSuccess && <p style={{ color: 'var(--color-primary)', fontSize: 13, marginTop: 10 }}>{importSuccess}</p>}
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'users',  label: 'Users' },
-  { key: 'system', label: 'System' },
+  { key: 'users',    label: 'Users' },
+  { key: 'system',  label: 'System' },
+  { key: 'database', label: 'Database' },
 ];
 
 export default function AdminPage() {
@@ -377,8 +463,9 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {tab === 'users'  && <UsersTab currentUserId={currentUserId} />}
-      {tab === 'system' && <SystemTab />}
+      {tab === 'users'    && <UsersTab currentUserId={currentUserId} />}
+      {tab === 'system'   && <SystemTab />}
+      {tab === 'database' && <DatabaseTab />}
     </div>
   );
 }

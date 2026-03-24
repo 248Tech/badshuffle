@@ -38,7 +38,7 @@
 }
 .bulkBar {
   display: flex; align-items: center; gap: 12px; padding: 10px 14px;
-  background: var(--color-bg-elevated); border-radius: 8px; font-size: 13px;
+  background: var(--color-surface); border-radius: 8px; font-size: 13px;
 }
 .bulkBar span { color: var(--color-text-muted); }
 .filterChip {

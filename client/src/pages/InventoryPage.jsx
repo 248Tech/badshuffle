@@ -435,6 +435,8 @@ const [confirmDelete, setConfirmDelete] = useState(null);
         showSource={showSource}
         onEdit={handleEdit}
         onDelete={setConfirmDelete}
+        searchQuery={search}
+        onClearSearch={() => setSearch('')}
       />
 
       {confirmDelete && (

@@ -117,7 +117,7 @@ export default function PublicQuotePage() {
     setLoading(true);
     setError(null);
     api.getPublicQuote(token)
-      .then(data => { setQuote(data); setLoading(false); })
+      .then(data => { setQuote(data); setLoading(false); if (data?.name) document.title = `${data.name} — Quote`; })
       .catch(err => { setError(err.message || 'Not found'); setLoading(false); });
   }, [token]);
 

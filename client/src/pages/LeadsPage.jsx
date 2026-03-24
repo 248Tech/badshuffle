@@ -195,10 +195,31 @@ export default function LeadsPage() {
       </div>
 
       {loading ? (
-        <div className="empty-state"><div className="spinner" /></div>
+        <div className={`card ${styles.tableCard}`}>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <tbody>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 8 }).map((_, j) => (
+                      <td key={j}><div className="skeleton" style={{ height: 13, width: j === 0 ? 120 : j === 1 ? 160 : 80 }} /></td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : leads.length === 0 ? (
         <div className="empty-state">
-          <p>No leads yet. Import a sheet on the Import page or use the extension to capture contacts.</p>
+          {search.trim() ? (
+            <>
+              <p>No leads match <strong>"{search}"</strong>.</p>
+              <button className="btn btn-ghost btn-sm" onClick={() => setSearch('')}>Clear search</button>
+            </>
+          ) : (
+            <p>No leads yet. Import a sheet on the Import page or use the extension to capture contacts.</p>
+          )}
         </div>
       ) : (
         <div className={`card ${styles.tableCard}`}>

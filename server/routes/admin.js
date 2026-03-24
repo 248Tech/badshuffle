@@ -1,7 +1,10 @@
 const express = require('express');
+const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
+const multer = require('multer');
 const { decrypt } = require('../lib/crypto');
+const { DB_PATH } = require('../db');
 
 function getSmtpSettings(db) {
   const rows = db.prepare('SELECT key, value FROM settings WHERE key LIKE ?').all('smtp_%');
@@ -41,6 +44,9 @@ const SYSTEM_READ_KEYS = [
   'autokill_enabled', 'update_check_enabled',
   'update_check_last', 'update_check_latest', 'update_available',
 ];
+
+const dbUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
+const SQLITE_MAGIC = Buffer.from('SQLite format 3\0');
 
 module.exports = function adminRouter(db) {
   const router = express.Router();
@@ -178,6 +184,37 @@ module.exports = function adminRouter(db) {
     } catch (e) {
       console.error('[admin/deleteUser]', e);
       res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // GET /api/admin/db/export — download the SQLite database file
+  router.get('/db/export', (req, res) => {
+    try {
+      db._save();
+      if (!fs.existsSync(DB_PATH)) return res.status(404).json({ error: 'Database file not found' });
+      const date = new Date().toISOString().slice(0, 10);
+      res.setHeader('Content-Disposition', `attachment; filename="badshuffle-backup-${date}.db"`);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      fs.createReadStream(DB_PATH).pipe(res);
+    } catch (e) {
+      console.error('[admin/db/export]', e);
+      res.status(500).json({ error: 'Export failed' });
+    }
+  });
+
+  // POST /api/admin/db/import — replace database with uploaded .db file
+  router.post('/db/import', dbUpload.single('db'), (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+      const buf = req.file.buffer;
+      if (buf.length < 16 || !buf.slice(0, 16).equals(SQLITE_MAGIC)) {
+        return res.status(400).json({ error: 'Not a valid SQLite database file' });
+      }
+      db.reload(buf);
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('[admin/db/import]', e);
+      res.status(500).json({ error: 'Import failed: ' + e.message });
     }
   });
 
