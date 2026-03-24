@@ -89,7 +89,7 @@
   .exportCard, .totalsCard { padding: 14px; }
   .exportTitle { font-size: 13px; margin-bottom: 10px; }
   .totalsRow { font-size: 13px; }
-  .totalsValueGrand { font-size: 16px; }
+  .totalsValueGrand { font-size: 20px; }
   .editCard { padding: 14px; }
   .formRow { gap: 8px; }
   .formSection { margin-top: 6px; padding-top: 10px; }
@@ -106,23 +106,23 @@
   .tab, .tabActive { padding: 6px 10px; font-size: 12px; }
 }
 .topDivActions .btn-primary {
-  background: #188ec5;
-  border-color: #188ec5;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
 }
 .topDivActions .btn-primary:hover {
-  background: #1579ad;
-  border-color: #1579ad;
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
   color: #fff;
 }
 .topDivActions .btn-ghost {
-  color: #188ec5;
-  border-color: #188ec5;
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 .topDivActions .btn-ghost:hover {
-  background: rgba(24, 142, 197, 0.1);
-  color: #188ec5;
-  border-color: #188ec5;
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 .topDivActions .btnDanger {
   color: var(--color-danger) !important;
@@ -136,15 +136,15 @@
 .tabActive {
   padding: 8px 14px;
   font-size: 13px;
-  border: 1px solid #188ec5;
+  border: 1px solid var(--color-primary);
   border-radius: var(--radius-sm);
-  background: #188ec5;
+  background: var(--color-primary);
   color: #fff;
   cursor: pointer;
   flex-shrink: 0;
 }
 .tab:hover,
-.tabActive:hover { background: #1579ad; border-color: #1579ad; color: #fff; }
+.tabActive:hover { opacity: 0.88; }
 .tabActive { box-shadow: 0 0 0 2px rgba(255,255,255,0.4); }
 
 .notes { font-size: 13px; color: var(--color-text-muted); line-height: 1.5; }
@@ -167,7 +167,7 @@
   padding: 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-bg);
   min-width: 0;
 }
 .venueClickable {
@@ -300,13 +300,13 @@
 .totalsRowSurcharge .totalsValue { color: #d97706; }
 
 .totalsValueGrand {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--color-primary);
 }
 
 .builderCol { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.exportCol { min-width: 0; }
+.exportCol { min-width: 0; position: sticky; top: 24px; align-self: start; }
 .exportCard { padding: 20px; }
 .exportTitle { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 14px; }
 
@@ -315,8 +315,9 @@
 .customItemsHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .customItemsTitle { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin: 0; }
 .customItemsList { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
-.customItem { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
-.customItemThumb { width: 36px; height: 36px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.customItem { display: flex; align-items: center; gap: 12px; padding: 10px 12px; font-size: 13px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); transition: border-color 0.15s; }
+.customItem:hover { border-color: var(--color-primary); }
+.customItemThumb { width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius-sm); flex-shrink: 0; }
 .customItemName { flex: 1; font-weight: 500; }
 .customItemQty { color: var(--color-text-muted); }
 .customItemPrice { font-weight: 600; color: var(--color-primary); }

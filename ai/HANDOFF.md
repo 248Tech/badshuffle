@@ -1,507 +1,173 @@
-# HANDOFF — Stability Foundations + Sales Workflow
+# HANDOFF — BadShuffle UI/UX Redesign
 
-## Objective
-
-Three phases of work building on the existing codebase. Phases are ordered by dependency: Phase A must land first, Phase B second, Phase C can overlap with B.
-
-**Guardrail (non-negotiable):** Do NOT remove, downgrade, or disable any existing feature, route, UI surface, script, or behavior. Every item below is additive or a targeted fix.
-
----
-
-## Phase A — Stability Foundations
-
-### A1 — DB Persistence (ALREADY DONE — no changes required)
-
-The sql.js wrapper in `server/db.js` already writes `badshuffle.db` to disk after every mutation via `_save()`. The DB path is already pkg-aware (`process.pkg` check). No changes needed. Document in TODO as verified.
-
-### A2 — Audit Fields (ALREADY DONE — no changes required)
-
-The `items` table already has `created_at` and `updated_at`. The PUT handler in `server/routes/items.js` already sets `updated_at = datetime('now')`. Quotes table already has `updated_at` updated on PUT. No changes needed. Document in TODO as verified.
-
-### A3 — Image Display Fix
-
-**File to investigate first:** `client/src/pages/InventoryPage.jsx` and `client/src/components/ItemCard.jsx` (or wherever item `photo_url` is rendered).
-
-**Root cause (suspected):** Items have a `photo_url` text column. In packaged (pkg) mode, the client exe serves on port 5173. Images from external sources go through `/api/proxy-image?url=...`. The issue is likely one of:
-1. `photo_url` values scraped from Goodshuffle are full external URLs that require the proxy but aren't being proxied, OR
-2. In pkg mode the client build path or asset path differs
-
-**Fix pattern:**
-- In any component that renders `<img src={item.photo_url}>`, replace with:
-  ```jsx
-  <img src={item.photo_url ? api.proxyImageUrl(item.photo_url) : '/placeholder.png'} ... />
-  ```
-- `api.proxyImageUrl` is already defined in `client/src/api.js`:
-  ```js
-  proxyImageUrl: (url) => `/api/proxy-image?url=${encodeURIComponent(url)}`
-  ```
-- Add a small placeholder image at `client/public/placeholder.png` if one does not already exist (a simple 1×1 gray PNG is fine — or use an inline SVG data URI as a fallback `onError` handler instead)
-
-**Check:** `server/routes/imageProxy.js` or similar — verify the proxy route exists and is registered in `server/index.js`. If the proxy is missing, create it:
-```js
-// server/routes/imageProxy.js
-const express = require('express');
-const https = require('https');
-const http = require('http');
-const router = express.Router();
-router.get('/', (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).json({ error: 'url required' });
-  const mod = url.startsWith('https') ? https : http;
-  mod.get(url, (upstream) => {
-    res.setHeader('Content-Type', upstream.headers['content-type'] || 'image/jpeg');
-    upstream.pipe(res);
-  }).on('error', () => res.status(502).end());
-});
-module.exports = router;
-```
-Register in `server/index.js` (public block, no auth):
-```js
-app.use('/api/proxy-image', require('./routes/imageProxy'));
-```
+**Type:** Cosmetic redesign, non-breaking
+**Produced:** 2026-03-23
+**Source:** Raw design notes → structured design system memo
+**Next Action:** Aider begins Phase 1 implementation
 
 ---
 
-## Phase B — Sales Workflow
+## Summary
 
-### B1 — Schema Migrations
+A full UI/UX redesign memo has been produced for BadShuffle based on raw design notes identifying four core problems: visual flatness, weak hierarchy, no breathing room, and no interaction feedback.
 
-**File:** `server/db.js`
+The redesign transforms BadShuffle from a functional internal tool into a product that looks and feels like a polished SaaS. No APIs, business logic, or features change. The entire scope is presentation layer.
 
-Add the following ALTER TABLE calls inside `initDb()`, after the existing table creation, using the try/catch pattern already established:
+**Three artifacts produced:**
+1. `ai/UXDesign/BADSHUFFLE_REDESIGN.md` — Complete design spec (12 sections, execution-ready)
+2. `ai/TODO.md` — 20 new UX tasks with agent routing, file targets, and priorities
+3. `ai/HANDOFF.md` — This document
 
-```js
-// quotes — status lifecycle + lead linkage + public share token
-const quoteCols = [
-  "ALTER TABLE quotes ADD COLUMN status TEXT DEFAULT 'draft'",
-  "ALTER TABLE quotes ADD COLUMN lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL",
-  "ALTER TABLE quotes ADD COLUMN public_token TEXT"
-];
-for (const sql of quoteCols) {
-  try { db.run(sql); } catch(e) {}
-}
+---
 
-// leads — back-reference to quote
-try { db.run("ALTER TABLE leads ADD COLUMN quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL"); } catch(e) {}
-```
+## Key Decisions
 
-Also create the index for public_token lookups:
-```js
-try {
-  db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_quotes_public_token ON quotes(public_token) WHERE public_token IS NOT NULL");
-} catch(e) {}
-```
-
-### B2 — Quote Status + Send Endpoint
-
-**File:** `server/routes/quotes.js`
-
-Add to the top of the file, inside `makeRouter`:
-```js
-const crypto = require('crypto');
-```
-
-Add these routes (before `return router`):
-
-```js
-// POST /api/quotes/:id/send — set status to 'sent', generate public_token
-router.post('/:id/send', (req, res) => {
-  const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-  if (!quote) return res.status(404).json({ error: 'Not found' });
-
-  const token = quote.public_token || crypto.randomBytes(24).toString('hex');
-  db.prepare("UPDATE quotes SET status = 'sent', public_token = ?, updated_at = datetime('now') WHERE id = ?")
-    .run(token, req.params.id);
-
-  const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-  res.json({ quote: updated });
-});
-
-// POST /api/quotes/:id/approve — set status to 'approved'
-router.post('/:id/approve', (req, res) => {
-  const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-  if (!quote) return res.status(404).json({ error: 'Not found' });
-
-  db.prepare("UPDATE quotes SET status = 'approved', updated_at = datetime('now') WHERE id = ?")
-    .run(req.params.id);
-
-  const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-  res.json({ quote: updated });
-});
-
-// POST /api/quotes/:id/revert — revert approved/sent back to draft
-router.post('/:id/revert', (req, res) => {
-  const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-  if (!quote) return res.status(404).json({ error: 'Not found' });
-
-  db.prepare("UPDATE quotes SET status = 'draft', updated_at = datetime('now') WHERE id = ?")
-    .run(req.params.id);
-
-  const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-  res.json({ quote: updated });
-});
-```
-
-Also update the existing `PUT /api/quotes/:id` to accept `lead_id`:
-```js
-// change destructure line from:
-const { name, guest_count, event_date, notes } = req.body;
-// to:
-const { name, guest_count, event_date, notes, lead_id } = req.body;
-```
-And add `lead_id = COALESCE(?, lead_id),` to the UPDATE SET clause, plus `lead_id !== undefined ? lead_id : null` in the `.run()` args (before the existing nulls).
-
-### B3 — Public Quote Endpoint (unauthenticated)
-
-**File:** `server/routes/quotes.js`
-
-Add inside `makeRouter`, before existing routes:
-```js
-// GET /api/quotes/public/:token — no auth required (registered separately in index.js)
-// NOTE: This handler is exported for use in index.js as a standalone route.
-```
-
-**File:** `server/index.js`
-
-Add a new public route (in the public block, BEFORE the `auth` middleware chain):
-```js
-// Public quote view (no auth)
-app.get('/api/quotes/public/:token', (req, res) => {
-  const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
-  if (!quote) return res.status(404).json({ error: 'Not found' });
-  const items = db.prepare(`
-    SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order,
-           i.id, i.title, i.photo_url, i.unit_price, i.taxable
-    FROM quote_items qi
-    JOIN items i ON i.id = qi.item_id
-    WHERE qi.quote_id = ?
-    ORDER BY qi.sort_order ASC, qi.id ASC
-  `).all(quote.id);
-  res.json({ ...quote, items });
-});
-```
-
-Note: `db` is accessible at this point in index.js because it is defined at the module scope after `await initDb()`.
-
-### B4 — Lead→Quote Linkage in Leads Route
-
-**File:** `server/routes/leads.js`
-
-Update the POST `/` route to accept and store `quote_id`:
-```js
-// change destructure from:
-const { name, email, phone, event_date, event_type, source_url, notes } = req.body;
-// to:
-const { name, email, phone, event_date, event_type, source_url, notes, quote_id } = req.body;
-```
-Include `quote_id` in the INSERT. Also add a new endpoint:
-```js
-// PUT /api/leads/:id — update quote_id linkage
-router.put('/:id', (req, res) => {
-  const { quote_id } = req.body;
-  const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(req.params.id);
-  if (!lead) return res.status(404).json({ error: 'Not found' });
-  db.prepare('UPDATE leads SET quote_id = ? WHERE id = ?').run(
-    quote_id !== undefined ? quote_id : lead.quote_id,
-    req.params.id
-  );
-  const updated = db.prepare('SELECT * FROM leads WHERE id = ?').get(req.params.id);
-  res.json({ lead: updated });
-});
-```
-
-### B5 — Client API additions
-
-**File:** `client/src/api.js`
-
-Add to the Quotes section:
-```js
-sendQuote:    (id)        => request(`/quotes/${id}/send`,    { method: 'POST' }),
-approveQuote: (id)        => request(`/quotes/${id}/approve`, { method: 'POST' }),
-revertQuote:  (id)        => request(`/quotes/${id}/revert`,  { method: 'POST' }),
-getPublicQuote: (token)   => request(`/quotes/public/${token}`),
-```
-
-Add to the Leads section:
-```js
-updateLead: (id, body) => request(`/leads/${id}`, { method: 'PUT', body }),
-```
-
-Note: `getPublicQuote` uses `/quotes/public/:token`, which is a public endpoint — the `request()` helper always attaches the token if present in localStorage (which is fine; the server ignores it for this route).
-
-### B6 — QuotePage — Status Badge + Send Button
-
-**File:** `client/src/pages/QuotePage.jsx` (or equivalent quote detail page — check the filename)
-
-Find the quote detail view and add:
-1. A status badge next to the quote name:
-   ```jsx
-   <span className={`${styles.badge} ${styles['badge_' + quote.status]}`}>
-     {quote.status || 'draft'}
-   </span>
-   ```
-2. A "Send to Client" button (shown when status === 'draft'):
-   ```jsx
-   {quote.status === 'draft' && (
-     <button onClick={handleSend} className={styles.btnSend}>Send to Client</button>
-   )}
-   ```
-   `handleSend` calls `api.sendQuote(quote.id)` then refreshes.
-3. An "Approve" button shown on the public view only (see B7).
-4. A "Copy Link" button when `quote.public_token` is set:
-   ```jsx
-   {quote.public_token && (
-     <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/quote/public/${quote.public_token}`)}>
-       Copy Client Link
-     </button>
-   )}
-   ```
-
-**File:** `client/src/pages/QuotePage.module.css` (or equivalent)
-
-Add badge styles:
+### 1. The Background Layer Is the Biggest Single Win
+The single highest-leverage change in the entire redesign is one line:
 ```css
-.badge { padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
-.badge_draft    { background: #e0e7ff; color: #3730a3; }
-.badge_sent     { background: #fef3c7; color: #92400e; }
-.badge_approved { background: #d1fae5; color: #065f46; }
+body { background: var(--color-surface); }
 ```
+Currently `body` and `.card` both use `--color-bg` (white). They're indistinguishable. Switching body to `--color-surface` (already defined as light gray in all 4 themes) creates instant visual depth across every page with zero risk.
 
-### B7 — Public Quote View Page
+**Implementation note:** Aider should do this FIRST, before any other change. Cursor then verifies across all themes.
 
-**New file:** `client/src/pages/PublicQuotePage.jsx`
-
-This page is rendered without authentication (public route in App.jsx).
-
-```jsx
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { api } from '../api';
-
-export default function PublicQuotePage() {
-  const { token } = useParams();
-  const [quote, setQuote] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    api.getPublicQuote(token)
-      .then(data => { setQuote(data); setLoading(false); })
-      .catch(err => { setError(err.message); setLoading(false); });
-  }, [token]);
-
-  if (loading) return <p>Loading quote…</p>;
-  if (error)   return <p>Error: {error}</p>;
-
-  const subtotal = (quote.items || []).reduce((s, i) => s + (i.unit_price || 0) * i.quantity, 0);
-
-  return (
-    <div style={{ maxWidth: 720, margin: '40px auto', padding: '0 16px', fontFamily: 'sans-serif' }}>
-      <h1>{quote.name}</h1>
-      <p>Status: <strong>{quote.status}</strong></p>
-      {quote.event_date && <p>Event Date: {quote.event_date}</p>}
-      {quote.guest_count > 0 && <p>Guests: {quote.guest_count}</p>}
-      {quote.notes && <p>{quote.notes}</p>}
-
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 24 }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left', borderBottom: '2px solid #e5e7eb', paddingBottom: 8 }}>Item</th>
-            <th style={{ textAlign: 'right' }}>Qty</th>
-            <th style={{ textAlign: 'right' }}>Unit Price</th>
-            <th style={{ textAlign: 'right' }}>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(quote.items || []).map(item => (
-            <tr key={item.qitem_id}>
-              <td style={{ padding: '8px 0' }}>{item.label || item.title}</td>
-              <td style={{ textAlign: 'right' }}>{item.quantity}</td>
-              <td style={{ textAlign: 'right' }}>${(item.unit_price || 0).toFixed(2)}</td>
-              <td style={{ textAlign: 'right' }}>${((item.unit_price || 0) * item.quantity).toFixed(2)}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold', paddingTop: 12 }}>Subtotal</td>
-            <td style={{ textAlign: 'right', fontWeight: 'bold', paddingTop: 12 }}>${subtotal.toFixed(2)}</td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <div style={{ marginTop: 32, display: 'flex', gap: 12 }}>
-        <button
-          onClick={() => window.print()}
-          style={{ padding: '10px 20px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-        >
-          Print / Save PDF
-        </button>
-      </div>
-
-      <style>{`@media print { button { display: none !important; } }`}</style>
-    </div>
-  );
-}
+### 2. Two New Derived Tokens Replace All Inline rgba() Calls
+The design requires a "primary-light" and "primary-hover" tint throughout (sidebar active, quote summary, inventory overlay). Rather than hardcoding `rgba(26, 143, 193, 0.12)` everywhere and breaking on theme switch, we add two derived tokens using `color-mix()` (already used in the codebase):
+```css
+--color-primary-subtle: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
+--color-primary-hover:  color-mix(in srgb, var(--color-primary) 20%, var(--color-bg));
 ```
+These must be added to ALL 5 `:root` blocks in `theme.css` (default + 4 themes).
 
-**File:** `client/src/App.jsx`
+### 3. Quote Builder Item Cards Replace Table Rows — Most Complex Change
+The Quote Builder is the critical path screen. The redesign converts line items from table rows to card components. This is the most complex single change because `QuoteBuilder.jsx` has existing drag-to-reorder logic (HTML5 drag handles), discount badge rendering, and qty controls that must continue working inside the new card layout.
 
-Import and add a public route (outside `ProtectedRoute`):
-```jsx
-import PublicQuotePage from './pages/PublicQuotePage';
-// ...
-<Route path="quote/public/:token" element={<PublicQuotePage />} />
-```
-This route must be inside the `<Routes>` block but NOT wrapped in `ProtectedRoute`.
+**Implementation note:** Aider must NOT change the drag, discount, or qty logic — only the wrapping layout/styling. Cursor should polish spacing and verify drag still functions after Aider's pass.
 
-### B8 — Quote Export (Print-to-PDF)
+### 4. Stepper for Import Flow Is New JSX, Not CSS-Only
+The Import flow stepper (UX-16) requires state management (current step) inside `ImportPage.jsx`. This is the only Phase 3 item that touches JSX meaningfully. All other Phase 3 items are CSS changes applied to existing structure. Aider should implement this as a local state pattern inside `ImportPage.jsx` — no new component extraction required unless the same stepper is needed elsewhere (it is not, currently).
 
-No new npm packages required. The "Print / Save PDF" button in `PublicQuotePage` (above) calls `window.print()`. Browsers offer native "Save as PDF" in the print dialog. A print CSS rule hides the button.
+### 5. `theme.css` Is the Correct Place for Global Changes
+The app uses CSS Modules per-file, but `theme.css` defines global utilities (`.card`, `.btn`, `.badge`, `.empty-state`, `.spinner`). All Phase 1 changes belong in `theme.css` — this ensures they apply everywhere without touching individual files. Phase 2+ changes go into per-file CSS Modules.
 
-Optionally add a similar print button to the internal QuotePage detail view.
+### 6. Hover Overlays on Inventory Cards Must Not Break Touch
+The inventory card hover overlay (action buttons appear on hover) works cleanly on desktop. On touch devices, hover doesn't trigger. The solution: on touch devices, actions should remain visible (or appear on tap). CSS `@media (hover: none)` can be used to keep buttons visible on touch screens. Cursor should handle this during Phase 4 mobile pass.
+
+### 7. No New npm Packages
+Every technique used (CSS transitions, `color-mix()`, `position: sticky`, CSS Grid/Flexbox, keyframe animations) is browser-native. No additional dependencies.
 
 ---
 
-## Phase C — Roles and Permissions
+## Files Created/Updated
 
-### C1 — requireOperator Middleware
-
-**New file:** `server/lib/operatorMiddleware.js`
-
-```js
-module.exports = function requireOperator(db) {
-  return function(req, res, next) {
-    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(req.user.id);
-    if (!user || (user.role !== 'admin' && user.role !== 'operator')) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    next();
-  };
-};
-```
-
-Pattern matches existing `server/lib/adminMiddleware.js`.
-
-### C2 — Apply Operator Guard to Settings Route
-
-**File:** `server/index.js`
-
-Import the new middleware:
-```js
-const requireOperator = require('./lib/operatorMiddleware')(db);
-```
-
-Change the settings route from:
-```js
-app.use('/api/settings', auth, require('./routes/settings')(db));
-```
-to:
-```js
-app.use('/api/settings', auth, requireOperator, require('./routes/settings')(db));
-```
-
-Do NOT change `GET /api/settings` separately — the requireOperator guard applies to all settings verbs, which is intentional (users should not modify settings).
-
-### C3 — GET /api/auth/me Endpoint
-
-**File:** `server/routes/auth.js`
-
-Add inside `makeRouter` (alongside existing GET `/status`):
-```js
-router.get('/me', auth, (req, res) => {
-  const user = db.prepare('SELECT id, email, role, approved FROM users WHERE id = ?').get(req.user.id);
-  if (!user) return res.status(404).json({ error: 'Not found' });
-  res.json({ id: user.id, email: user.email, role: user.role });
-});
-```
-
-Note: `auth` here refers to the auth middleware already imported/used inside `routes/auth.js`. Check if it is already passed in via `makeRouter` or imported at the top. Use whichever pattern the file already uses.
-
-### C4 — Client Role Awareness
-
-**File:** `client/src/App.jsx`
-
-Add a `role` state that is fetched on mount via `api.auth.me()`:
-```jsx
-const [role, setRole] = useState(null);
-
-useEffect(() => {
-  api.auth.me()
-    .then(data => setRole(data.role))
-    .catch(() => setRole('user'));
-}, []);
-```
-
-Pass `role` as a prop to `<Sidebar role={role} />` (and any other components that need it).
-
-**File:** `client/src/components/Sidebar.jsx`
-
-Accept `role` prop. In the NAV array or render logic, conditionally hide the Admin link:
-```jsx
-{NAV.filter(item => item.to !== '/admin' || role === 'admin').map(...)}
-```
-
-Do NOT remove the Admin route or its component — only hide the nav link from non-admins. The route itself stays (server protects it with `requireAdmin`).
-
-### C5 — API Token Generator (Admin-Only)
-
-The existing `GET /api/auth/extension-token` already generates an extension/API token. Verify in `server/routes/auth.js` that this endpoint is behind `requireAdmin` (or `requireOperator` at minimum). If it is currently behind only `requireAuth`, upgrade it:
-
-Change:
-```js
-router.get('/extension-token', auth, (req, res) => {
-```
-To (if you want admin-only):
-```js
-router.get('/extension-token', auth, requireAdmin, (req, res) => {
-```
-
-Where `requireAdmin` is already imported/used in the file. If `requireAdmin` is not in scope in `routes/auth.js`, pass it in via `makeRouter(db, requireAdmin)` and update the call site in `server/index.js`.
+| File | Action | Notes |
+|---|---|---|
+| `ai/UXDesign/BADSHUFFLE_REDESIGN.md` | Created | Full 12-section design spec |
+| `ai/TODO.md` | Updated | Added 20 UX tasks (UX-1 through UX-20), preserved existing backlog |
+| `ai/HANDOFF.md` | Updated | This document |
 
 ---
 
-## Files Changed Summary
+## Files Aider Will Touch (by phase)
 
+### Phase 1 (start here)
 | File | Change |
 |---|---|
-| `server/db.js` | Add ALTER TABLE for quotes.status, quotes.lead_id, quotes.public_token, leads.quote_id; add unique index |
-| `server/routes/quotes.js` | Add /send, /approve, /revert routes; update PUT to accept lead_id; add public token logic |
-| `server/routes/leads.js` | Update POST to accept quote_id; add PUT /:id |
-| `server/index.js` | Add public /api/quotes/public/:token route; add requireOperator to settings; import operatorMiddleware |
-| `server/lib/operatorMiddleware.js` | **NEW** — operator + admin guard |
-| `server/routes/auth.js` | Add GET /me endpoint; upgrade extension-token to admin/operator guard |
-| `server/routes/imageProxy.js` | **NEW** (if not already present) — image proxy route |
-| `client/src/api.js` | Add sendQuote, approveQuote, revertQuote, getPublicQuote, updateLead |
-| `client/src/pages/QuotePage.jsx` | Add status badge, Send to Client button, Copy Link button |
-| `client/src/pages/QuotePage.module.css` | Add badge styles |
-| `client/src/pages/PublicQuotePage.jsx` | **NEW** — public read-only quote view + print button |
-| `client/src/App.jsx` | Add /quote/public/:token route; add role state; pass role to Sidebar |
-| `client/src/components/Sidebar.jsx` | Accept role prop; hide Admin link for non-admin |
+| `client/src/theme.css` | body background, derived tokens, btn:active, card hover |
+| `client/src/components/Layout.module.css` | content area padding + max-width |
+| `client/src/components/Sidebar.module.css` | active pill, hover state, section spacing |
+
+### Phase 2
+| File | Change |
+|---|---|
+| `client/src/pages/DashboardPage.jsx` | KPI card structure, empty states |
+| `client/src/pages/DashboardPage.module.css` | .kpiCard, .kpiValue, .kpiLabel styles |
+| `client/src/components/ItemCard.jsx` | Add overlay div for hover actions |
+| `client/src/components/ItemCard.module.css` | Hover overlay, image aspect-ratio, lift transform |
+| `client/src/pages/InventoryPage.module.css` | Filter bar scroll, pill styles |
+| `client/src/pages/LeadsPage.module.css` | Row padding, hover, sticky header |
+| `client/src/pages/BillingPage.module.css` | Same as LeadsPage |
+
+### Phase 3
+| File | Change |
+|---|---|
+| `client/src/components/QuoteBuilder.jsx` | Item card structure (layout only, keep logic) |
+| `client/src/components/QuoteBuilder.module.css` | .quoteItem card styles, addedFlash animation, summary panel |
+| `client/src/pages/QuoteDetailPage.module.css` | Summary total emphasis, action grouping |
+| `client/src/pages/ImportPage.jsx` | Add stepper state + step navigation |
+| `client/src/pages/ImportPage.module.css` | Stepper styles, step card styles |
+| `client/src/pages/MessagesPage.jsx` | Empty state JSX, thread list structure |
+| `client/src/pages/MessagesPage.module.css` | Thread row styles, bubble styles |
+
+### Phase 4 (Cursor)
+| File | Change |
+|---|---|
+| `client/src/theme.css` | Add .skeleton class |
+| All loading components | Replace text/spinner loading with skeleton |
+| All relevant files | Mobile/responsive fixes |
 
 ---
 
-## Implementation Notes
+## Implementation Guidance for Aider
 
-- All ALTER TABLE additions use the existing try/catch pattern in `db.js` — they are safe to run on an existing DB with data.
-- `crypto` is a Node.js built-in — no new packages needed for token generation.
-- `window.print()` with `@media print` CSS is the quote export strategy — no new npm packages needed.
-- The public quote endpoint is registered directly in `index.js` (not via a router factory) because it needs access to `db` and must sit in the public block before the `auth` middleware.
-- Phase A items A1 and A2 require no code changes — mark them as verified in TODO.
+### Order of Execution
+1. **`theme.css` first, always.** Every global change must land before per-screen work begins. Otherwise screens look inconsistent mid-implementation.
+2. **Layout.module.css second.** Sets the spatial canvas for everything else.
+3. **Sidebar.module.css third.** Navigation is the persistent chrome — fix it early.
+4. **Then screens in order:** Dashboard → Inventory → Leads/Billing → Quote Builder → Import → Messages.
+5. **Quote Builder last** in Aider's scope because it's the most structurally complex.
+
+### How to Read the Design Memo
+- Section 5 = tokens/variables to change (theme.css targets)
+- Section 6 = layout changes (Layout.module.css, Sidebar.module.css)
+- Section 7 = per-screen changes (one subsection per screen)
+- Section 8 = interaction patterns (theme.css + per-component)
+- Section 10 = phase ordering
+
+### What Aider Should NOT Do
+- Do not refactor JSX component hierarchy — change styles and minimal structure only
+- Do not change any prop names, state variables, or event handlers
+- Do not add TypeScript or PropTypes
+- Do not extract new components unless the task explicitly says to (e.g., Stepper for ImportPage)
+- Do not touch `server/` — this is frontend-only
+- Do not add `!important` to override specificity conflicts — fix the root selector instead
+
+### CSS Module Specificity
+The existing codebase uses CSS Modules. When adding new styles, add them to the relevant `.module.css` file and reference them as `styles.className` in the JSX. Never inject style tags or use global class names in component files.
 
 ---
 
-## Acceptance Criteria
+## Risks / Watchouts
 
-- [ ] Quotes table has status (default 'draft'), lead_id, public_token columns after server restart
-- [ ] Leads table has quote_id column after server restart
-- [ ] POST /api/quotes/:id/send returns updated quote with status='sent' and a non-null public_token
-- [ ] GET /api/quotes/public/:token returns quote+items without an auth header
-- [ ] /quote/public/:token renders the public quote view in the browser without login
-- [ ] Print / Save PDF button triggers browser print dialog
-- [ ] PUT /api/settings returns 403 for a user with role='user'
-- [ ] GET /api/auth/me returns { id, email, role } for the logged-in user
-- [ ] Admin nav link is hidden in Sidebar for users with role='user' or role='operator'
-- [ ] Admin nav link is visible for role='admin'
-- [ ] No existing routes, pages, or behaviors are removed or broken
+### Risk 1: theme.css Card Hover + Pages With Dense Card Grids
+Adding `card:hover { box-shadow: var(--shadow-md) }` globally will apply to every `.card` instance, including tables, form sections, and modal content. On pages where cards are stacked tightly (Settings page), constant hover shadow changes can feel noisy. **Mitigation:** Add a `.card-static` modifier class for cards that should not have hover elevation (settings form cards, modal bodies). Cursor should audit during Phase 4.
+
+### Risk 2: `body { background: var(--color-surface) }` on Auth/Setup Pages
+The auth and setup pages (login, password reset, first-time setup) may look different with a light gray body — some are centered card layouts that rely on white body for full-bleed appearance. **Mitigation:** Aider should check `AuthPage.jsx` and `SetupPage.jsx` after changing body background. These may need `min-height: 100vh; background: var(--color-surface)` on the page wrapper to maintain their centered layout.
+
+### Risk 3: Inventory Hover Overlay on Touch
+The hover-based action overlay on ItemCard does not trigger on touch devices (iOS/Android). Users on tablets won't be able to add items. **Mitigation:** Add `@media (hover: none) { .itemCardOverlay { display: flex; } }` to show the overlay permanently on touch devices. Handle in Phase 4 mobile pass.
+
+### Risk 4: Quote Builder Drag-to-Reorder + New Card Layout
+`QuoteBuilder.jsx` has HTML5 drag-and-drop reorder logic tied to the current item row structure (dragstart, dragover, drop handlers, visual drag handle). Converting rows to cards changes the DOM structure. The drag handle (⠿) must remain as the first child of each item card and the `draggable` attribute must stay on the item wrapper. **Mitigation:** Aider should preserve the exact draggable structure — only wrap in a card container, do not restructure the interior drag elements.
+
+### Risk 5: Sticky Summary Panel in Quote Builder
+`position: sticky` requires the parent container to have `overflow: visible` (not `overflow: auto` or `overflow: hidden`). If the QuoteBuilder's layout container clips overflow, sticky won't work. **Mitigation:** Cursor should verify and fix parent overflow settings after Aider implements sticky.
+
+### Risk 6: color-mix() Browser Support
+`color-mix()` is supported in all modern browsers (Chrome 111+, Firefox 113+, Safari 16.2+). The app appears to target desktop/modern browsers given the pkg/Windows EXE packaging. No polyfill needed. However, if the packaged client exe uses an older Chromium version via electron or similar, verify support.
+
+---
+
+## Next Recommended Tool
+
+**Aider** — Begin with Phase 1. Provide the following files as context:
+- `ai/UXDesign/BADSHUFFLE_REDESIGN.md` (full spec)
+- `client/src/theme.css` (first target)
+- `client/src/components/Layout.module.css`
+- `client/src/components/Sidebar.module.css`
+
+First prompt to Aider:
+> "Implement UX-1 through UX-6 from the design spec in ai/UXDesign/BADSHUFFLE_REDESIGN.md. These are Phase 1 foundation changes to theme.css, Layout.module.css, and Sidebar.module.css. No JSX changes. No API changes. CSS and theme tokens only. See sections 5 and 6 of the design memo for exact values."
+
+After Aider completes Phase 1, hand to **Cursor** for cross-theme visual QA before proceeding to Phase 2.

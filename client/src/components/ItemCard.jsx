@@ -41,6 +41,22 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote }) {
         {item.category && (
           <span className={styles.categoryBadge}>{item.category}</span>
         )}
+        {/* Hover overlay with primary action */}
+        <div className={styles.overlay} onClick={e => e.stopPropagation()}>
+          {onAddToQuote && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => onAddToQuote(item)}
+            >
+              + Add to Quote
+            </button>
+          )}
+          {onEdit && (
+            <button className="btn btn-ghost btn-sm" onClick={() => onEdit(item)}>
+              Edit
+            </button>
+          )}
+        </div>
       </div>
 
       <div className={styles.body}>
@@ -64,28 +80,14 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote }) {
           {stockInfo && <span className={styles.stock}>{stockInfo}</span>}
         </div>
 
-        <div className={styles.actions}>
-          {onAddToQuote && (
-            <button
-              className="btn btn-accent btn-sm"
-              onClick={() => onAddToQuote(item)}
-              title="Add to quote"
-            >
-              + Quote
-            </button>
-          )}
-          {onEdit && (
-            <button className="btn btn-ghost btn-sm" onClick={() => onEdit(item)}>
-              Edit
-            </button>
-          )}
-          {onDelete && (
+        {onDelete && (
+          <div className={styles.bodyActions}>
             <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }}
               onClick={() => onDelete(item)}>
-              ✕
+              Delete
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

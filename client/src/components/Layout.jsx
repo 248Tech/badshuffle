@@ -44,7 +44,9 @@ export default function Layout({ role = '' }) {
           </div>
         </header>
         <main className={styles.main}>
-          <Outlet />
+          <div className={styles.mainInner}>
+            <Outlet />
+          </div>
         </main>
       </div>
       {sidebarOpen && (

@@ -84,25 +84,25 @@ export default function DashboardPage() {
 
       {/* Stat cards */}
       <div className={styles.statGrid}>
-        <div className={styles.statCard}>
+        <div className={styles.statCard} style={{ borderLeftColor: 'var(--color-primary)' }}>
           <span className={styles.statLabel}>Total Quotes</span>
           <span className={styles.statValue}>{total}</span>
         </div>
-        <div className={styles.statCard}>
+        <div className={styles.statCard} style={{ borderLeftColor: 'var(--color-success)' }}>
           <span className={styles.statLabel}>Approved</span>
-          <span className={styles.statValue} style={{ color: '#34d399' }}>{byStatus.approved || 0}</span>
+          <span className={styles.statValue} style={{ color: 'var(--color-success)' }}>{byStatus.approved || 0}</span>
         </div>
-        <div className={styles.statCard}>
+        <div className={styles.statCard} style={{ borderLeftColor: '#8b5cf6' }}>
           <span className={styles.statLabel}>Confirmed</span>
           <span className={styles.statValue} style={{ color: '#8b5cf6' }}>{byStatus.confirmed || 0}</span>
         </div>
-        <div className={styles.statCard}>
+        <div className={styles.statCard} style={{ borderLeftColor: '#f59e0b' }}>
           <span className={styles.statLabel}>Sent to Client</span>
-          <span className={styles.statValue} style={{ color: '#fbbf24' }}>{byStatus.sent || 0}</span>
+          <span className={styles.statValue} style={{ color: '#f59e0b' }}>{byStatus.sent || 0}</span>
         </div>
-        <div className={styles.statCard}>
+        <div className={styles.statCard} style={{ borderLeftColor: 'var(--color-accent)' }}>
           <span className={styles.statLabel}>Approved Revenue</span>
-          <span className={styles.statValue}>${(revenueByStatus.approved || 0).toFixed(0)}</span>
+          <span className={styles.statValue} style={{ color: 'var(--color-accent)' }}>${(revenueByStatus.approved || 0).toFixed(0)}</span>
         </div>
       </div>
 
@@ -136,7 +136,11 @@ export default function DashboardPage() {
       <div className={`card ${styles.deliveryCard}`}>
         <h3 className={styles.chartTitle}>Upcoming Events — next 90 days</h3>
         {upcoming.length === 0 ? (
-          <p className={styles.empty}>No events scheduled in the next 90 days.</p>
+          <div className="empty-state" style={{ padding: '24px 16px' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <span>No events in the next 90 days</span>
+            <span style={{ fontSize: 12 }}>Create a quote with an event date to see it here.</span>
+          </div>
         ) : (
           <div className={styles.eventList}>
             {upcoming.map(q => {
@@ -177,7 +181,11 @@ export default function DashboardPage() {
       <div className={`card ${styles.conflictsCard}`}>
         <h3 className={styles.chartTitle}>Inventory Conflicts</h3>
         {conflicts.length === 0 ? (
-          <p className={styles.empty}>No inventory conflicts detected.</p>
+          <div className="empty-state" style={{ padding: '24px 16px' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span>No conflicts detected</span>
+            <span style={{ fontSize: 12 }}>All your inventory looks good.</span>
+          </div>
         ) : (
           <div className={styles.conflictList}>
             {conflicts.map(q => (

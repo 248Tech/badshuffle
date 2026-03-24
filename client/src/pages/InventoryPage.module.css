@@ -172,10 +172,14 @@
 
 .categoryNav {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  padding: 4px 0;
+  padding: 4px 0 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.categoryNav::-webkit-scrollbar { display: none; }
 
 .categoryNavBtn {
   padding: 5px 14px;

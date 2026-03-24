@@ -1,6 +1,6 @@
-# BadShuffle v0.0.5
+# BadShuffle v0.0.6
 
-![Release](https://img.shields.io/badge/release-0.0.5-0a7ea4)
+![Release](https://img.shields.io/badge/release-0.0.6-0a7ea4)
 ![Status](https://img.shields.io/badge/status-pre--release-c79200)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
 ![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Windows%20EXE-2ea44f)
@@ -21,12 +21,13 @@ BadShuffle is a self-hosted event rental software platform for quoting, inventor
 - **Domain complexity** — Availability conflicts, per-line pricing overrides, reusable rental/payment policies, and public quote signing target actual event-rental workflows.
 - **Deployment pragmatism** — Run it locally, on a LAN, in Docker, or as packaged Windows executables.
 
-## What’s New In v0.0.5
+## What’s New In v0.0.6
 
-- **In-app updater (packaged builds)** — Settings now has an Updates panel that checks GitHub releases, shows release notes, and installs a selected version with restart detection.
-- **Authenticated update API** — Added `/api/updates`, `/api/updates/releases`, and `/api/updates/apply` for release status/list/install flows.
-- **Extension recovery workflow** — Chrome extension now supports custom server URL configuration, keeps the last scraped items, and can export them as JSON if direct sync fails.
-- **Manual extension JSON import** — Import page adds an Extension JSON tab, backed by `POST /api/items/bulk-upsert` for fast create/update ingestion.
+- **Visual foundation refresh** — Body/background layering was rebalanced, new derived primary tokens were added for consistent interactive states across themes, and cards/buttons now have clearer interaction feedback.
+- **Layout + navigation polish** — Main content width is now constrained for large displays, side padding is more comfortable, and sidebar active/hover states are cleaner and easier to scan.
+- **Core screen UX upgrades** — Dashboard stat cards now use stronger color hierarchy and improved empty states; Inventory cards now use a 4:3 image ratio with hover/touch action overlays and better category filter behavior.
+- **Quote + table readability improvements** — Quote summary panel is sticky with stronger total emphasis, quote/custom items are more card-like, and Leads/Billing tables have improved row spacing and sticky header behavior.
+- **Flow + utility polish** — Import stepper styling supports completed states, Messages has stronger empty/thread states, and shared utility classes (`.skeleton`, `.quoteItemAdded`) are ready for broader loading/feedback use.
 
 ## Core Features
 

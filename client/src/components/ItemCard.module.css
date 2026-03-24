@@ -2,26 +2,47 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: box-shadow .15s;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
-.card:hover { box-shadow: var(--shadow-md); }
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
 
 .hidden { opacity: .55; }
 
 .imgWrapper {
   position: relative;
   width: 100%;
-  padding-top: 65%;
+  aspect-ratio: 4 / 3;
   background: var(--color-surface);
   overflow: hidden;
 }
 
 .img {
-  position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+}
+
+/* Hover overlay */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.imgWrapper:hover .overlay { opacity: 1; }
+
+/* Always show on touch devices */
+@media (hover: none) {
+  .overlay { opacity: 1; background: rgba(0,0,0,0.3); }
 }
 
 .imgPlaceholder {
@@ -98,8 +119,9 @@
   color: var(--color-text-muted);
 }
 
-.actions {
+.bodyActions {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+  margin-top: auto;
 }

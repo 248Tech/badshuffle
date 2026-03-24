@@ -7,17 +7,20 @@
   display: flex;
   align-items: center;
   gap: 0;
+  padding: 4px 0 8px;
 }
 .step {
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--color-text-muted);
+  transition: color 0.15s;
 }
 .stepActive { color: var(--color-primary); }
+.stepDone { color: var(--color-success, #38a169); }
 .stepNum {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--color-border);
   display: flex;
@@ -25,10 +28,14 @@
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
+  flex-shrink: 0;
+  transition: background 0.15s;
 }
 .stepActive .stepNum { background: var(--color-primary); color: #fff; }
+.stepDone .stepNum { background: var(--color-success, #38a169); color: #fff; }
 .stepLabel { font-size: 13px; font-weight: 500; white-space: nowrap; }
-.stepLine { flex: 1; height: 2px; background: var(--color-border); min-width: 24px; margin: 0 4px; }
+.stepLine { flex: 1; height: 2px; background: var(--color-border); min-width: 24px; margin: 0 6px; transition: background 0.15s; }
+.stepLineDone { background: var(--color-success, #38a169); }
 
 .card { padding: 24px; }
 .form { display: flex; flex-direction: column; gap: 16px; }

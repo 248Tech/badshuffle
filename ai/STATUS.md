@@ -1,5 +1,7 @@
 # STATUS
 
+**Released v0.0.6** (2026-03-24): UI foundation/layout redesign shipped. Highlights: softer layered background, derived primary interaction tokens, button/card interaction polish, constrained main content width, improved sidebar states, dashboard/empty-state upgrades, inventory card overlay + 4:3 media treatment, sticky quote totals emphasis, denser readable tables, improved messages empty states, and shared `.skeleton` / `.quoteItemAdded` utility classes.
+
 **Released v0.0.5** (2026-03-23): In-app update flow shipped for packaged builds (`/api/updates` status/list/apply + Settings updates console), plus extension sync hardening (configurable server URL, persisted scraped payload export) and Import-page Extension JSON fallback backed by `POST /api/items/bulk-upsert`.
 
 **Released v0.0.4** (2026-03-19): Startup stability hotfix shipped. Fixed inventory empty-state crash caused by an undefined `search` reference and added graceful `getItems` error handling during sql.js initialization.

@@ -9,6 +9,27 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.0.3** - Pricing controls, reusable policies, and UX polish release
 - **0.0.4** - Startup stability hotfix release
 - **0.0.5** - In-app updater and extension fallback import release
+- **0.0.6** - UI foundation and layout redesign release
+
+---
+
+## [0.0.6] - 2026-03-24
+
+### Added
+- **Derived interactive theme tokens** - Added `--color-primary-subtle` and `--color-primary-hover` across built-in themes for consistent hover/active treatments.
+- **Global interaction utilities** - Added reusable `.skeleton` shimmer and `.quoteItemAdded` flash animation classes for loading/feedback UI patterns.
+
+### Changed
+- **Foundation visual layer** - Body background now uses a softer surface tone to improve card/page separation and long-session readability.
+- **Global interaction feel** - Buttons now include subtle press feedback, and cards get smoother hover elevation transitions.
+- **Layout constraints** - Main content now uses stronger side padding plus a max-width cap (`1440px`) to avoid overstretched wide-screen layouts.
+- **Sidebar navigation polish** - Nav links have improved spacing, cleaner active indication (left accent), and clearer hover behavior.
+- **Dashboard clarity** - Stat cards now use colored left accents by metric, and empty states for Upcoming Events/Inventory Conflicts were upgraded from plain text to illustrated placeholders.
+- **Inventory browsing polish** - Category filters now scroll horizontally, item cards use fixed 4:3 media, and action overlays are hover-driven on desktop while remaining visible on touch devices.
+- **Quote detail presentation** - Summary/totals panel is sticky, grand total emphasis increased, and quote/custom item row styling now reads as card-based UI.
+- **Table readability (Leads/Billing)** - Row density and sticky header behavior were improved for scanability and click targets.
+- **Import flow step styling** - Stepper visuals now include explicit completed states (green check progression) in addition to active/inactive styling.
+- **Messages empty/thread states** - Thread rows have stronger minimum height and empty states now provide icon + contextual guidance.
 
 ---
 

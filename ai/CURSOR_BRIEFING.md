@@ -1,16 +1,21 @@
-# Cursor Briefing — BadShuffle (as of 2026-03-23)
+# Cursor Briefing — BadShuffle (as of 2026-03-24)
 
 ## What this project is
 
 BadShuffle is a self-hosted inventory and quoting tool for event rental businesses. It runs as two local Windows executables (server + client), or via Docker. Stack: Node/Express + sql.js SQLite on the back end, React + Vite on the front end.
 
-## Current state: v0.0.5 (latest release)
+## Current state: v0.0.6 (latest release)
 
 Latest release:
 
 ```
-release: v0.0.5 — in-app updater for packaged builds + extension sync fallback import workflow
+release: v0.0.6 — UI foundation/layout redesign and cross-screen interaction polish
 ```
+
+### What shipped in v0.0.6
+- **Foundation + interaction** — Softer surface-layer background, derived primary subtle/hover theme tokens, and stronger button/card micro-interactions.
+- **Layout + navigation** — Main content width capped (`1440px`) with better padding, plus clearer sidebar active/hover states.
+- **Screen polish batch** — Dashboard stat/empty-state upgrades, inventory overlay + 4:3 media cards, sticky quote totals emphasis, table readability improvements (Leads/Billing), and better Messages empty/thread rows.
 
 ### What shipped in v0.0.5
 - **In-app packaged updater** — Added authenticated update routes (`/api/updates`, `/api/updates/releases`, `/api/updates/apply`) and a Settings UI to check releases, inspect notes, install a chosen tag, and auto-reload after restart.
@@ -107,8 +112,8 @@ Dockerfile             — Multi-stage build
 ## Git state
 
 - Runtime lockfiles, uploads, and local editor config are ignored.
-- Canonical release line is `v0.0.1` through `v0.0.5`.
-- Current canonical version is `v0.0.5`.
+- Canonical release line is `v0.0.1` through `v0.0.6`.
+- Current canonical version is `v0.0.6`.
 
 ## Known stubs / incomplete items
 

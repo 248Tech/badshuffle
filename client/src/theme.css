@@ -17,6 +17,8 @@
   --color-danger:   #e53e3e;
   --color-success:  #38a169;
   --color-hover:    rgba(0,0,0,0.04);
+  --color-primary-subtle: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
+  --color-primary-hover:  color-mix(in srgb, var(--color-primary) 20%, var(--color-bg));
   --radius:         8px;
   --radius-sm:      4px;
   --radius-md:      6px;
@@ -41,6 +43,8 @@
   --color-text-muted:    #71717a;
   --color-danger:        #ef4444;
   --color-success:       #22c55e;
+  --color-primary-subtle: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
+  --color-primary-hover:  color-mix(in srgb, var(--color-primary) 20%, var(--color-bg));
   --radius:              6px;
   --radius-sm:           3px;
   --radius-md:           4px;
@@ -62,6 +66,8 @@
   --color-text-muted:    #757575;
   --color-danger:        #d32f2f;
   --color-success:       #388e3c;
+  --color-primary-subtle: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
+  --color-primary-hover:  color-mix(in srgb, var(--color-primary) 20%, var(--color-bg));
   --radius:              4px;
   --radius-sm:           2px;
   --radius-md:           3px;
@@ -83,6 +89,8 @@
   --color-text-muted:    #718096;
   --color-danger:        #e53e3e;
   --color-success:       #38a169;
+  --color-primary-subtle: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
+  --color-primary-hover:  color-mix(in srgb, var(--color-primary) 20%, var(--color-bg));
   --radius:              6px;
   --radius-sm:           4px;
   --radius-md:           5px;
@@ -95,7 +103,7 @@ body {
   font-family: var(--font);
   font-size: 14px;
   color: var(--color-text);
-  background: var(--color-bg);
+  background: var(--color-surface);
   line-height: 1.5;
 }
 
@@ -121,10 +129,10 @@ input, select, textarea {
   border-radius: var(--radius-sm);
   border: none;
   font-weight: 500;
-  transition: opacity .15s, background .15s;
+  transition: opacity .15s, background .15s, transform .1s;
 }
 .btn:hover { opacity: .88; }
-.btn:active { opacity: .75; }
+.btn:active { opacity: .75; transform: scale(0.97); }
 
 .btn-primary {
   background: var(--color-primary);
@@ -167,6 +175,10 @@ input, select, textarea {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  transition: box-shadow 0.2s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .form-group {
@@ -208,6 +220,25 @@ input, select, textarea {
   animation: spin .6s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Add-to-quote flash */
+@keyframes addedFlash {
+  0%   { background: var(--color-primary-subtle); transform: scale(1.01); }
+  100% { background: transparent; transform: scale(1); }
+}
+.quoteItemAdded { animation: addedFlash 0.5s ease forwards; }
+
+/* Skeleton loader shimmer */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-surface) 50%, var(--color-border) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: var(--radius-sm);
+}
 
 .empty-state {
   display: flex;

@@ -132,7 +132,11 @@ export default function MessagesPage() {
           {loading ? (
             <div className="empty-state"><div className="spinner" /></div>
           ) : threads.length === 0 ? (
-            <div className={styles.empty}>No messages yet.</div>
+            <div className={styles.empty}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span>No messages yet</span>
+              <span style={{ fontSize: 12 }}>Messages from sent quotes will appear here.</span>
+            </div>
           ) : (
             threads.map(thread => {
               const lastMsg = thread.messages[0];
@@ -163,7 +167,10 @@ export default function MessagesPage() {
 
         <div className={styles.detailPane}>
           {!selectedThread ? (
-            <div className={styles.empty}>Select a thread to view messages.</div>
+            <div className={styles.empty}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span>Select a thread to view messages</span>
+            </div>
           ) : (
             <div className={styles.threadDetail}>
               <div className={styles.detailHeader}>
