@@ -31,7 +31,7 @@ export default function StatsPage() {
         <div className={styles.sortRow}>
           <span className={styles.sortLabel}>Sort by:</span>
           {[
-            { value: 'times_quoted', label: 'Times quoted' },
+            { value: 'times_quoted', label: 'Times in project' },
             { value: 'total_guests', label: 'Total guests' },
             { value: 'probability_pct', label: 'Probability %' }
           ].map(opt => (
@@ -60,7 +60,7 @@ export default function StatsPage() {
             <span className={styles.colItem}>Item</span>
             <span className={styles.colBar}>Usage</span>
             <span className={styles.colVal}>
-              {sortBy === 'times_quoted' ? 'Quotes' : sortBy === 'total_guests' ? 'Guests' : '%'}
+              {sortBy === 'times_quoted' ? 'Projects' : sortBy === 'total_guests' ? 'Guests' : '%'}
             </span>
           </div>
           <div className={styles.statsList}>

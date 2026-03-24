@@ -39,6 +39,18 @@ module.exports = function makeRouter(db, uploadsDir) {
     res.status(201).json({ files: inserted });
   });
 
+  // GET /api/files/:id/quotes — list quotes this file is attached to
+  router.get('/:id/quotes', (req, res) => {
+    const rows = db.prepare(
+      `SELECT q.id, q.name, q.status, q.event_date, q.client_first_name, q.client_last_name
+       FROM quote_attachments qa
+       JOIN quotes q ON q.id = qa.quote_id
+       WHERE qa.file_id = ?
+       ORDER BY q.created_at DESC`
+    ).all(req.params.id);
+    res.json({ quotes: rows });
+  });
+
   // DELETE /api/files/:id
   router.delete('/:id', (req, res) => {
     const file = db.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);

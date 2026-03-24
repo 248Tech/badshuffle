@@ -8,7 +8,8 @@ import styles from './InventoryPage.module.css';
 
 const EMPTY_FORM = {
   title: '', photo_url: '', hidden: false,
-  unit_price: '', quantity_in_stock: '', category: '', description: '', taxable: true
+  unit_price: '', quantity_in_stock: '', category: '', description: '', taxable: true,
+  item_type: 'product', is_subrental: false
 };
 
 export default function InventoryPage() {
@@ -17,27 +18,31 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [showHidden, setShowHidden] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [viewAssocItem, setViewAssocItem] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null);
+const [confirmDelete, setConfirmDelete] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedType, setSelectedType] = useState(null);
   // Permanent accessories for the item being edited
   const [accessories, setAccessories] = useState([]);
   const [accessorySearch, setAccessorySearch] = useState('');
   const [accessoryResults, setAccessoryResults] = useState([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showSource, setShowSource] = useState(false);
   const formRef = useRef(null);
+  const photoInputRef = useRef(null);
 
   const load = useCallback(() => {
     setLoading(true);
     const params = {};
     if (search) params.search = search;
     if (selectedCategory) params.category = selectedCategory;
+    if (selectedType) params.item_type = selectedType;
     api.getItems(params).then(d => setItems(d.items || [])).catch(() => {}).finally(() => setLoading(false));
-  }, [search, selectedCategory]);
+  }, [search, selectedCategory, selectedType]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -45,10 +50,37 @@ export default function InventoryPage() {
     api.getCategories().then(d => setCategories(d.categories || [])).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    api.getSettings().then(s => {
+      setShowSource((s.inventory_show_source || '0') === '1');
+    }).catch(() => {});
+  }, []);
+
   const loadAccessories = useCallback((itemId) => {
     if (!itemId) return;
     api.getItemAccessories(itemId).then(d => setAccessories(d.items || [])).catch(() => {});
   }, []);
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('files', file);
+      const result = await api.uploadFiles(formData);
+      const uploaded = result.files?.[0];
+      if (uploaded?.id) {
+        setForm(f => ({ ...f, photo_url: String(uploaded.id) }));
+        toast.success('Photo uploaded');
+      }
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  };
 
   const searchAccessories = useCallback(async (q) => {
     if (!q.trim()) { setAccessoryResults([]); return; }
@@ -73,7 +105,9 @@ export default function InventoryPage() {
       quantity_in_stock: item.quantity_in_stock != null ? String(item.quantity_in_stock) : '',
       category: item.category || '',
       description: item.description || '',
-      taxable: item.taxable !== 0
+      taxable: item.taxable !== 0,
+      item_type: item.item_type || 'product',
+      is_subrental: !!item.is_subrental
     });
     setShowAdd(false);
   };
@@ -85,12 +119,14 @@ export default function InventoryPage() {
       const payload = {
         title: form.title,
         photo_url: form.photo_url || null,
-        hidden: form.hidden ? 1 : 0,
+        hidden: (form.hidden || form.item_type === 'accessory') ? 1 : 0,
         unit_price: form.unit_price !== '' ? parseFloat(form.unit_price) : 0,
         quantity_in_stock: form.quantity_in_stock !== '' ? parseInt(form.quantity_in_stock, 10) : 0,
         category: form.category || null,
         description: form.description || null,
-        taxable: form.taxable ? 1 : 0
+        taxable: form.taxable ? 1 : 0,
+        item_type: form.item_type || 'product',
+        is_subrental: form.is_subrental ? 1 : 0
       };
       if (editingItem) {
         await api.updateItem(editingItem.id, payload);
@@ -144,6 +180,19 @@ export default function InventoryPage() {
             + Add Item
           </button>
         </div>
+      </div>
+
+      {/* Type filter */}
+      <div className={styles.categoryNav} style={{ paddingBottom: 0 }}>
+        {[null, 'product', 'group', 'accessory'].map(t => (
+          <button
+            key={t ?? 'all'}
+            className={`${styles.categoryNavBtn} ${selectedType === t ? styles.categoryNavBtnActive : ''}`}
+            onClick={() => setSelectedType(t)}
+          >
+            {t === null ? 'All types' : t === 'product' ? 'Products' : t === 'group' ? 'Groups' : 'Accessories'}
+          </button>
+        ))}
       </div>
 
       {/* Category navbar */}
@@ -210,6 +259,17 @@ export default function InventoryPage() {
                 </datalist>
               </div>
             </div>
+            <div className="form-group">
+              <label>Item type</label>
+              <select
+                value={form.item_type}
+                onChange={e => setForm(f => ({ ...f, item_type: e.target.value }))}
+              >
+                <option value="product">Product — standard rentable item</option>
+                <option value="group">Group — package of multiple items</option>
+                <option value="accessory">Accessory — hidden sub-item / add-on</option>
+              </select>
+            </div>
             <div className={styles.formRow}>
               <div className="form-group">
                 <label>Unit Price ($)</label>
@@ -235,12 +295,38 @@ export default function InventoryPage() {
               </div>
             </div>
             <div className="form-group">
-              <label>Photo URL</label>
-              <input
-                value={form.photo_url}
-                onChange={e => setForm(f => ({ ...f, photo_url: e.target.value }))}
-                placeholder="https://…"
-              />
+              <label>Photo</label>
+              <div className={styles.photoRow}>
+                <input
+                  className={styles.photoUrlInput}
+                  value={form.photo_url}
+                  onChange={e => setForm(f => ({ ...f, photo_url: e.target.value }))}
+                  placeholder="https://… or upload below"
+                />
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handlePhotoUpload}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={uploadingPhoto}
+                  onClick={() => photoInputRef.current?.click()}
+                >
+                  {uploadingPhoto ? 'Uploading…' : 'Upload Photo'}
+                </button>
+                {form.photo_url && /^\d+$/.test(form.photo_url.trim()) && (
+                  <img
+                    src={api.fileServeUrl(form.photo_url.trim())}
+                    alt="preview"
+                    className={styles.photoPreview}
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                )}
+              </div>
             </div>
             <div className="form-group">
               <label>Description</label>
@@ -267,6 +353,14 @@ export default function InventoryPage() {
                   onChange={e => setForm(f => ({ ...f, taxable: e.target.checked }))}
                 />
                 Taxable
+              </label>
+              <label className={styles.toggleInline}>
+                <input
+                  type="checkbox"
+                  checked={form.is_subrental}
+                  onChange={e => setForm(f => ({ ...f, is_subrental: e.target.checked }))}
+                />
+                Subrental
               </label>
             </div>
             <div className={styles.formActions}>
@@ -338,6 +432,7 @@ export default function InventoryPage() {
         items={items}
         loading={loading}
         showHidden={showHidden}
+        showSource={showSource}
         onEdit={handleEdit}
         onDelete={setConfirmDelete}
       />

@@ -39,13 +39,37 @@ function getMonthDays(year, month) {
   return cells;
 }
 
+const PRESETS = [
+  { label: 'This month', get: () => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { from: toYMD(first), to: toYMD(last) };
+  }},
+  { label: 'Next month', get: () => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+    return { from: toYMD(first), to: toYMD(last) };
+  }},
+  { label: 'Next 3 months', get: () => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const last = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+    return { from: toYMD(first), to: toYMD(last) };
+  }},
+  { label: 'This year', get: () => {
+    const y = new Date().getFullYear();
+    return { from: `${y}-01-01`, to: `${y}-12-31` };
+  }},
+];
+
 export default function DateRangePicker({ from, to, onChange, placeholder = 'Event date range', id }) {
-  const fromDate = parseYMD(from);
-  const toDate = parseYMD(to);
   const [open, setOpen] = useState(false);
-  const [selecting, setSelecting] = useState('from'); // 'from' | 'to'
+  const [selecting, setSelecting] = useState('from');
+  const [hover, setHover] = useState(null);
   const [viewDate, setViewDate] = useState(() => {
-    const d = fromDate || toDate || new Date();
+    const d = parseYMD(from) || parseYMD(to) || new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const containerRef = useRef(null);
@@ -75,18 +99,26 @@ export default function DateRangePicker({ from, to, onChange, placeholder = 'Eve
     }
     setOpen(false);
     setSelecting('from');
+    setHover(null);
   };
 
   const isInRange = (ymd) => {
-    if (!from || !to) return false;
+    if (!from) return false;
     const d = parseYMD(ymd);
     const f = parseYMD(from);
-    const t = parseYMD(to);
-    return d && f && t && d >= f && d <= t;
+    const effectiveTo = selecting === 'to' && hover ? parseYMD(hover) : parseYMD(to);
+    if (!d || !f || !effectiveTo) return false;
+    const [lo, hi] = f <= effectiveTo ? [f, effectiveTo] : [effectiveTo, f];
+    return d > lo && d < hi;
   };
 
   const isFrom = (ymd) => from && ymd === from;
-  const isTo = (ymd) => to && ymd === to;
+  const isTo = (ymd) => {
+    if (selecting === 'to' && hover) return ymd === hover;
+    return to && ymd === to;
+  };
+
+  const today = toYMD(new Date());
 
   const label = from && to
     ? `${new Date(from + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(to + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
@@ -97,7 +129,9 @@ export default function DateRangePicker({ from, to, onChange, placeholder = 'Eve
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const days = getMonthDays(year, month);
-  const monthLabel = viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  const yearOptions = [];
+  for (let y = year - 3; y <= year + 5; y++) yearOptions.push(y);
 
   return (
     <div className={styles.wrap} ref={containerRef}>
@@ -116,6 +150,18 @@ export default function DateRangePicker({ from, to, onChange, placeholder = 'Eve
       </button>
       {open && (
         <div className={styles.dropdown} role="dialog" aria-label="Event date range calendar">
+          <div className={styles.presets}>
+            {PRESETS.map(p => (
+              <button
+                key={p.label}
+                type="button"
+                className={styles.presetBtn}
+                onClick={() => { onChange(p.get()); setOpen(false); setSelecting('from'); setHover(null); }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
           <div className={styles.header}>
             <button
               type="button"
@@ -125,7 +171,26 @@ export default function DateRangePicker({ from, to, onChange, placeholder = 'Eve
             >
               ‹
             </button>
-            <span className={styles.monthLabel}>{monthLabel}</span>
+            <div className={styles.headerCenter}>
+              <select
+                className={styles.monthSelect}
+                value={month}
+                onChange={e => setViewDate(new Date(year, Number(e.target.value), 1))}
+                aria-label="Month"
+              >
+                {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (
+                  <option key={i} value={i}>{m}</option>
+                ))}
+              </select>
+              <select
+                className={styles.yearSelect}
+                value={year}
+                onChange={e => setViewDate(new Date(Number(e.target.value), month, 1))}
+                aria-label="Year"
+              >
+                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
             <button
               type="button"
               className={styles.navBtn}
@@ -145,12 +210,15 @@ export default function DateRangePicker({ from, to, onChange, placeholder = 'Eve
               const inRange = cell.type === 'curr' && isInRange(cell.ymd);
               const start = cell.type === 'curr' && isFrom(cell.ymd);
               const end = cell.type === 'curr' && isTo(cell.ymd);
+              const isToday = cell.type === 'curr' && cell.ymd === today;
               return (
                 <button
                   key={cell.ymd + cell.type}
                   type="button"
-                  className={`${styles.day} ${cell.type === 'pad' ? styles.dayPad : ''} ${inRange ? styles.dayInRange : ''} ${start ? styles.dayFrom : ''} ${end ? styles.dayTo : ''}`}
+                  className={`${styles.day} ${cell.type === 'pad' ? styles.dayPad : ''} ${inRange ? styles.dayInRange : ''} ${start ? styles.dayFrom : ''} ${end ? styles.dayTo : ''} ${isToday && !start && !end ? styles.dayToday : ''}`}
                   onClick={() => cell.type === 'curr' && handleDayClick(cell.ymd)}
+                  onMouseEnter={() => cell.type === 'curr' && selecting === 'to' && setHover(cell.ymd)}
+                  onMouseLeave={() => setHover(null)}
                   aria-label={cell.type === 'curr' ? `Choose ${cell.ymd}` : undefined}
                 >
                   {cell.date.getDate()}
@@ -158,18 +226,32 @@ export default function DateRangePicker({ from, to, onChange, placeholder = 'Eve
               );
             })}
           </div>
-          <p className={styles.hint}>
-            {selecting === 'from' ? 'Click start date' : 'Click end date'}
-          </p>
-          {(from || to) && (
-            <button
-              type="button"
-              className={styles.clearBtn}
-              onClick={() => { onChange({ from: '', to: '' }); setSelecting('from'); setOpen(false); }}
-            >
-              Clear range
-            </button>
-          )}
+          <div className={styles.footer}>
+            <p className={styles.hint}>
+              {selecting === 'from' ? 'Click start date' : 'Click end date'}
+            </p>
+            <div className={styles.footerActions}>
+              <button
+                type="button"
+                className={styles.todayBtn}
+                onClick={() => {
+                  const now = new Date();
+                  setViewDate(new Date(now.getFullYear(), now.getMonth(), 1));
+                }}
+              >
+                Today
+              </button>
+              {(from || to) && (
+                <button
+                  type="button"
+                  className={styles.clearBtn}
+                  onClick={() => { onChange({ from: '', to: '' }); setSelecting('from'); setHover(null); setOpen(false); }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

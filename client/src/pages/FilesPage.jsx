@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../components/Toast.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
@@ -27,6 +28,7 @@ const FILTERS = [
 ];
 
 export default function FilesPage() {
+  const navigate = useNavigate();
   const toast = useToast();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +38,9 @@ export default function FilesPage() {
   const [viewMode, setViewMode] = useState('tiles');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [inspectFile, setInspectFile] = useState(null);
+  const [inspectQuotes, setInspectQuotes] = useState([]);
+  const [inspectLoading, setInspectLoading] = useState(false);
   const fileInputRef = useRef(null);
 
   function load() {
@@ -97,6 +102,16 @@ export default function FilesPage() {
   function copyUrl(file) {
     navigator.clipboard.writeText(window.location.origin + api.fileServeUrl(file.id));
     toast.success('URL copied');
+  }
+
+  function openInspect(file) {
+    setInspectFile(file);
+    setInspectQuotes([]);
+    setInspectLoading(true);
+    api.getFileQuotes(file.id)
+      .then(d => setInspectQuotes(d.quotes || []))
+      .catch(() => setInspectQuotes([]))
+      .finally(() => setInspectLoading(false));
   }
 
   function toggleSelect(id) {
@@ -227,7 +242,7 @@ export default function FilesPage() {
                   <span className={styles.fileIcon}>{mimeIcon(file.mime_type)}</span>
                 </div>
               )}
-              <div className={styles.cardBody}>
+              <div className={styles.cardBody} onClick={() => openInspect(file)} style={{ cursor: 'pointer' }}>
                 <span className={styles.fileName} title={file.original_name}>{file.original_name}</span>
                 <span className={styles.fileSize}>{formatSize(file.size)}</span>
               </div>
@@ -281,7 +296,7 @@ export default function FilesPage() {
                         aria-label={`Select ${file.original_name}`}
                       />
                     </td>
-                    <td className={styles.listFileName}>
+                    <td className={styles.listFileName} onClick={() => openInspect(file)} style={{ cursor: 'pointer' }}>
                       <span className={styles.listFileIcon}>{isImage(file) ? '🖼️' : mimeIcon(file.mime_type)}</span>
                       <span title={file.original_name}>{file.original_name}</span>
                     </td>
@@ -325,6 +340,58 @@ export default function FilesPage() {
           onConfirm={handleBulkDelete}
           onCancel={() => setConfirmBulkDelete(false)}
         />
+      )}
+
+      {inspectFile && (
+        <div className={styles.inspectOverlay} onClick={() => setInspectFile(null)}>
+          <div className={styles.inspectPanel} onClick={e => e.stopPropagation()}>
+            <div className={styles.inspectHeader}>
+              <span className={styles.inspectIcon}>{isImage(inspectFile) ? '🖼️' : mimeIcon(inspectFile.mime_type)}</span>
+              <div className={styles.inspectMeta}>
+                <span className={styles.inspectName} title={inspectFile.original_name}>{inspectFile.original_name}</span>
+                <span className={styles.inspectSize}>{formatSize(inspectFile.size)}</span>
+              </div>
+              <button type="button" className={styles.inspectClose} onClick={() => setInspectFile(null)} aria-label="Close">✕</button>
+            </div>
+            {isImage(inspectFile) && (
+              <div className={styles.inspectPreview}>
+                <img src={api.fileServeUrl(inspectFile.id)} alt={inspectFile.original_name} className={styles.inspectImg} />
+              </div>
+            )}
+            <div className={styles.inspectActions}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyUrl(inspectFile)}>Copy URL</button>
+              {!isImage(inspectFile) && (
+                <a href={api.fileServeUrl(inspectFile.id)} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Download</a>
+              )}
+            </div>
+            <div className={styles.inspectSection}>
+              <h4 className={styles.inspectSectionTitle}>Linked projects</h4>
+              {inspectLoading ? (
+                <div className={styles.inspectEmpty}><span className="spinner" /></div>
+              ) : inspectQuotes.length === 0 ? (
+                <p className={styles.inspectEmpty}>Not attached to any projects.</p>
+              ) : (
+                <ul className={styles.inspectQuoteList}>
+                  {inspectQuotes.map(q => (
+                    <li key={q.id} className={styles.inspectQuoteRow}>
+                      <button
+                        type="button"
+                        className={styles.inspectQuoteLink}
+                        onClick={() => { setInspectFile(null); navigate(`/quotes/${q.id}`); }}
+                      >
+                        {q.name}
+                      </button>
+                      <span className={styles.inspectQuoteMeta}>
+                        {[q.client_first_name, q.client_last_name].filter(Boolean).join(' ')}
+                        {q.event_date ? ` · ${q.event_date}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

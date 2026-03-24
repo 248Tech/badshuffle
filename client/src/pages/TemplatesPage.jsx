@@ -12,6 +12,7 @@ export default function TemplatesPage() {
   const [contractTemplates, setContractTemplates] = useState([]);
   const [contractForm, setContractForm] = useState({ name: '', body_html: '' });
   const [showContractForm, setShowContractForm] = useState(false);
+  const [editingContract, setEditingContract] = useState(null); // null | id
   const [contractSaving, setContractSaving] = useState(false);
   // Payment policies
   const [policies, setPolicies] = useState([]);
@@ -107,8 +108,14 @@ export default function TemplatesPage() {
     e.preventDefault();
     setContractSaving(true);
     try {
-      await api.createContractTemplate({ name: contractForm.name, body_html: contractForm.body_html || null });
-      toast.success('Contract template added');
+      if (editingContract) {
+        await api.updateContractTemplate(editingContract, { name: contractForm.name, body_html: contractForm.body_html || null });
+        toast.success('Contract template updated');
+        setEditingContract(null);
+      } else {
+        await api.createContractTemplate({ name: contractForm.name, body_html: contractForm.body_html || null });
+        toast.success('Contract template added');
+      }
       setContractForm({ name: '', body_html: '' });
       setShowContractForm(false);
       loadContractTemplates();
@@ -253,7 +260,7 @@ export default function TemplatesPage() {
             <p className={styles.sub}>Upload or create contract templates. When editing a quote (click the quote title), you can apply a template to that quote&apos;s contract.</p>
           </div>
           {!showContractForm && (
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowContractForm(true)}>+ Add contract template</button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => { setEditingContract(null); setContractForm({ name: '', body_html: '' }); setShowContractForm(true); }}>+ Add contract template</button>
           )}
         </div>
         {contractTemplates.length === 0 && !showContractForm && (
@@ -267,6 +274,7 @@ export default function TemplatesPage() {
                 <span className={styles.rowDetailText}>{(ct.body_html || '').slice(0, 60)}{(ct.body_html || '').length > 60 ? '…' : ''}</span>
               </span>
               <div className={styles.rowActions}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditingContract(ct.id); setContractForm({ name: ct.name, body_html: ct.body_html || '' }); setShowContractForm(true); }}>Edit</button>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleDeleteContractTemplate(ct.id)}>Delete</button>
               </div>
             </li>
@@ -274,7 +282,7 @@ export default function TemplatesPage() {
         </ul>
         {showContractForm ? (
           <form onSubmit={handleSaveContractTemplate} className={styles.form}>
-            <h3 className={styles.formTitle}>Add contract template</h3>
+            <h3 className={styles.formTitle}>{editingContract ? 'Edit contract template' : 'Add contract template'}</h3>
             <div className="form-group">
               <label>Name *</label>
               <input required value={contractForm.name} onChange={e => setContractForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Standard event contract" />
@@ -290,7 +298,7 @@ export default function TemplatesPage() {
               </label>
             </div>
             <div className={styles.formActions}>
-              <button type="button" className="btn btn-ghost" onClick={() => { setShowContractForm(false); setContractForm({ name: '', body_html: '' }); }}>Cancel</button>
+              <button type="button" className="btn btn-ghost" onClick={() => { setShowContractForm(false); setEditingContract(null); setContractForm({ name: '', body_html: '' }); }}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={contractSaving}>{contractSaving ? 'Saving…' : 'Save'}</button>
             </div>
           </form>

@@ -256,7 +256,7 @@ async function start() {
     if (!quote) return res.status(404).json({ error: 'Not found' });
     let contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(quote.id);
     const today = new Date().toISOString().slice(0, 10);
-    if (quote.expires_at && quote.expires_at < today && !(contract && contract.signed_at)) {
+    if (quote.expires_at && quote.expires_at < today) {
       return res.status(400).json({ error: 'This quote has expired and can no longer be signed' });
     }
     if (!contract) {

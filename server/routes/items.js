@@ -29,7 +29,7 @@ module.exports = function makeRouter(db) {
 
   // GET /api/items
   router.get('/', (req, res) => {
-    const { search, hidden, category, limit, offset, exclude_quote_id } = req.query;
+    const { search, hidden, category, limit, offset, exclude_quote_id, item_type } = req.query;
     let query = `
       SELECT items.*,
         (SELECT COALESCE(SUM(qi.quantity),0) FROM quote_items qi
@@ -55,6 +55,10 @@ module.exports = function makeRouter(db) {
     if (excludeQuoteId != null && !Number.isNaN(excludeQuoteId)) {
       query += ' AND items.id NOT IN (SELECT item_id FROM quote_items WHERE quote_id = ?)';
       params.push(excludeQuoteId);
+    }
+    if (item_type && ['product', 'group', 'accessory'].includes(item_type)) {
+      query += " AND COALESCE(items.item_type, 'product') = ?";
+      params.push(item_type);
     }
     const countQuery = `SELECT COUNT(*) AS n FROM items WHERE 1=1${search ? ' AND items.title LIKE ?' : ''}${hidden !== undefined ? ' AND items.hidden = ?' : ''}${categoryNorm ? " AND LOWER(TRIM(COALESCE(items.category, ''))) = LOWER(?)" : ''}${excludeQuoteId != null && !Number.isNaN(excludeQuoteId) ? ' AND items.id NOT IN (SELECT item_id FROM quote_items WHERE quote_id = ?)' : ''}`;
     const total = db.prepare(countQuery).get(...params).n;
@@ -216,20 +220,21 @@ module.exports = function makeRouter(db) {
     const {
       title, photo_url, source = 'manual', hidden = 0,
       quantity_in_stock = 0, unit_price = 0, category, description, contract_description,
-      taxable = 1, labor_hours = 0, is_subrental = 0, vendor_id
+      taxable = 1, labor_hours = 0, is_subrental = 0, vendor_id, item_type = 'product'
     } = req.body;
     if (!title) return res.status(400).json({ error: 'title required' });
 
     try {
       const result = db.prepare(`
-        INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, contract_description, taxable, labor_hours, is_subrental, vendor_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO items (title, photo_url, source, hidden, quantity_in_stock, unit_price, category, description, contract_description, taxable, labor_hours, is_subrental, vendor_id, item_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         title, photo_url || null, source, hidden ? 1 : 0,
         quantity_in_stock, unit_price, category || null, description || null,
         contract_description || null, taxable ? 1 : 0,
         labor_hours != null ? labor_hours : 0,
-        is_subrental ? 1 : 0, vendor_id != null ? vendor_id : null
+        is_subrental ? 1 : 0, vendor_id != null ? vendor_id : null,
+        item_type || 'product'
       );
       const item = db.prepare('SELECT * FROM items WHERE id = ?').get(result.lastInsertRowid);
       res.status(201).json({ item });
@@ -244,7 +249,7 @@ module.exports = function makeRouter(db) {
     const {
       title, photo_url, source, hidden,
       quantity_in_stock, unit_price, category, description, contract_description,
-      taxable, labor_hours, is_subrental, vendor_id
+      taxable, labor_hours, is_subrental, vendor_id, item_type
     } = req.body;
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
     if (!item) return res.status(404).json({ error: 'Not found' });
@@ -264,6 +269,7 @@ module.exports = function makeRouter(db) {
         labor_hours          = COALESCE(?, labor_hours),
         is_subrental         = COALESCE(?, is_subrental),
         vendor_id            = COALESCE(?, vendor_id),
+        item_type            = COALESCE(?, item_type),
         updated_at           = datetime('now')
       WHERE id = ?
     `).run(
@@ -280,6 +286,7 @@ module.exports = function makeRouter(db) {
       labor_hours !== undefined ? (labor_hours != null ? labor_hours : 0) : null,
       is_subrental !== undefined ? (is_subrental ? 1 : 0) : null,
       vendor_id !== undefined ? (vendor_id != null ? vendor_id : null) : null,
+      item_type || null,
       req.params.id
     );
 

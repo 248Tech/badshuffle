@@ -222,6 +222,7 @@ async function initDb() {
     'ALTER TABLE items ADD COLUMN description TEXT',
     'ALTER TABLE items ADD COLUMN taxable INTEGER DEFAULT 1',
     'ALTER TABLE items ADD COLUMN labor_hours REAL DEFAULT 0',
+    "ALTER TABLE items ADD COLUMN item_type TEXT DEFAULT 'product'",
   ]) {
     try { db.exec(col); } catch {}
   }

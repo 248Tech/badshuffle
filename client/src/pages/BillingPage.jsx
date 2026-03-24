@@ -39,10 +39,16 @@ export default function BillingPage() {
   const [sortKey, setSortKey] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
 
+  const [outstanding, setOutstanding] = useState([]);
+
   const load = useCallback(() => {
     setLoading(true);
     api.getQuotes()
-      .then(d => setQuotes((d.quotes || []).filter(q => q.overpaid)))
+      .then(d => {
+        const all = d.quotes || [];
+        setQuotes(all.filter(q => q.overpaid));
+        setOutstanding(all.filter(q => !q.overpaid && q.remaining_balance > 0 && ['approved','confirmed'].includes(q.status)));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -91,10 +97,50 @@ export default function BillingPage() {
         <div>
           <h1 className={styles.title}>Billing</h1>
           <p className={styles.sub}>
-            Overpaid projects — customer needs refund. Billing history logs payments received, removed, and refunded.
+            Track outstanding balances, overpayments, and billing history across all projects.
           </p>
         </div>
       </div>
+
+      {!loading && outstanding.length > 0 && (
+        <div className={`card ${styles.card}`}>
+          <h2 className={styles.sectionTitle}>Outstanding balances</h2>
+          <p className={styles.sectionSub}>Signed or confirmed projects with remaining balance due.</p>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Client</th>
+                  <th>Event Date</th>
+                  <th>Total</th>
+                  <th>Paid</th>
+                  <th>Remaining</th>
+                </tr>
+              </thead>
+              <tbody>
+                {outstanding.map(q => {
+                  const clientName = [q.client_first_name, q.client_last_name].filter(Boolean).join(' ') || q.name;
+                  return (
+                    <tr key={q.id}>
+                      <td>
+                        <button type="button" className={styles.quoteLink} onClick={() => navigate(`/quotes/${q.id}`)}>
+                          {q.name}
+                        </button>
+                      </td>
+                      <td>{clientName}</td>
+                      <td>{q.event_date || '—'}</td>
+                      <td>${Number(q.contract_total ?? q.total).toFixed(2)}</td>
+                      <td>${Number(q.amount_paid || 0).toFixed(2)}</td>
+                      <td className={styles.remainingBalance}>${Number(q.remaining_balance || 0).toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="empty-state"><div className="spinner" /></div>

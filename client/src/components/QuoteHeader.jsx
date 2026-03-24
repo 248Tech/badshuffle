@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from './QuoteHeader.module.css';
 
 export default function QuoteHeader({
@@ -12,8 +13,10 @@ export default function QuoteHeader({
   onAISuggest,
   onDuplicate,
   onDelete,
+  onDismissUnsignedChanges,
   showTopRow = true,
 }) {
+  const navigate = useNavigate();
   const status = quote.status || 'draft';
   const showUnsignedChanges = (status === 'approved' || status === 'confirmed') && quote.has_unsigned_changes;
   const rawDisplay = status === 'approved' ? 'Signed' : status;
@@ -23,6 +26,14 @@ export default function QuoteHeader({
     ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString()
     : null;
   const itemCount = (quote.items || []).length;
+  const isExpired = quote.is_expired;
+  const expiresAt = quote.expires_at
+    ? new Date(quote.expires_at + 'T00:00:00').toLocaleDateString()
+    : null;
+  const daysUntilExpiry = quote.expires_at
+    ? Math.ceil((new Date(quote.expires_at + 'T00:00:00') - new Date()) / 86400000)
+    : null;
+  const expiringSoon = !isExpired && daysUntilExpiry !== null && daysUntilExpiry <= 7 && daysUntilExpiry >= 0;
 
   return (
     <header className={styles.header}>
@@ -102,9 +113,59 @@ export default function QuoteHeader({
         <span className={styles.metaTag} aria-label={`${itemCount} items`}>
           {itemCount} items
         </span>
+        <button
+          type="button"
+          className={`${styles.metaTag} ${styles.metaTagLink}`}
+          onClick={() => navigate(`/messages?quote=${quote.id}`)}
+          title="View messages for this project"
+          aria-label="View client messages"
+        >
+          ✉ Messages
+        </button>
+        {expiresAt && (
+          <span
+            className={`${styles.metaTag} ${isExpired ? styles.metaTagExpired : expiringSoon ? styles.metaTagExpiringSoon : ''}`}
+            aria-label={isExpired ? `Expired ${expiresAt}` : `Expires ${expiresAt}`}
+          >
+            ⏱ {isExpired ? 'Expired' : 'Expires'} {expiresAt}
+          </span>
+        )}
       </div>
 
       {quote.notes && <p className={styles.notes}>{quote.notes}</p>}
+
+      {isExpired && (
+        <div className={styles.expiredBanner} role="alert">
+          <span className={styles.unsignedIcon}>🚫</span>
+          <span className={styles.expiredText}>
+            This project expired on {expiresAt}. The client can no longer view or approve it.
+          </span>
+          <div className={styles.unsignedActions}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit}>
+              Update expiration
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showUnsignedChanges && (
+        <div className={styles.unsignedBanner} role="alert">
+          <span className={styles.unsignedIcon}>⚠️</span>
+          <span className={styles.unsignedText}>
+            Changes were made after this project was signed. Send the updated contract to the client for re-approval.
+          </span>
+          <div className={styles.unsignedActions}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={onSend}>
+              Send for re-approval
+            </button>
+            {typeof onDismissUnsignedChanges === 'function' && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={onDismissUnsignedChanges}>
+                Dismiss
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

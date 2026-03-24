@@ -213,7 +213,7 @@ export default function DashboardPage() {
                       className={item.status === 'reserved' ? styles.conflictBadgeRed : styles.conflictBadgeYellow}
                       title={item.status === 'reserved' ? 'Confirmed oversold' : 'Potential oversold'}
                     >
-                      {item.status === 'reserved' ? '😢' : '🙁'} {item.title} ({item.quantity_needed}/{item.stock})
+                      {item.status === 'reserved' ? '✕' : '!'} {item.title} ({item.quantity_needed}/{item.stock})
                     </span>
                   ))}
                 </div>
@@ -235,7 +235,7 @@ export default function DashboardPage() {
               <span>Vendor</span>
               <span>Qty</span>
               <span>Event Date</span>
-              <span>Quote</span>
+              <span>Project</span>
             </div>
             {subrentals.map((s, i) => (
               <div

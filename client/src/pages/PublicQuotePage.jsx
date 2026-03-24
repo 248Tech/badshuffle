@@ -259,7 +259,7 @@ export default function PublicQuotePage() {
               )}
             </div>
           )}
-          <div className={s.companyLabel}>Quote</div>
+          <div className={s.companyLabel}>Project</div>
           <h1 className={s.quoteTitle}>{quote.name}</h1>
           <div className={s.heroBadges}>
             <span className={`${s.statusBadge} ${isApproved ? s.approved : s.pending}`}>
@@ -469,7 +469,9 @@ export default function PublicQuotePage() {
         {quote.rental_terms && quote.rental_terms.body_text && (
           <div className={s.section}>
             <div className={s.contractCard}>
-              <div className={s.sectionHeader}>Rental Terms</div>
+              <div className={s.sectionHeader}>
+                Rental Terms{quote.rental_terms.name ? ` — ${quote.rental_terms.name}` : ''}
+              </div>
               <div className={s.contractBody} style={{ whiteSpace: 'pre-wrap' }}>{quote.rental_terms.body_text}</div>
             </div>
           </div>
@@ -479,7 +481,9 @@ export default function PublicQuotePage() {
         {quote.payment_policy && quote.payment_policy.body_text && (
           <div className={s.section}>
             <div className={s.contractCard}>
-              <div className={s.sectionHeader}>Payment Policy</div>
+              <div className={s.sectionHeader}>
+                Payment Policy{quote.payment_policy.name ? ` — ${quote.payment_policy.name}` : ''}
+              </div>
               <div className={s.contractBody} style={{ whiteSpace: 'pre-wrap' }}>{quote.payment_policy.body_text}</div>
             </div>
           </div>

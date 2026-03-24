@@ -1,14 +1,14 @@
-# BadShuffle v0.0.6
+# BadShuffle v0.0.7
 
-![Release](https://img.shields.io/badge/release-0.0.6-0a7ea4)
+![Release](https://img.shields.io/badge/release-0.0.7-0a7ea4)
 ![Status](https://img.shields.io/badge/status-pre--release-c79200)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
 ![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Windows%20EXE-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-111111)
 
-BadShuffle is a self-hosted event rental software platform for quoting, inventory management, client approvals, messaging, and public catalog publishing. It combines internal operator workflows with SEO-friendly public surfaces, optional AI assistance, and local-first deployment choices instead of recurring SaaS lock-in.
+BadShuffle is a self-hosted event rental software platform for project-centric quoting, inventory management, client approvals, billing, files, messaging, and public catalog publishing. It combines internal operator workflows with SEO-friendly public surfaces, optional AI assistance, and local-first deployment choices instead of recurring SaaS lock-in.
 
-**Keywords:** event rental software, rental inventory management, quote builder, client portal, self-hosted CRM, Goodshuffle sync, public product catalog, event operations software.
+**Keywords:** event rental software, rental inventory management, project quote workflow, client portal, self-hosted CRM, Goodshuffle sync, public product catalog, event operations software.
 
 *Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history.*
 
@@ -21,18 +21,18 @@ BadShuffle is a self-hosted event rental software platform for quoting, inventor
 - **Domain complexity** — Availability conflicts, per-line pricing overrides, reusable rental/payment policies, and public quote signing target actual event-rental workflows.
 - **Deployment pragmatism** — Run it locally, on a LAN, in Docker, or as packaged Windows executables.
 
-## What’s New In v0.0.6
+## What’s New In v0.0.7
 
-- **Visual foundation refresh** — Body/background layering was rebalanced, new derived primary tokens were added for consistent interactive states across themes, and cards/buttons now have clearer interaction feedback.
-- **Layout + navigation polish** — Main content width is now constrained for large displays, side padding is more comfortable, and sidebar active/hover states are cleaner and easier to scan.
-- **Core screen UX upgrades** — Dashboard stat cards now use stronger color hierarchy and improved empty states; Inventory cards now use a 4:3 image ratio with hover/touch action overlays and better category filter behavior.
-- **Quote + table readability improvements** — Quote summary panel is sticky with stronger total emphasis, quote/custom items are more card-like, and Leads/Billing tables have improved row spacing and sticky header behavior.
-- **Flow + utility polish** — Import stepper styling supports completed states, Messages has stronger empty/thread states, and shared utility classes (`.skeleton`, `.quoteItemAdded`) are ready for broader loading/feedback use.
+- **Projects-first workflow pass** — UI terminology and key surfaces were aligned around “Projects” (formerly quote-centric wording), including project list sorting/filtering and streamlined creation/edit flow updates.
+- **Files + billing operations upgrade** — Files now support richer list/tile management, bulk actions, and linked-project inspection; Billing now includes stronger history tooling plus outstanding balance visibility.
+- **Project detail lifecycle polish** — Improved header/status UX (expiration + unsigned-change handling), better payment/file interactions, and clearer internal actions for confirm/revert/close workflows.
+- **Inventory model expansion** — Added item type support (`product` / `group` / `accessory`), stronger edit controls (photo upload/subrental toggles), and configurable source visibility indicators.
+- **Search/filter quality improvements** — Upgraded date-range picker with presets and month/year selectors, standardized search UX across pages, plus autocomplete/sort improvements in Leads and other operational tables.
 
 ## Core Features
 
 - **Inventory management** — Searchable catalog with photos, categories, subrental support, vendor links, associations, and accessory relationships.
-- **Quote workflow** — Event quotes, custom items, price overrides, line-item discounts, adjustments, contract text, approvals, signatures, and public sharing.
+- **Project workflow** — Event projects/quotes, custom items, price overrides, line-item discounts, adjustments, contract text, approvals, signatures, and public sharing.
 - **Availability awareness** — Quote conflict checks, oversold detection, subrental needs, and inventory-aware quote building.
 - **Public-facing surfaces** — Client quote page, live quote messaging, SEO catalog pages, `robots.txt`, sitemap generation, and JSON-LD metadata.
 - **Comms and files** — SMTP send, IMAP reply capture, media library uploads, and quote-linked attachments.
@@ -169,7 +169,13 @@ In Vite dev mode, BadShuffle can auto-create and log in a local admin account th
 
 That route is disabled when `NODE_ENV=production`.
 
-### 5. Optional: load the Chrome extension
+### 5. First-run workflow (recommended)
+
+1. Create a project from the **Projects** page.
+2. Add inventory items (products, groups, or accessories) and attach files.
+3. Send to client, track messages, and review billing/outstanding balances.
+
+### 6. Optional: load the Chrome extension
 
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
@@ -177,7 +183,7 @@ That route is disabled when `NODE_ENV=production`.
 4. Select the `extension/` folder
 5. Visit Goodshuffle Pro and use the sync action
 
-### 6. Troubleshooting
+### 7. Troubleshooting
 
 **Locked out?** Run `npm run create-admin -- --email your@email.com --password yournewpassword`.
 

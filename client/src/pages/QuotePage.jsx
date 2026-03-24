@@ -35,6 +35,7 @@ export default function QuotePage() {
     venue: ''
   });
   const [quoteIdsWithConflict, setQuoteIdsWithConflict] = useState(new Set());
+  const [sortBy, setSortBy] = useState('created_desc');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -239,6 +240,20 @@ export default function QuotePage() {
 
   const selectedCount = selectedIds.size;
 
+  const sortedQuotes = [...quotes].sort((a, b) => {
+    switch (sortBy) {
+      case 'name_asc': return (a.name || '').localeCompare(b.name || '');
+      case 'name_desc': return (b.name || '').localeCompare(a.name || '');
+      case 'event_asc': return (a.event_date || '').localeCompare(b.event_date || '');
+      case 'event_desc': return (b.event_date || '').localeCompare(a.event_date || '');
+      case 'total_desc': return (b.total || 0) - (a.total || 0);
+      case 'total_asc': return (a.total || 0) - (b.total || 0);
+      case 'created_asc': return a.id - b.id;
+      case 'created_desc':
+      default: return b.id - a.id;
+    }
+  });
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -249,6 +264,21 @@ export default function QuotePage() {
           </p>
         </div>
         <div className={styles.headerActions}>
+          <select
+            className={styles.viewSelect}
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            aria-label="Sort order"
+          >
+            <option value="created_desc">Newest first</option>
+            <option value="created_asc">Oldest first</option>
+            <option value="event_asc">Event date ↑</option>
+            <option value="event_desc">Event date ↓</option>
+            <option value="name_asc">Name A→Z</option>
+            <option value="name_desc">Name Z→A</option>
+            <option value="total_desc">Total high→low</option>
+            <option value="total_asc">Total low→high</option>
+          </select>
           <select
             className={styles.viewSelect}
             value={viewMode}
@@ -265,22 +295,32 @@ export default function QuotePage() {
       </div>
 
       <div className={styles.filterBar}>
-        <input
-          type="text"
-          className={styles.filterInput}
-          placeholder="Search name or client…"
-          value={filters.search}
-          onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-          aria-label="Search by quote or client name"
-        />
-        <input
-          type="text"
-          className={styles.filterInput}
-          placeholder="Venue name or address"
-          value={filters.venue}
-          onChange={e => setFilters(f => ({ ...f, venue: e.target.value }))}
-          aria-label="Filter by venue"
-        />
+        <div className={styles.filterSearchWrap}>
+          <svg className={styles.filterSearchIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            className={styles.filterInputSearch}
+            placeholder="Search name or client…"
+            value={filters.search}
+            onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+            aria-label="Search by quote or client name"
+          />
+        </div>
+        <div className={styles.filterSearchWrap}>
+          <svg className={styles.filterSearchIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            className={styles.filterInputSearch}
+            placeholder="Venue name or address"
+            value={filters.venue}
+            onChange={e => setFilters(f => ({ ...f, venue: e.target.value }))}
+            aria-label="Filter by venue"
+          />
+        </div>
         <select
           className={styles.filterSelect}
           value={filters.status}
@@ -464,7 +504,7 @@ export default function QuotePage() {
 
       {!loading && quotes.length > 0 && viewMode === 'tiles' && (
         <div className={styles.grid}>
-          {quotes.map(q => (
+          {sortedQuotes.map(q => (
             <QuoteCard
               key={q.id}
               quote={q}
@@ -488,12 +528,13 @@ export default function QuotePage() {
                 <th className={styles.colCheck}>
                   <input
                     type="checkbox"
-                    checked={quotes.length > 0 && selectedIds.size === quotes.length}
+                    checked={sortedQuotes.length > 0 && selectedIds.size === sortedQuotes.length}
                     onChange={selectAll}
                     aria-label="Select all"
                   />
                 </th>
                 <th className={styles.colName}>Name</th>
+                <th>Client</th>
                 <th>Status</th>
                 <th>Event date</th>
                 <th>Guests</th>
@@ -503,10 +544,11 @@ export default function QuotePage() {
               </tr>
             </thead>
             <tbody>
-              {quotes.map(q => {
+              {sortedQuotes.map(q => {
                 const eventDate = q.event_date
                   ? new Date(q.event_date + 'T00:00:00').toLocaleDateString()
                   : '—';
+                const clientName = [q.client_first_name, q.client_last_name].filter(Boolean).join(' ');
                 return (
                   <tr key={q.id} className={selectedIds.has(q.id) ? styles.rowSelected : ''}>
                     <td className={styles.colCheck}>
@@ -535,6 +577,7 @@ export default function QuotePage() {
                         {q.name}
                       </button>
                     </td>
+                    <td className={styles.colClient}>{clientName || <span className={styles.muted}>—</span>}</td>
                     <td>
                       <span className={`${styles.statusBadge} ${styles['status_' + (q.status || 'draft')]}`}>
                         {q.status === 'approved' ? 'SIGNED' : (q.status || 'draft').toUpperCase()}

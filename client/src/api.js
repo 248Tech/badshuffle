@@ -132,6 +132,7 @@ export const api = {
   revertQuote: (id) => request(`/quotes/${id}/revert`, { method: 'POST' }),
   confirmQuote: (id) => request(`/quotes/${id}/confirm`, { method: 'POST' }),
   closeQuote: (id) => request(`/quotes/${id}/close`, { method: 'POST' }),
+  dismissUnsignedChanges: (id) => request(`/quotes/${id}/unsigned-changes`, { method: 'DELETE' }),
   getDamageCharges: (id) => request(`/quotes/${id}/damage-charges`),
   addDamageCharge: (id, body) => request(`/quotes/${id}/damage-charges`, { method: 'POST', body }),
   removeDamageCharge: (id, cid) => request(`/quotes/${id}/damage-charges/${cid}`, { method: 'DELETE' }),
@@ -169,6 +170,7 @@ export const api = {
   // Contract templates
   getContractTemplates: () => request('/templates/contract-templates'),
   createContractTemplate: (body) => request('/templates/contract-templates', { method: 'POST', body }),
+  updateContractTemplate: (id, body) => request(`/templates/contract-templates/${id}`, { method: 'PUT', body }),
   deleteContractTemplate: (id) => request(`/templates/contract-templates/${id}`, { method: 'DELETE' }),
   // Payment policies
   getPaymentPolicies: () => request('/templates/payment-policies'),
@@ -225,6 +227,7 @@ export const api = {
     });
   },
   deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
+  getFileQuotes: (id) => request(`/files/${id}/quotes`),
   fileServeUrl: (id) => { const t = getToken(); return `/api/files/${id}/serve${t ? `?token=${encodeURIComponent(t)}` : ''}`; },
 
   // Quote adjustments (discounts / surcharges)

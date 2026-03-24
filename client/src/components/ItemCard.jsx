@@ -20,13 +20,14 @@ const PuzzleIcon = () => (
   </svg>
 );
 
-export default function ItemCard({ item, onEdit, onDelete, onAddToQuote }) {
+export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSource = true }) {
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
 
   const sourceLabel = item.source || 'manual';
   const isExtension = sourceLabel === 'extension';
   const hasPrice = item.unit_price > 0;
+  const itemType = item.item_type || 'product';
   const stockInfo = item.quantity_in_stock != null && item.quantity_in_stock > 0
     ? `${item.quantity_in_stock} in stock${item.quantity_going_out > 0 ? ` / ${item.quantity_going_out} out` : ''}`
     : null;
@@ -53,13 +54,18 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote }) {
             aria-hidden
           />
         )}
-        {isExtension && (
+        {isExtension && showSource && (
           <span className={`badge badge-extension ${styles.sourceBadge}`} title="Imported via Chrome Extension">
             <PuzzleIcon />
           </span>
         )}
         {item.category && (
           <span className={styles.categoryBadge}>{item.category}</span>
+        )}
+        {itemType !== 'product' && (
+          <span className={`${styles.typeBadge} ${styles['typeBadge_' + itemType]}`}>
+            {itemType === 'group' ? '⬡ Group' : '⊕ Accessory'}
+          </span>
         )}
         {/* Hover overlay with icon action tray */}
         <div className={styles.overlay} onClick={e => e.stopPropagation()}>

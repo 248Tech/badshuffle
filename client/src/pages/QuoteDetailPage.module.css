@@ -205,6 +205,10 @@
 }
 .emptyHint { font-size: 13px; color: var(--color-text-muted); font-style: italic; margin: 0; }
 
+.contractSignedBlock { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding: 10px 14px; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 6px; }
+.contractSignedLabel { font-size: 13px; font-weight: 600; color: #065f46; }
+.contractSignedMeta { font-size: 12px; color: #065f46; opacity: 0.8; }
+
 .damageSection { margin-top: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1rem; }
 .damageSectionHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
 .damageSectionHeader h4 { margin: 0; font-size: 0.95rem; }
@@ -298,6 +302,10 @@
 }
 .totalsRowDiscount .totalsValue { color: #059669; }
 .totalsRowSurcharge .totalsValue { color: #d97706; }
+.totalsRowBalance { padding-top: 8px; border-top: 1px dashed var(--color-border); }
+.totalsValuePaid { color: #059669; }
+.totalsValueRemaining { color: #c00; font-weight: 600; }
+.totalsValueOverpaid { color: #b45309; font-weight: 600; }
 
 .totalsValueGrand {
   font-size: 24px;
@@ -367,13 +375,18 @@
 .logTable { width: 100%; border-collapse: collapse; font-size: 13px; }
 .logTable th, .logTable td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border); }
 .logTable th { background: var(--color-surface); font-weight: 600; color: var(--color-text-muted); }
+.rowDeleteBtn { background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 12px; padding: 2px 6px; border-radius: 4px; line-height: 1; }
+.rowDeleteBtn:hover { background: #fee2e2; color: #dc2626; }
 
 /* Files tab */
 .quoteFilesList { list-style: none; margin: 0; padding: 0; }
 .quoteFileItem { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--color-border); }
 .quoteFileItem:last-child { border-bottom: none; }
-.quoteFileName { font-size: 13px; color: var(--color-primary); text-decoration: none; }
+.quoteFileIcon { font-size: 14px; flex-shrink: 0; }
+.quoteFileName { font-size: 13px; color: var(--color-primary); text-decoration: none; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quoteFileName:hover { text-decoration: underline; }
+.quoteFileSize { font-size: 12px; color: var(--color-text-muted); flex-shrink: 0; }
+.quoteFileMeta { font-size: 11px; color: var(--color-text-muted); flex-shrink: 0; }
 .quoteFileSize { font-size: 12px; color: var(--color-text-muted); }
 
 /* Activity log tab */

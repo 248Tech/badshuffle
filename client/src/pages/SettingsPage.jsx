@@ -29,7 +29,8 @@ export default function SettingsPage() {
     quote_inventory_filter_mode: 'popular',
     quote_inventory_max_categories: '10',
     quote_inventory_manual_categories: '',
-    count_oos_oversold: '0'
+    count_oos_oversold: '0',
+    inventory_show_source: '0'
   });
   const [smtp, setSmtp] = useState({
     smtp_host: '', smtp_port: '587', smtp_secure: 'false',
@@ -100,7 +101,8 @@ export default function SettingsPage() {
           quote_inventory_filter_mode: s.quote_inventory_filter_mode || 'popular',
           quote_inventory_max_categories: s.quote_inventory_max_categories || '10',
           quote_inventory_manual_categories: s.quote_inventory_manual_categories || '',
-          count_oos_oversold: s.count_oos_oversold || '0'
+          count_oos_oversold: s.count_oos_oversold || '0',
+          inventory_show_source: s.inventory_show_source || '0'
         });
         setSmtp({
           smtp_host: s.smtp_host || '',
@@ -739,6 +741,14 @@ export default function SettingsPage() {
               onChange={e => setQuoteInventory(q => ({ ...q, count_oos_oversold: e.target.checked ? '1' : '0' }))}
             />
             <span>Count out-of-stock items (quantity = 0) as oversold in conflict detection</span>
+          </label>
+          <label className={styles.checkRow} style={{ marginTop: 10 }}>
+            <input
+              type="checkbox"
+              checked={quoteInventory.inventory_show_source === '1'}
+              onChange={e => setQuoteInventory(q => ({ ...q, inventory_show_source: e.target.checked ? '1' : '0' }))}
+            />
+            <span>Show source indicator on inventory cards (puzzle piece icon for extension-imported items)</span>
           </label>
         </div>
 

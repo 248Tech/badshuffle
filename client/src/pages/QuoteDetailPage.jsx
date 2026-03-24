@@ -68,6 +68,7 @@ export default function QuoteDetailPage() {
   const [clientEditing, setClientEditing] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [pendingTransition, setPendingTransition] = useState(null); // { message, label, confirmClass, action }
   const [duplicating, setDuplicating] = useState(false);
   const [addressModalData, setAddressModalData] = useState(null);
   const [showLogPicker, setShowLogPicker] = useState(false);
@@ -157,6 +158,7 @@ export default function QuoteDetailPage() {
   useEffect(() => {
     if (!id) return;
     api.getQuoteFiles(id).then(d => setQuoteFiles(d.files || [])).catch(() => setQuoteFiles([]));
+    api.getQuoteContract(id).then(d => setContract(d.contract)).catch(() => {});
   }, [id]);
 
   // Load contract, contract templates, payment policies, rental terms when editing
@@ -237,7 +239,7 @@ export default function QuoteDetailPage() {
       });
       setPayments(d.payments || []);
       setShowPaymentModal(false);
-      setPaymentForm({ amount: '', method: 'Offline - Check', reference: '', note: '', paid_at: '' });
+      setPaymentForm(f => ({ amount: '', method: f.method, reference: '', note: '', paid_at: '' }));
       const logsRes = await api.getQuoteActivity(id);
       setActivity(logsRes.activity || []);
       toast.success('Payment recorded');
@@ -245,6 +247,19 @@ export default function QuoteDetailPage() {
       toast.error(e.message);
     } finally {
       setPaymentSaving(false);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId) => {
+    if (!window.confirm('Remove this payment record?')) return;
+    try {
+      const d = await api.removeQuotePayment(id, paymentId);
+      setPayments(d.payments || []);
+      const logsRes = await api.getQuoteActivity(id);
+      setActivity(logsRes.activity || []);
+      toast.info('Payment removed');
+    } catch (e) {
+      toast.error(e.message);
     }
   };
 
@@ -344,7 +359,7 @@ export default function QuoteDetailPage() {
         expiration_message: form.expiration_message || null,
         payment_policy_id: form.payment_policy_id ? Number(form.payment_policy_id) : null,
         rental_terms_id: form.rental_terms_id ? Number(form.rental_terms_id) : null,
-        notes: null,
+        notes: form.notes,
         venue_name: form.venue_name || null,
         venue_email: form.venue_email || null,
         venue_phone: form.venue_phone || null,
@@ -477,46 +492,64 @@ export default function QuoteDetailPage() {
     }
   };
 
-  const handleRevert = async () => {
-    if (!window.confirm('Revert this quote to draft?')) return;
-    setTransitioning(true);
-    try {
-      const d = await api.revertQuote(id);
-      setQuote(d.quote);
-      toast.success('Quote reverted to draft');
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      setTransitioning(false);
-    }
+  const handleRevert = () => {
+    setPendingTransition({
+      message: 'Revert this project to draft? The client link will still work but status resets.',
+      label: 'Revert to Draft',
+      confirmClass: 'btn-ghost',
+      action: async () => {
+        setTransitioning(true);
+        try {
+          const d = await api.revertQuote(id);
+          setQuote(d.quote);
+          toast.success('Quote reverted to draft');
+        } catch (e) {
+          toast.error(e.message);
+        } finally {
+          setTransitioning(false);
+        }
+      },
+    });
   };
 
-  const handleConfirm = async () => {
-    if (!window.confirm('Confirm this quote? This creates a hard inventory reservation.')) return;
-    setTransitioning(true);
-    try {
-      const d = await api.confirmQuote(id);
-      setQuote(d.quote);
-      toast.success('Quote confirmed — inventory reserved');
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      setTransitioning(false);
-    }
+  const handleConfirm = () => {
+    setPendingTransition({
+      message: 'Confirm this booking? This creates a hard inventory reservation.',
+      label: 'Confirm Booking',
+      confirmClass: 'btn-primary',
+      action: async () => {
+        setTransitioning(true);
+        try {
+          const d = await api.confirmQuote(id);
+          setQuote(d.quote);
+          toast.success('Quote confirmed — inventory reserved');
+        } catch (e) {
+          toast.error(e.message);
+        } finally {
+          setTransitioning(false);
+        }
+      },
+    });
   };
 
-  const handleClose = async () => {
-    if (!window.confirm('Close this quote? This marks the event as complete and releases inventory.')) return;
-    setTransitioning(true);
-    try {
-      const d = await api.closeQuote(id);
-      setQuote(d.quote);
-      toast.success('Quote closed');
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      setTransitioning(false);
-    }
+  const handleClose = () => {
+    setPendingTransition({
+      message: 'Close this project? This marks the event as complete and releases inventory.',
+      label: 'Close Project',
+      confirmClass: 'btn-primary',
+      action: async () => {
+        setTransitioning(true);
+        try {
+          const d = await api.closeQuote(id);
+          setQuote(d.quote);
+          toast.success('Quote closed');
+        } catch (e) {
+          toast.error(e.message);
+        } finally {
+          setTransitioning(false);
+        }
+      },
+    });
   };
 
   const handleAddDamageCharge = async (e) => {
@@ -674,6 +707,16 @@ export default function QuoteDetailPage() {
           quote={quote}
           showTopRow={false}
           onEdit={() => setEditing(true)}
+          onSend={handleSendClick}
+          onDismissUnsignedChanges={async () => {
+            try {
+              await api.dismissUnsignedChanges(quote.id);
+              load();
+              toast.info('Changes acknowledged');
+            } catch (e) {
+              toast.error(e.message);
+            }
+          }}
         />
       )}
 
@@ -798,7 +841,13 @@ export default function QuoteDetailPage() {
                       const tid = e.target.value;
                       if (!tid) return;
                       const t = contractTemplates.find(ct => String(ct.id) === tid);
-                      if (t) setContractBody(t.body_html || '');
+                      if (t) {
+                        if (contractBody && !window.confirm('Replace the current contract with this template? Unsaved edits will be lost.')) {
+                          e.target.value = '';
+                          return;
+                        }
+                        setContractBody(t.body_html || '');
+                      }
                       e.target.value = '';
                     }}
                   >
@@ -1009,6 +1058,54 @@ export default function QuoteDetailPage() {
               </ul>
             </div>
           )}
+          <div className={styles.logisticsBlock}>
+            <div className={styles.logisticsHeader}>
+              <h4 className={styles.logisticsTitle}>Logistics / Delivery</h4>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setShowLogPicker(v => !v); setLogSearch(''); }}>
+                {showLogPicker ? 'Cancel' : '+ Add item'}
+              </button>
+            </div>
+            {logisticsItems.length > 0 && (
+              <ul className={styles.logisticsList}>
+                {logisticsItems.map(it => (
+                  <li key={it.qitem_id} className={styles.logisticsItem}>
+                    <span className={styles.logisticsItemName}>{it.label || it.title} ×{it.quantity || 1}</span>
+                    {(it.unit_price_override != null ? it.unit_price_override : it.unit_price) > 0 && <span>${((it.unit_price_override != null ? it.unit_price_override : it.unit_price) * (it.quantity || 1)).toFixed(2)}</span>}
+                    <button type="button" className={styles.logRemoveBtn} onClick={() => handleRemoveLogisticsItem(it.qitem_id, it.label || it.title)}>✕</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {logisticsItems.length === 0 && !showLogPicker && (
+              <p className={styles.emptyHint}>No delivery items. Click "+ Add item" to add logistics-category items.</p>
+            )}
+            {showLogPicker && (
+              <div className={styles.logPicker}>
+                <input
+                  className={styles.logPickerSearch}
+                  placeholder="Search logistics items…"
+                  value={logSearch}
+                  onChange={e => setLogSearch(e.target.value)}
+                  autoFocus
+                />
+                {logItems.length === 0 ? (
+                  <p className={styles.emptyHint}>No items with "logistics" in their category found in inventory.</p>
+                ) : (
+                  <div className={styles.logPickerList}>
+                    {logItems
+                      .filter(i => !logSearch || i.title.toLowerCase().includes(logSearch.toLowerCase()))
+                      .map(item => (
+                        <div key={item.id} className={styles.logPickerRow}>
+                          <span className={styles.logPickerTitle}>{item.title}</span>
+                          {item.unit_price > 0 && <span className={styles.logPickerPrice}>${item.unit_price.toFixed(2)}</span>}
+                          <button type="button" className="btn btn-primary btn-sm" onClick={() => handleAddLogisticsItem(item)}>+ Add</button>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <div className={styles.exportCol}>
           <div className={`card ${styles.exportCard}`}>
@@ -1064,60 +1161,30 @@ export default function QuoteDetailPage() {
                   <span className={styles.totalsLabel}>Grand total</span>
                   <span className={styles.totalsValueGrand}>${totals.total.toFixed(2)}</span>
                 </div>
+                {payments.length > 0 && (() => {
+                  const paid = payments.reduce((s, p) => s + (p.amount || 0), 0);
+                  const remaining = totals.total - paid;
+                  const overpaid = remaining < 0;
+                  return (
+                    <>
+                      <div className={styles.totalsRow}>
+                        <span className={styles.totalsLabel}>Paid</span>
+                        <span className={`${styles.totalsValue} ${styles.totalsValuePaid}`}>${paid.toFixed(2)}</span>
+                      </div>
+                      <div className={`${styles.totalsRow} ${styles.totalsRowBalance}`}>
+                        <span className={styles.totalsLabel}>{overpaid ? 'Overpaid' : 'Remaining'}</span>
+                        <span className={overpaid ? styles.totalsValueOverpaid : styles.totalsValueRemaining}>
+                          ${Math.abs(remaining).toFixed(2)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}
         </div>
       </div>
-
-          <div className={styles.logisticsBlock}>
-            <div className={styles.logisticsHeader}>
-              <h4 className={styles.logisticsTitle}>Logistics / Delivery</h4>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setShowLogPicker(v => !v); setLogSearch(''); }}>
-                {showLogPicker ? 'Cancel' : '+ Add item'}
-              </button>
-            </div>
-            {logisticsItems.length > 0 && (
-              <ul className={styles.logisticsList}>
-                {logisticsItems.map(it => (
-                  <li key={it.qitem_id} className={styles.logisticsItem}>
-                    <span className={styles.logisticsItemName}>{it.label || it.title} ×{it.quantity || 1}</span>
-                    {(it.unit_price_override != null ? it.unit_price_override : it.unit_price) > 0 && <span>${((it.unit_price_override != null ? it.unit_price_override : it.unit_price) * (it.quantity || 1)).toFixed(2)}</span>}
-                    <button type="button" className={styles.logRemoveBtn} onClick={() => handleRemoveLogisticsItem(it.qitem_id, it.label || it.title)}>✕</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {logisticsItems.length === 0 && !showLogPicker && (
-              <p className={styles.emptyHint}>No delivery items. Click "+ Add item" to add logistics-category items.</p>
-            )}
-            {showLogPicker && (
-              <div className={styles.logPicker}>
-                <input
-                  className={styles.logPickerSearch}
-                  placeholder="Search logistics items…"
-                  value={logSearch}
-                  onChange={e => setLogSearch(e.target.value)}
-                  autoFocus
-                />
-                {logItems.length === 0 ? (
-                  <p className={styles.emptyHint}>No items with "logistics" in their category found in inventory.</p>
-                ) : (
-                  <div className={styles.logPickerList}>
-                    {logItems
-                      .filter(i => !logSearch || i.title.toLowerCase().includes(logSearch.toLowerCase()))
-                      .map(item => (
-                        <div key={item.id} className={styles.logPickerRow}>
-                          <span className={styles.logPickerTitle}>{item.title}</span>
-                          {item.unit_price > 0 && <span className={styles.logPickerPrice}>${item.unit_price.toFixed(2)}</span>}
-                          <button type="button" className="btn btn-primary btn-sm" onClick={() => handleAddLogisticsItem(item)}>+ Add</button>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
 
           </>)}
           {detailTab === 'billing' && (
@@ -1162,7 +1229,7 @@ export default function QuoteDetailPage() {
                 );
               })()}
               <div className={styles.formActions} style={{ marginBottom: 16 }}>
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowPaymentModal(true)}>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => { const now = new Date(); const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16); setPaymentForm(f => ({ ...f, paid_at: local })); setShowPaymentModal(true); }}>
                   Record offline payment
                 </button>
               </div>
@@ -1175,6 +1242,7 @@ export default function QuoteDetailPage() {
                       <th>Reference</th>
                       <th>Amount</th>
                       <th>Note</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1185,12 +1253,22 @@ export default function QuoteDetailPage() {
                         <td>{p.reference || '—'}</td>
                         <td>${(p.amount || 0).toFixed(2)}</td>
                         <td>{p.note || '—'}</td>
+                        <td><button type="button" className={styles.rowDeleteBtn} onClick={() => handleDeletePayment(p.id)} title="Remove payment">✕</button></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               ) : (
                 <p className={styles.emptyHint}>No payments recorded yet.</p>
+              )}
+              {contract && contract.signed_at && (
+                <div className={styles.contractSignedBlock}>
+                  <span className={styles.contractSignedLabel}>✓ Contract signed</span>
+                  <span className={styles.contractSignedMeta}>
+                    {new Date(contract.signed_at).toLocaleString()}
+                    {contract.signer_name && ` · ${contract.signer_name}`}
+                  </span>
+                </div>
               )}
               {quote.status === 'closed' && (
                 <div className={styles.damageSection}>
@@ -1268,15 +1346,22 @@ export default function QuoteDetailPage() {
               </div>
               {quoteFiles.length > 0 ? (
                 <ul className={styles.quoteFilesList}>
-                  {quoteFiles.map(f => (
-                    <li key={f.attachment_id || f.file_id} className={styles.quoteFileItem}>
-                      <a href={api.fileServeUrl(f.file_id)} target="_blank" rel="noopener noreferrer" className={styles.quoteFileName}>
-                        {f.original_name || 'File #' + f.file_id}
-                      </a>
-                      {f.size != null && <span className={styles.quoteFileSize}> ({(f.size / 1024).toFixed(1)} KB)</span>}
-                      <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={() => handleDetachFile(f.file_id)}>Remove</button>
-                    </li>
-                  ))}
+                  {quoteFiles.map(f => {
+                    const mime = f.mime_type || '';
+                    const fileIcon = mime.startsWith('image/') ? '🖼' : mime === 'application/pdf' ? '📄' : mime.startsWith('video/') ? '🎬' : '📎';
+                    const attachedAt = f.attached_at || f.created_at;
+                    return (
+                      <li key={f.attachment_id || f.file_id} className={styles.quoteFileItem}>
+                        <span className={styles.quoteFileIcon}>{fileIcon}</span>
+                        <a href={api.fileServeUrl(f.file_id)} target="_blank" rel="noopener noreferrer" className={styles.quoteFileName}>
+                          {f.original_name || 'File #' + f.file_id}
+                        </a>
+                        {f.size != null && <span className={styles.quoteFileSize}>{f.size >= 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : f.size >= 1024 ? (f.size / 1024).toFixed(1) + ' KB' : f.size + ' B'}</span>}
+                        {attachedAt && <span className={styles.quoteFileMeta}>{new Date(attachedAt).toLocaleDateString()}</span>}
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleDetachFile(f.file_id)}>Remove</button>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className={styles.emptyHint}>No files attached to this quote.</p>
@@ -1334,7 +1419,7 @@ export default function QuoteDetailPage() {
       )}
 
       {showPaymentModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowPaymentModal(false)}>
+        <div className={styles.modalOverlay} onClick={() => setShowPaymentModal(false)} onKeyDown={e => e.key === 'Escape' && setShowPaymentModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <h3 className={styles.modalTitle}>Record offline payment</h3>
             <form onSubmit={handleRecordPayment} className={styles.form}>
@@ -1386,6 +1471,16 @@ export default function QuoteDetailPage() {
           message={`Delete quote "${quote?.name || 'this quote'}"? This cannot be undone.`}
           onConfirm={handleDeleteQuote}
           onCancel={() => setShowConfirmDelete(false)}
+        />
+      )}
+
+      {pendingTransition && (
+        <ConfirmDialog
+          message={pendingTransition.message}
+          confirmLabel={pendingTransition.label}
+          confirmClass={pendingTransition.confirmClass}
+          onConfirm={() => { const t = pendingTransition; setPendingTransition(null); t.action(); }}
+          onCancel={() => setPendingTransition(null)}
         />
       )}
 
@@ -1565,13 +1660,13 @@ function QuoteSendModal({ quote, onClose, onSent, onError }) {
   };
 
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
+    <div className={styles.modalOverlay} onClick={onClose} onKeyDown={e => e.key === 'Escape' && onClose()}>
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <h3 className={styles.modalTitle}>Send quote to client</h3>
         <form onSubmit={handleSend} className={styles.sendForm}>
           <div className="form-group">
             <label>To</label>
-            <input type="email" value={toEmail} onChange={e => setToEmail(e.target.value)} placeholder="client@example.com" />
+            <input type="email" required value={toEmail} onChange={e => setToEmail(e.target.value)} placeholder="client@example.com" />
           </div>
           <div className="form-group">
             <label>Template</label>

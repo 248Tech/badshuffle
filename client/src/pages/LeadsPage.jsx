@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../components/Toast.jsx';
@@ -50,6 +50,11 @@ export default function LeadsPage() {
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [creatingQuoteForId, setCreatingQuoteForId] = useState(null);
+  const [sortKey, setSortKey] = useState('created_at');
+  const [sortDir, setSortDir] = useState('desc');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef(null);
   const limit = 25;
 
   const load = useCallback(() => {
@@ -66,6 +71,17 @@ export default function LeadsPage() {
 
   // Reset to page 1 when search changes
   useEffect(() => { setPage(1); }, [search]);
+
+  // Autocomplete suggestions
+  useEffect(() => {
+    if (!search.trim() || search.trim().length < 2) { setSuggestions([]); return; }
+    const t = setTimeout(() => {
+      api.getLeads({ search: search.trim(), limit: 6 })
+        .then(d => setSuggestions(d.leads || []))
+        .catch(() => setSuggestions([]));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [search]);
 
   useEffect(() => {
     if (!selectedLead) { setEvents([]); return; }
@@ -109,6 +125,23 @@ export default function LeadsPage() {
 
   const pages = Math.ceil(total / limit);
 
+  const handleSort = (key) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
+
+  const sortedLeads = [...leads].sort((a, b) => {
+    const av = a[sortKey] ?? '';
+    const bv = b[sortKey] ?? '';
+    const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true });
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const SortIcon = ({ col }) => {
+    if (sortKey !== col) return <span className={styles.sortIcon} aria-hidden>↕</span>;
+    return <span className={styles.sortIcon} aria-hidden>{sortDir === 'asc' ? '↑' : '↓'}</span>;
+  };
+
   const eventLabel = (type) => {
     const labels = { lead_created: 'Lead created', quote_linked: 'Quote linked', email_sent: 'Email sent', reply_received: 'Reply received' };
     return labels[type] || type;
@@ -124,7 +157,7 @@ export default function LeadsPage() {
       </div>
 
       <div className={styles.toolbar}>
-        <div className={styles.searchWrap}>
+        <div className={styles.searchWrap} ref={searchRef}>
           <svg className={styles.searchIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
@@ -133,7 +166,31 @@ export default function LeadsPage() {
             placeholder="Search name, email, phone…"
             value={search}
             onChange={e => setSearch(e.target.value)}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            autoComplete="off"
           />
+          {showSuggestions && suggestions.length > 0 && (
+            <ul className={styles.suggestions}>
+              {suggestions.map(s => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className={styles.suggestionItem}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => {
+                      setSearch(s.name || s.email || '');
+                      setShowSuggestions(false);
+                    }}
+                  >
+                    <span className={styles.suggestionName}>{s.name || '—'}</span>
+                    {s.email && <span className={styles.suggestionMeta}>{s.email}</span>}
+                    {s.event_date && <span className={styles.suggestionMeta}>{s.event_date}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -149,18 +206,18 @@ export default function LeadsPage() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
+                  <th className={styles.sortable} onClick={() => handleSort('name')}>Name <SortIcon col="name" /></th>
+                  <th className={styles.sortable} onClick={() => handleSort('email')}>Email <SortIcon col="email" /></th>
                   <th>Phone</th>
-                  <th>Event Date</th>
-                  <th>Event Type</th>
+                  <th className={styles.sortable} onClick={() => handleSort('event_date')}>Event Date <SortIcon col="event_date" /></th>
+                  <th className={styles.sortable} onClick={() => handleSort('event_type')}>Event Type <SortIcon col="event_type" /></th>
                   <th>Source</th>
-                  <th>Added</th>
+                  <th className={styles.sortable} onClick={() => handleSort('created_at')}>Added <SortIcon col="created_at" /></th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {leads.map(l => (
+                {sortedLeads.map(l => (
                   <tr
                     key={l.id}
                     className={selectedLead?.id === l.id ? styles.rowSelected : ''}

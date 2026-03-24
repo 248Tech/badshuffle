@@ -121,4 +121,9 @@
 }
 .msgDelete:hover { background: #fee2e2; color: #dc2626; }
 .msgSubject { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-.msgBody { font-size: 13px; color: var(--color-text); white-space: pre-wrap; line-height: 1.5; }
+.msgBody { font-size: 13px; color: var(--color-text); line-height: 1.5; }
+.msgPre { font-family: inherit; white-space: pre-wrap; word-break: break-word; margin: 0; font-size: 13px; }
+.msgPre a { color: var(--color-primary); }
+.expandBtn { background: none; border: none; cursor: pointer; color: var(--color-primary); font-size: 12px; padding: 4px 0; }
+.msgBodyHtml { font-size: 13px; }
+.htmlFrame { width: 100%; border: none; display: block; min-height: 60px; overflow: hidden; }

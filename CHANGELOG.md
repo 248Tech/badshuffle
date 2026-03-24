@@ -10,6 +10,35 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.0.4** - Startup stability hotfix release
 - **0.0.5** - In-app updater and extension fallback import release
 - **0.0.6** - UI foundation and layout redesign release
+- **0.0.7** - Projects-first workflow and operations tooling release
+
+---
+
+## [0.0.7] - 2026-03-24
+
+### Added
+- **Projects/files linkage endpoint** - Added `GET /api/files/:id/quotes` so file management surfaces can show where assets are attached.
+- **Unsigned-change dismissal endpoint** - Added `DELETE /api/quotes/:id/unsigned-changes` for staff to acknowledge post-signature changes without forcing immediate resend.
+- **Contract template editing API** - Added `PUT /api/templates/contract-templates/:id`.
+- **Inventory item typing** - Added `items.item_type` (default `product`) with support in item create/update/list filtering.
+- **Date range picker presets** - Added quick presets plus month/year selectors in the shared range picker UI.
+
+### Changed
+- **Projects-first terminology and UX** - Major UI language shift from “Quotes” to “Projects” across primary operational screens.
+- **Project list controls** - Added sorting options and improved search/filter ergonomics in the projects index.
+- **Project detail experience** - Improved lifecycle actions, expiration/unsigned-change visibility, payment/file detail handling, and logistics/payment-related workflows.
+- **Project creation flow** - Consolidated from a 2-step wizard into a single-screen form.
+- **Files page operations** - Added list/tile refinements, richer inspection drawer, linked-project visibility, and bulk action polish.
+- **Billing workspace** - Added outstanding balances view and stronger search/sort/export handling.
+- **Leads workspace** - Added search suggestions/autocomplete and sortable table columns.
+- **Inventory editing model** - Added item type controls, subrental toggles, image-upload flow, and optional source indicator visibility setting.
+- **Public project page labels** - Improved naming consistency and policy/terms title display.
+
+### Fixed
+- **Image thumbnail auth in Files UI** - File serve URLs now accept token query auth for image-tag compatibility.
+- **Upcoming event date normalization** - Dashboard summary now normalizes non-ISO event dates before upcoming-range comparisons.
+- **Duplicate project token hygiene** - Duplicated projects now clear inherited `public_token`.
+- **Expired signing enforcement** - Expired projects are now consistently blocked from contract signing.
 
 ---
 

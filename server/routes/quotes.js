@@ -91,7 +91,9 @@ module.exports = function makeRouter(db, uploadsDir) {
       const amount_paid = amountPaidByQuote[q.id] != null ? Number(amountPaidByQuote[q.id]) : 0;
       const remaining_balance = total - amount_paid;
       const overpaid = remaining_balance < 0;
-      return { ...q, total, contract_total: total, amount_paid, remaining_balance, overpaid };
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const is_expired = !!(q.expires_at && q.expires_at < todayStr);
+      return { ...q, total, contract_total: total, amount_paid, remaining_balance, overpaid, is_expired };
     });
     if (has_balance) {
       quotesWithTotal = quotesWithTotal.filter(q => q.remaining_balance > 0);
@@ -122,9 +124,19 @@ module.exports = function makeRouter(db, uploadsDir) {
 
     const today = new Date().toISOString().split('T')[0];
     const in90 = new Date(Date.now() + 90 * 864e5).toISOString().split('T')[0];
+    // Normalize event_date to YYYY-MM-DD for reliable comparison (handles MM/DD/YYYY and natural language dates)
+    function toISODate(str) {
+      if (!str) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+      const d = new Date(str);
+      if (!isNaN(d)) return d.toISOString().split('T')[0];
+      return null;
+    }
     const upcoming = allQuotes
-      .filter(q => q.event_date && q.event_date >= today && q.event_date <= in90)
-      .sort((a, b) => a.event_date.localeCompare(b.event_date));
+      .map(q => ({ ...q, _isoDate: toISODate(q.event_date) }))
+      .filter(q => q._isoDate && q._isoDate >= today && q._isoDate <= in90)
+      .sort((a, b) => a._isoDate.localeCompare(b._isoDate))
+      .map(({ _isoDate, ...q }) => q);
 
     const monthMap = {};
     allQuotes.forEach(q => {
@@ -381,7 +393,9 @@ module.exports = function makeRouter(db, uploadsDir) {
       adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(req.params.id);
     } catch (e) {}
 
-    res.json({ ...quote, items, customItems, adjustments });
+    const today = new Date().toISOString().slice(0, 10);
+    const is_expired = !!(quote.expires_at && quote.expires_at < today);
+    res.json({ ...quote, items, customItems, adjustments, is_expired });
   });
 
   // POST /api/quotes
@@ -478,6 +492,7 @@ module.exports = function makeRouter(db, uploadsDir) {
     );
 
     const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    logActivity(req.params.id, 'quote_updated', 'Project details updated', null, null, req);
     res.json({ quote: updated });
   });
 
@@ -582,6 +597,15 @@ module.exports = function makeRouter(db, uploadsDir) {
       db.prepare('UPDATE quotes SET has_unsigned_changes = 1, updated_at = datetime(\'now\') WHERE id = ?').run(quoteId);
     }
   }
+
+  // DELETE /api/quotes/:id/unsigned-changes — dismiss "unsigned changes" banner without re-sending
+  router.delete('/:id/unsigned-changes', (req, res) => {
+    const quote = db.prepare('SELECT id FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) return res.status(404).json({ error: 'Not found' });
+    db.prepare("UPDATE quotes SET has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?").run(req.params.id);
+    logActivity(req.params.id, 'status_change', 'Unsigned-changes flag cleared (dismissed by staff)', null, null, req);
+    res.json({ ok: true });
+  });
 
   // POST /api/quotes/:id/confirm — transition approved → confirmed (hard inventory reservation)
   router.post('/:id/confirm', (req, res) => {
@@ -742,7 +766,7 @@ module.exports = function makeRouter(db, uploadsDir) {
     const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
     if (!quote) return res.status(404).json({ error: 'Not found' });
 
-    db.prepare("UPDATE quotes SET status = 'draft', updated_at = datetime('now') WHERE id = ?")
+    db.prepare("UPDATE quotes SET status = 'draft', has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?")
       .run(req.params.id);
 
     const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
@@ -795,6 +819,7 @@ module.exports = function makeRouter(db, uploadsDir) {
     const customStmt = db.prepare('INSERT INTO quote_custom_items (quote_id, title, unit_price, quantity, photo_url, taxable, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
     customItems.forEach(ci => customStmt.run(newId, ci.title, ci.unit_price ?? 0, ci.quantity ?? 1, ci.photo_url, ci.taxable ?? 1, ci.sort_order ?? 0));
 
+    db.prepare("UPDATE quotes SET public_token = NULL WHERE id = ?").run(newId);
     const newQuote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(newId);
     res.status(201).json({ quote: newQuote });
   });

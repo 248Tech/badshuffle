@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../components/Toast.jsx';
 import styles from './MessagesPage.module.css';
@@ -25,6 +25,51 @@ function groupByQuote(messages) {
   });
 }
 
+// Auto-link URLs and emails in plain text
+function autoLink(text) {
+  if (!text) return '';
+  const parts = text.split(/(https?:\/\/[^\s<>"]+|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g);
+  return parts.map((part, i) => {
+    if (/^https?:\/\//.test(part)) return <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>;
+    if (/^[a-zA-Z0-9._%+\-]+@/.test(part)) return <a key={i} href={`mailto:${part}`}>{part}</a>;
+    return part;
+  });
+}
+
+function MessageBody({ msg }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (msg.body_html) {
+    const iframeSrc = `<!DOCTYPE html><html><head><style>body{font-family:sans-serif;font-size:14px;color:#1f2937;margin:12px;word-break:break-word;}a{color:#1a8fc1;}img{max-width:100%;}</style></head><body>${msg.body_html}</body></html>`;
+    return (
+      <div className={styles.msgBodyHtml}>
+        <iframe
+          srcDoc={iframeSrc}
+          sandbox="allow-same-origin"
+          className={styles.htmlFrame}
+          onLoad={e => { e.target.style.height = e.target.contentDocument.documentElement.scrollHeight + 'px'; }}
+          title="Message content"
+        />
+      </div>
+    );
+  }
+
+  const text = msg.body_text || '(No body)';
+  const PREVIEW_CHARS = 400;
+  const isLong = text.length > PREVIEW_CHARS;
+  const displayText = isLong && !expanded ? text.slice(0, PREVIEW_CHARS) + '…' : text;
+  return (
+    <div className={styles.msgBody}>
+      <pre className={styles.msgPre}>{autoLink(displayText)}</pre>
+      {isLong && (
+        <button type="button" className={styles.expandBtn} onClick={() => setExpanded(v => !v)}>
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function snippet(text) {
   if (!text) return '';
   return text.replace(/\s+/g, ' ').slice(0, 80);
@@ -46,6 +91,8 @@ function relativeTime(dateStr) {
 
 export default function MessagesPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const quoteIdParam = searchParams.get('quote');
   const toast = useToast();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +114,13 @@ export default function MessagesPage() {
   }, [load]);
 
   const threads = groupByQuote(messages);
+
+  // Auto-select thread when arriving from a project link
+  useEffect(() => {
+    if (!quoteIdParam || threads.length === 0 || selectedThread) return;
+    const found = threads.find(t => String(t.quote_id) === String(quoteIdParam));
+    if (found) setSelectedThread(found);
+  }, [quoteIdParam, threads.length]);
 
   function handleSelectThread(thread) {
     setSelectedThread(thread);
@@ -200,7 +254,7 @@ export default function MessagesPage() {
                       <button className={styles.msgDelete} onClick={() => handleDelete(msg)} title="Delete">✕</button>
                     </div>
                     {msg.subject && <div className={styles.msgSubject}>{msg.subject}</div>}
-                    <div className={styles.msgBody}>{msg.body_text || msg.body_html || '(No body)'}</div>
+                    <MessageBody msg={msg} />
                   </div>
                 ))}
               </div>

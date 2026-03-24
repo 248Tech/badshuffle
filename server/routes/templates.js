@@ -22,6 +22,16 @@ module.exports = function makeRouter(db) {
     if (!row) return res.status(404).json({ error: 'Not found' });
     res.json(row);
   });
+  router.put('/contract-templates/:id', (req, res) => {
+    const { name, body_html } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const result = db.prepare(
+      'UPDATE contract_templates SET name = ?, body_html = ? WHERE id = ?'
+    ).run(name, body_html || null, req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
+    const row = db.prepare('SELECT * FROM contract_templates WHERE id = ?').get(req.params.id);
+    res.json(row);
+  });
   router.delete('/contract-templates/:id', (req, res) => {
     const result = db.prepare('DELETE FROM contract_templates WHERE id = ?').run(req.params.id);
     if (result.changes === 0) return res.status(404).json({ error: 'Not found' });

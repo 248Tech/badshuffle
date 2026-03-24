@@ -91,6 +91,31 @@
   flex-wrap: wrap;
 }
 
+.photoRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.photoUrlInput {
+  flex: 1;
+  min-width: 120px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.photoPreview {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
 .formCard { padding: 20px; }
 .formTitle { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
 
@@ -194,14 +219,10 @@
 
 .categoryNav {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 4px 0 8px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
 }
-.categoryNav::-webkit-scrollbar { display: none; }
 
 .categoryNavBtn {
   padding: 5px 14px;

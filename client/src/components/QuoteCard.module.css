@@ -56,6 +56,14 @@
   flex-wrap: wrap;
 }
 
+.clientName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  padding: 3px 0;
+  flex-basis: 100%;
+}
+
 .tag {
   font-size: 12px;
   padding: 3px 8px;
@@ -63,6 +71,24 @@
   border: 1px solid var(--color-border);
   border-radius: 999px;
   color: var(--color-text-muted);
+}
+
+.tagExpired {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+.tagExpiringSoon {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #92400e;
 }
 
 .notes {

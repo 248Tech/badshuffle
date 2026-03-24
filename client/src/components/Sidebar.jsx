@@ -150,6 +150,9 @@ export default function Sidebar({ role = '', mobileOpen = false, onMobileClose }
       api.presence.list()
         .then(d => setOnline(d.online || []))
         .catch(() => setOnline([]));
+      api.getUnreadCount()
+        .then(d => setUnreadCount(d.count || 0))
+        .catch(() => {});
     };
     load();
     const interval = setInterval(load, 25000);
@@ -160,9 +163,6 @@ export default function Sidebar({ role = '', mobileOpen = false, onMobileClose }
     api.admin.getUsers()
       .then(users => setPendingCount(users.filter(u => !u.approved).length))
       .catch(() => {}); // 403 for non-admins — silent
-    api.getUnreadCount()
-      .then(d => setUnreadCount(d.count || 0))
-      .catch(() => {});
   }, []);
 
   function handleLogout() {

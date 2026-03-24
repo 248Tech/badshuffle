@@ -31,7 +31,8 @@ export default function ItemDetailPage() {
           quantity_in_stock: data.quantity_in_stock != null ? String(data.quantity_in_stock) : '',
           labor_hours: data.labor_hours != null ? String(data.labor_hours) : '0',
           taxable: data.taxable !== 0,
-          hidden: !!data.hidden
+          hidden: !!data.hidden,
+          is_subrental: !!data.is_subrental
         });
       })
       .catch(() => navigate('/inventory'))
@@ -56,7 +57,8 @@ export default function ItemDetailPage() {
         quantity_in_stock: form.quantity_in_stock !== '' ? parseInt(form.quantity_in_stock, 10) : 0,
         labor_hours: form.labor_hours !== '' ? parseFloat(form.labor_hours) : 0,
         taxable: form.taxable ? 1 : 0,
-        hidden: form.hidden ? 1 : 0
+        hidden: form.hidden ? 1 : 0,
+        is_subrental: form.is_subrental ? 1 : 0
       });
       toast.success('Item updated');
       setEditing(false);
@@ -150,6 +152,10 @@ export default function ItemDetailPage() {
                   <input type="checkbox" checked={form.hidden} onChange={e => setForm(f => ({ ...f, hidden: e.target.checked }))} />
                   Hidden
                 </label>
+                <label className={styles.check}>
+                  <input type="checkbox" checked={form.is_subrental} onChange={e => setForm(f => ({ ...f, is_subrental: e.target.checked }))} />
+                  Subrental
+                </label>
               </div>
               <div className={styles.formActions}>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -189,6 +195,12 @@ export default function ItemDetailPage() {
                   <span className={styles.metaLabel}>Taxable</span>
                   <span className={styles.metaValue}>{item.taxable !== 0 ? 'Yes' : 'No'}</span>
                 </div>
+                {item.is_subrental ? (
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Type</span>
+                    <span className={styles.metaValue}>Subrental</span>
+                  </div>
+                ) : null}
                 {item.hidden ? (
                   <div className={styles.metaItem}>
                     <span className={styles.metaLabel}>Status</span>
@@ -210,10 +222,10 @@ export default function ItemDetailPage() {
       {/* Quote history */}
       {(item.quote_history || []).length > 0 && (
         <div className={`card ${styles.historyCard}`}>
-          <h3 className={styles.sectionTitle}>Quote History</h3>
+          <h3 className={styles.sectionTitle}>Project History</h3>
           <table className={styles.historyTable}>
             <thead>
-              <tr><th>Quote</th><th>Event Date</th><th>Qty</th></tr>
+              <tr><th>Project</th><th>Event Date</th><th>Qty</th></tr>
             </thead>
             <tbody>
               {item.quote_history.map(q => (

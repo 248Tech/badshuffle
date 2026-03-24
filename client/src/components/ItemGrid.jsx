@@ -2,7 +2,7 @@ import React from 'react';
 import ItemCard from './ItemCard.jsx';
 import styles from './ItemGrid.module.css';
 
-export default function ItemGrid({ items, loading, onEdit, onDelete, onAddToQuote, showHidden }) {
+export default function ItemGrid({ items, loading, onEdit, onDelete, onAddToQuote, showHidden, showSource }) {
   const visible = showHidden ? (items || []) : (items || []).filter(i => !i.hidden);
 
   return (
@@ -36,6 +36,7 @@ export default function ItemGrid({ items, loading, onEdit, onDelete, onAddToQuot
             onEdit={onEdit}
             onDelete={onDelete}
             onAddToQuote={onAddToQuote}
+            showSource={showSource}
           />
         ))}
       </div>

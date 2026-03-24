@@ -44,6 +44,15 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
   const date = quote.event_date
     ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString()
     : null;
+  const clientName = [quote.client_first_name, quote.client_last_name].filter(Boolean).join(' ');
+  const isExpired = quote.is_expired;
+  const expiresAt = quote.expires_at
+    ? new Date(quote.expires_at + 'T00:00:00').toLocaleDateString()
+    : null;
+  const daysUntilExpiry = quote.expires_at
+    ? Math.ceil((new Date(quote.expires_at + 'T00:00:00') - new Date()) / 86400000)
+    : null;
+  const expiringSoon = !isExpired && daysUntilExpiry !== null && daysUntilExpiry <= 7 && daysUntilExpiry >= 0;
 
   const handleOpen = (e) => {
     e?.stopPropagation?.();
@@ -81,12 +90,18 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
         {date && <span className={styles.date}>{date}</span>}
       </div>
       <div className={styles.meta}>
+        {clientName && <span className={styles.clientName}>{clientName}</span>}
         {quote.guest_count > 0 && (
           <span className={styles.tag}>👥 {quote.guest_count} guests</span>
         )}
         <span className={styles.tag}>
           🕒 {new Date(quote.created_at).toLocaleDateString()}
         </span>
+        {expiresAt && (
+          <span className={isExpired ? styles.tagExpired : expiringSoon ? styles.tagExpiringSoon : styles.tag}>
+            ⏱ {isExpired ? 'Expired' : 'Expires'} {expiresAt}
+          </span>
+        )}
         {showBalance && overpaid && <span className={styles.overpaidBadge}>Overpaid</span>}
       </div>
       {hasTotal && (

@@ -337,6 +337,7 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
     try {
       await api.updateQuoteItem(quoteId, item.qitem_id, { discount_type: 'none', discount_amount: 0 });
       onItemsChange();
+      toast.info('Discount cleared');
     } catch (e) {
       toast.error(e.message);
     }
@@ -384,6 +385,7 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
     try {
       await api.updateQuoteItem(quoteId, item.qitem_id, { unit_price_override: null });
       onItemsChange();
+      toast.info('Price override cleared');
     } catch (e) {
       toast.error(e.message);
     }
@@ -748,7 +750,8 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
         <div className={pickerView === 'tile' ? styles.pickerGrid : styles.pickerList}>
           {visibleInventory.map(item => {
             const pickerAvail = pickerAvailability[item.id];
-            const showPickerStock = pickerAvail && pickerAvail.stock != null && (pickerAvail.reserved_qty > 0 || pickerAvail.potential_qty > 0);
+            const showPickerStock = pickerAvail && pickerAvail.stock != null;
+            const hasConflict = pickerAvail && (pickerAvail.reserved_qty > 0 || pickerAvail.potential_qty > 0);
             return (
               <div
                 key={item.id}
@@ -772,8 +775,11 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
                     </div>
                     <span className={styles.tileTitle}>{item.title}</span>
                     {showPickerStock && (
-                      <span className={styles.pickerStockBadge} title={`${pickerAvail.stock} in stock, ${pickerAvail.reserved_qty} already booked on this date`}>
-                        Only {pickerAvail.stock} available, {pickerAvail.reserved_qty} already booked
+                      <span
+                        className={hasConflict ? styles.pickerStockBadge : styles.pickerStockBadgeOk}
+                        title={hasConflict ? `${pickerAvail.stock} in stock, ${pickerAvail.reserved_qty} already booked on this date` : `${pickerAvail.stock} in stock`}
+                      >
+                        {hasConflict ? `Only ${pickerAvail.stock} avail, ${pickerAvail.reserved_qty} booked` : `${pickerAvail.stock} in stock`}
                       </span>
                     )}
                   </>
@@ -791,8 +797,8 @@ export default function QuoteBuilder({ quoteId, items, onItemsChange, onAddCusto
                     )}
                     <span className={styles.itemTitle}>{item.title}</span>
                     {showPickerStock && (
-                      <span className={styles.pickerStockBadgeList}>
-                        Only {pickerAvail.stock} available, {pickerAvail.reserved_qty} already booked
+                      <span className={hasConflict ? styles.pickerStockBadgeList : styles.pickerStockBadgeListOk}>
+                        {hasConflict ? `Only ${pickerAvail.stock} avail, ${pickerAvail.reserved_qty} booked` : `${pickerAvail.stock} in stock`}
                       </span>
                     )}
                     <span className={styles.addHint}>+ Add</span>
