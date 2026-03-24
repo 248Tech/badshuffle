@@ -107,7 +107,7 @@ async function start() {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing' });
 
     const authHeader = req.headers.authorization || '';
-    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.query.token || null);
     const secret = process.env.JWT_SECRET || 'change-me';
     let allowed = false;
     if (bearer) {

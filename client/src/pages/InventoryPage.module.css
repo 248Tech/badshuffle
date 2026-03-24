@@ -36,15 +36,37 @@
   flex-wrap: wrap;
 }
 
+.searchWrap {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 11px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
 .searchInput {
   flex: 1;
   min-width: 180px;
-  padding: 7px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 13px;
-  background: var(--color-surface);
+  padding: 8px 12px 8px 36px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--color-bg);
   color: var(--color-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.searchInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(26,143,193,0.12);
 }
 
 .categorySelect {

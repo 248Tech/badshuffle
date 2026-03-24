@@ -263,7 +263,7 @@ export default function QuoteDetailPage() {
   const handleDeleteQuote = async () => {
     try {
       await api.deleteQuote(id);
-      toast.info('Quote deleted');
+      toast.info('Project deleted');
       navigate('/quotes');
     } catch (e) {
       toast.error(e.message);
@@ -277,7 +277,7 @@ export default function QuoteDetailPage() {
     setDuplicating(true);
     try {
       const body = {
-        name: (quote.name || 'Quote') + ' (copy)',
+        name: (quote.name || 'Project') + ' (copy)',
         guest_count: quote.guest_count ?? 0,
         event_date: quote.event_date || null,
         rental_start: quote.rental_start || null,
@@ -589,7 +589,7 @@ export default function QuoteDetailPage() {
       {editing ? (
         <div className={styles.topBar}>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('/quotes')}>
-            ← Quotes
+            ← Projects
           </button>
           <div className={styles.topActions}>
             <button className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>
@@ -601,10 +601,10 @@ export default function QuoteDetailPage() {
         <div className={styles.topDiv}>
           <div className={styles.topDivLeft}>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/quotes')}>
-              ← Quotes
+              ← Projects
             </button>
             <div className={styles.tabs}>
-              <button type="button" className={`${styles.tab} ${detailTab === 'quote' ? styles.tabActive : ''}`} onClick={() => setDetailTab('quote')}>Quote</button>
+              <button type="button" className={`${styles.tab} ${detailTab === 'quote' ? styles.tabActive : ''}`} onClick={() => setDetailTab('quote')}>Project</button>
               <button type="button" className={`${styles.tab} ${detailTab === 'billing' ? styles.tabActive : ''}`} onClick={() => setDetailTab('billing')}>Billing</button>
               <button type="button" className={`${styles.tab} ${detailTab === 'files' ? styles.tabActive : ''}`} onClick={() => setDetailTab('files')}>Files {quoteFiles.length > 0 ? `(${quoteFiles.length})` : ''}</button>
               <button type="button" className={`${styles.tab} ${detailTab === 'logs' ? styles.tabActive : ''}`} onClick={() => setDetailTab('logs')}>Logs</button>
@@ -1131,7 +1131,7 @@ export default function QuoteDetailPage() {
                 return (
                   <div className={styles.billingSummary}>
                     <div className={styles.billingBlock}>
-                      <h4 className={styles.venueTitle}>Quote total</h4>
+                      <h4 className={styles.venueTitle}>Project total</h4>
                       <div className={styles.billingTotal}>${(totals.total || 0).toFixed(2)}</div>
                     </div>
                     <div className={styles.billingBlock}>

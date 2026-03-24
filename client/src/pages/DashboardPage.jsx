@@ -30,7 +30,7 @@ function BarChart({ data, colorMap }) {
               className={styles.barFill}
               style={{
                 width: `${(d.value / max) * 100}%`,
-                background: (colorMap && colorMap[d.label]) || 'var(--color-primary)'
+                background: (colorMap && colorMap[d.label]) || '#1a8fc1'
               }}
             />
           </div>
@@ -84,13 +84,13 @@ export default function DashboardPage() {
 
       {/* Stat cards */}
       <div className={styles.statGrid}>
-        <div className={styles.statCard} style={{ borderLeftColor: 'var(--color-primary)' }}>
-          <span className={styles.statLabel}>Total Quotes</span>
+        <div className={styles.statCard} style={{ borderLeftColor: '#1a8fc1' }}>
+          <span className={styles.statLabel}>Total Projects</span>
           <span className={styles.statValue}>{total}</span>
         </div>
-        <div className={styles.statCard} style={{ borderLeftColor: 'var(--color-success)' }}>
-          <span className={styles.statLabel}>Approved</span>
-          <span className={styles.statValue} style={{ color: 'var(--color-success)' }}>{byStatus.approved || 0}</span>
+        <div className={styles.statCard} style={{ borderLeftColor: '#34d399' }}>
+          <span className={styles.statLabel}>Signed</span>
+          <span className={styles.statValue} style={{ color: '#34d399' }}>{byStatus.approved || 0}</span>
         </div>
         <div className={styles.statCard} style={{ borderLeftColor: '#8b5cf6' }}>
           <span className={styles.statLabel}>Confirmed</span>
@@ -100,21 +100,23 @@ export default function DashboardPage() {
           <span className={styles.statLabel}>Sent to Client</span>
           <span className={styles.statValue} style={{ color: '#f59e0b' }}>{byStatus.sent || 0}</span>
         </div>
-        <div className={styles.statCard} style={{ borderLeftColor: 'var(--color-accent)' }}>
-          <span className={styles.statLabel}>Approved Revenue</span>
-          <span className={styles.statValue} style={{ color: 'var(--color-accent)' }}>${(revenueByStatus.approved || 0).toFixed(0)}</span>
+        <div className={styles.statCard} style={{ borderLeftColor: '#16b2a5' }}>
+          <span className={styles.statLabel}>Signed Revenue</span>
+          <span className={styles.statValue} style={{ color: '#16b2a5' }}>${(revenueByStatus.approved || 0).toFixed(0)}</span>
         </div>
       </div>
 
       <div className={styles.charts}>
         {/* Status breakdown */}
         <div className={`card ${styles.chartCard}`}>
-          <h3 className={styles.chartTitle}>Quotes by Status</h3>
+          <h3 className={styles.chartTitle}>Projects by Status</h3>
           <BarChart data={statusBars} colorMap={STATUS_COLORS} />
           <div className={styles.revenueTable}>
             {statusBars.map(s => (
               <div key={s.label} className={styles.revenueRow}>
-                <span className={styles.revenueLabel} style={{ color: STATUS_COLORS[s.label] }}>{s.label}</span>
+                <span className={styles.revenueLabel} style={{ color: STATUS_COLORS[s.label] }}>
+                  {s.label === 'approved' ? 'signed' : s.label}
+                </span>
                 <span>${(revenueByStatus[s.label] || 0).toFixed(0)}</span>
               </div>
             ))}
@@ -123,7 +125,7 @@ export default function DashboardPage() {
 
         {/* Monthly trend */}
         <div className={`card ${styles.chartCard}`}>
-          <h3 className={styles.chartTitle}>Quotes Created (last 6 months)</h3>
+          <h3 className={styles.chartTitle}>Projects Created (last 6 months)</h3>
           {byMonth.length === 0 ? (
             <p className={styles.empty}>No data yet.</p>
           ) : (
@@ -139,7 +141,7 @@ export default function DashboardPage() {
           <div className="empty-state" style={{ padding: '24px 16px' }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
             <span>No events in the next 90 days</span>
-            <span style={{ fontSize: 12 }}>Create a quote with an event date to see it here.</span>
+            <span style={{ fontSize: 12 }}>Create a project with an event date to see it here.</span>
           </div>
         ) : (
           <div className={styles.eventList}>
@@ -148,7 +150,8 @@ export default function DashboardPage() {
               const daysOut = Math.round((d - today) / 864e5);
               const status = q.status || 'draft';
               const showUnsigned = (status === 'approved' || status === 'confirmed') && q.has_unsigned_changes;
-              const displayStatus = showUnsigned ? 'Unsigned Changes' : status;
+              const rawStatus = status === 'approved' ? 'signed' : status;
+              const displayStatus = showUnsigned ? 'Unsigned Changes' : rawStatus;
               const statusClass = showUnsigned ? styles.status_unsigned_changes : styles['status_' + status];
               return (
                 <div

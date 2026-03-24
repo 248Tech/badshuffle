@@ -9,8 +9,15 @@
 .formRow .form-group { min-width: 120px; }
 .formActions { display: flex; gap: 8px; justify-content: flex-end; }
 .headerActions { display: flex; align-items: center; gap: 12px; }
-.viewToggle { display: flex; gap: 2px; }
-.viewToggle .btn.active { background: var(--color-bg-elevated); }
+.viewSelect {
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+}
 .batchBar {
   display: flex; align-items: center; gap: 12px; padding: 10px 14px;
   background: var(--color-bg-elevated); border-radius: 8px;

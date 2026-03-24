@@ -225,7 +225,7 @@ export const api = {
     });
   },
   deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
-  fileServeUrl: (id) => `/api/files/${id}/serve`,
+  fileServeUrl: (id) => { const t = getToken(); return `/api/files/${id}/serve${t ? `?token=${encodeURIComponent(t)}` : ''}`; },
 
   // Quote adjustments (discounts / surcharges)
   getAdjustments:    (qid)           => request(`/quotes/${qid}/adjustments`),

@@ -30,19 +30,39 @@
 .overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.05);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 8px;
+  gap: 6px;
   opacity: 0;
   transition: opacity 0.15s ease;
 }
 .imgWrapper:hover .overlay { opacity: 1; }
 
+.overlayLeft { display: flex; gap: 6px; }
+
+.overlayBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255,255,255,0.92);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.1s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.overlayBtn:hover { background: #fff; }
+.overlayBtnDanger:hover { background: #fee2e2; color: #dc2626; }
+
 /* Always show on touch devices */
 @media (hover: none) {
-  .overlay { opacity: 1; background: rgba(0,0,0,0.3); }
+  .overlay { opacity: 1; background: rgba(0,0,0,0.06); }
 }
 
 .imgPlaceholder {

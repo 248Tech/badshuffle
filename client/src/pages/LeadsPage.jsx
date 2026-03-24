@@ -7,7 +7,7 @@ import styles from './LeadsPage.module.css';
 
 /** Build quote payload from lead; only include fields that match expected format. */
 function quoteFromLead(lead) {
-  const name = (lead.name && String(lead.name).trim()) || (lead.email && String(lead.email).trim()) || 'Quote from lead';
+  const name = (lead.name && String(lead.name).trim()) || (lead.email && String(lead.email).trim()) || 'Project from lead';
   const body = { name };
 
   if (lead.guest_count != null && Number.isInteger(Number(lead.guest_count)) && Number(lead.guest_count) >= 0) {
@@ -124,12 +124,17 @@ export default function LeadsPage() {
       </div>
 
       <div className={styles.toolbar}>
-        <input
-          className={styles.search}
-          placeholder="Search name, email, phone…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <div className={styles.searchWrap}>
+          <svg className={styles.searchIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            className={styles.search}
+            placeholder="Search name, email, phone…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       {loading ? (
@@ -182,9 +187,9 @@ export default function LeadsPage() {
                         className="btn btn-primary btn-sm"
                         disabled={creatingQuoteForId === l.id}
                         onClick={e => handleCreateQuote(l, e)}
-                        title="Create a new quote from this lead"
+                        title="Create a new project from this lead"
                       >
-                        {creatingQuoteForId === l.id ? '…' : 'Create quote'}
+                        {creatingQuoteForId === l.id ? '…' : 'Create project'}
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"

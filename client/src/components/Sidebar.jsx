@@ -9,8 +9,8 @@ function pathToLabel(path) {
   if (p === 'dashboard') return 'Dashboard';
   if (p === 'inventory') return 'Inventory';
   if (p.startsWith('inventory/')) return `Item`;
-  if (p === 'quotes') return 'Quotes';
-  if (p.startsWith('quotes/')) return 'Quote';
+  if (p === 'quotes') return 'Projects';
+  if (p.startsWith('quotes/')) return 'Project';
   if (p === 'billing') return 'Billing';
   if (p === 'leads') return 'Leads';
   if (p === 'files') return 'Files';
@@ -121,7 +121,7 @@ const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: ICONS.dashboard },
   { to: '/inventory', label: 'Inventory', icon: ICONS.inventory },
   { to: '/import',    label: 'Import',    icon: ICONS.import },
-  { to: '/quotes',    label: 'Quotes',    icon: ICONS.quotes },
+  { to: '/quotes',    label: 'Projects',  icon: ICONS.quotes },
   { to: '/billing',   label: 'Billing',   icon: ICONS.billing,   role: 'operator' },
   { to: '/leads',     label: 'Leads',     icon: ICONS.leads },
   { to: '/files',     label: 'Files',     icon: ICONS.files },

@@ -162,7 +162,7 @@ export default function QuotePage() {
     if (!confirmDelete) return;
     try {
       await api.deleteQuote(confirmDelete.id);
-      toast.info(`Deleted quote "${confirmDelete.name}"`);
+      toast.info(`Deleted project "${confirmDelete.name}"`);
       setSelectedIds(s => { const n = new Set(s); n.delete(confirmDelete.id); return n; });
       load();
     } catch (e) {
@@ -189,7 +189,7 @@ export default function QuotePage() {
   const handleDuplicateOne = async (quote) => {
     try {
       const { quote: newQuote } = await api.duplicateQuote(quote.id);
-      toast.success('Quote duplicated');
+      toast.success('Project duplicated');
       load();
       navigate(`/quotes/${newQuote.id}`);
     } catch (e) {
@@ -207,7 +207,7 @@ export default function QuotePage() {
         const { quote } = await api.duplicateQuote(id);
         newIds.push(quote.id);
       }
-      toast.success(`${ids.length} quote(s) duplicated`);
+      toast.success(`${ids.length} project(s) duplicated`);
       setSelectedIds(new Set());
       load();
       if (newIds.length === 1) navigate(`/quotes/${newIds[0]}`);
@@ -222,7 +222,7 @@ export default function QuotePage() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     const first = quotes.find(q => q.id === ids[0]);
-    setConfirmDelete(ids.length === 1 ? first : { id: 'batch', name: `${ids.length} selected quotes`, _batchIds: ids });
+    setConfirmDelete(ids.length === 1 ? first : { id: 'batch', name: `${ids.length} selected projects`, _batchIds: ids });
   };
 
   const handleDeleteConfirmBatch = async () => {
@@ -232,7 +232,7 @@ export default function QuotePage() {
       for (const id of batch) {
         await api.deleteQuote(id);
       }
-      toast.info(`Deleted ${batch.length} quote(s)`);
+      toast.info(`Deleted ${batch.length} project(s)`);
       setSelectedIds(new Set());
       load();
     } catch (e) {
@@ -248,32 +248,23 @@ export default function QuotePage() {
     <div className={styles.page}>
       <div className={styles.header}>
         <div>
-          <h1 className={styles.title}>Quotes</h1>
+          <h1 className={styles.title}>Projects</h1>
           <p className={styles.sub}>
-            {quotes.length} {hasActiveFilters ? 'matching' : 'saved'} quotes
+            {quotes.length} {hasActiveFilters ? 'matching' : 'saved'} projects
           </p>
         </div>
         <div className={styles.headerActions}>
-          <div className={styles.viewToggle}>
-            <button
-              type="button"
-              className={`btn btn-ghost btn-sm ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-              aria-pressed={viewMode === 'list'}
-            >
-              List
-            </button>
-            <button
-              type="button"
-              className={`btn btn-ghost btn-sm ${viewMode === 'tiles' ? 'active' : ''}`}
-              onClick={() => setViewMode('tiles')}
-              aria-pressed={viewMode === 'tiles'}
-            >
-              Tiles
-            </button>
-          </div>
+          <select
+            className={styles.viewSelect}
+            value={viewMode}
+            onChange={e => setViewMode(e.target.value)}
+            aria-label="View mode"
+          >
+            <option value="tiles">Tile View</option>
+            <option value="list">List View</option>
+          </select>
           <button className="btn btn-primary" onClick={() => newStep === 0 ? setNewStep(1) : resetNewForm()}>
-            {newStep > 0 ? 'Cancel' : '+ New Quote'}
+            {newStep > 0 ? 'Cancel' : '+ New Project'}
           </button>
         </div>
       </div>
@@ -304,7 +295,7 @@ export default function QuotePage() {
           <option value="">All statuses</option>
           <option value="draft">Draft</option>
           <option value="sent">Sent</option>
-          <option value="approved">Approved</option>
+          <option value="approved">Signed</option>
           <option value="confirmed">Confirmed</option>
           <option value="closed">Closed</option>
         </select>
@@ -357,7 +348,7 @@ export default function QuotePage() {
       {newStep === 1 && (
         <div className={`card ${styles.formCard}`}>
           <div className={styles.wizardHeader}>
-            <h3 className={styles.formTitle}>New Quote — Event Details</h3>
+            <h3 className={styles.formTitle}>New Project — Event Details</h3>
             <span className={styles.wizardStep}>Step 1 of 2</span>
           </div>
           <form onSubmit={handleStep1} className={styles.form}>
@@ -415,7 +406,7 @@ export default function QuotePage() {
       {newStep === 2 && (
         <div className={`card ${styles.formCard}`}>
           <div className={styles.wizardHeader}>
-            <h3 className={styles.formTitle}>New Quote — Client Info</h3>
+            <h3 className={styles.formTitle}>New Project — Client Info</h3>
             <span className={styles.wizardStep}>Step 2 of 2</span>
           </div>
           <p className={styles.wizardSub}>
@@ -476,7 +467,7 @@ export default function QuotePage() {
                 ← Back
               </button>
               <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
-                {saving ? 'Creating…' : 'Create & Open Quote →'}
+                {saving ? 'Creating…' : 'Create & Open Project →'}
               </button>
             </div>
           </form>
@@ -486,7 +477,7 @@ export default function QuotePage() {
       {loading && (
         <div className="empty-state">
           <div className="spinner" />
-          Loading quotes…
+          Loading projects…
         </div>
       )}
 
@@ -496,7 +487,7 @@ export default function QuotePage() {
             <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
             <rect x="9" y="3" width="6" height="4" rx="1"/>
           </svg>
-          <p>No quotes yet. Create one to get started.</p>
+          <p>No projects yet. Create one to get started.</p>
         </div>
       )}
 
@@ -535,7 +526,7 @@ export default function QuotePage() {
                 <th>Status</th>
                 <th>Event date</th>
                 <th>Guests</th>
-                <th>Quote total</th>
+                <th>Project total</th>
                 <th>Remaining balance</th>
                 <th className={styles.colActions}>Actions</th>
               </tr>
@@ -575,7 +566,7 @@ export default function QuotePage() {
                     </td>
                     <td>
                       <span className={`${styles.statusBadge} ${styles['status_' + (q.status || 'draft')]}`}>
-                        {(q.status || 'draft').toUpperCase()}
+                        {q.status === 'approved' ? 'SIGNED' : (q.status || 'draft').toUpperCase()}
                       </span>
                     </td>
                     <td>{eventDate}</td>
@@ -620,11 +611,11 @@ export default function QuotePage() {
 
       {confirmDelete && (
         <ConfirmDialog
-          title={confirmDelete._batchIds ? 'Delete selected quotes?' : 'Delete quote?'}
+          title={confirmDelete._batchIds ? 'Delete selected projects?' : 'Delete project?'}
           message={
             confirmDelete._batchIds
-              ? `Delete ${confirmDelete._batchIds.length} quote(s)? All items in those quotes will be removed.`
-              : `Delete quote "${confirmDelete.name}"? All items in this quote will also be removed.`
+              ? `Delete ${confirmDelete._batchIds.length} project(s)? All items in those projects will be removed.`
+              : `Delete project "${confirmDelete.name}"? All items in this project will also be removed.`
           }
           onConfirm={confirmDelete._batchIds ? handleDeleteConfirmBatch : handleDeleteConfirm}
           onCancel={() => setConfirmDelete(null)}

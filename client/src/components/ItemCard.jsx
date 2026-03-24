@@ -3,11 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import styles from './ItemCard.module.css';
 
+const EditIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+  </svg>
+);
+const TrashIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+  </svg>
+);
+const PuzzleIcon = () => (
+  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden>
+    <path d="M20.5 11H19V7a2 2 0 00-2-2h-4V3.5a2.5 2.5 0 00-5 0V5H4a2 2 0 00-2 2v3.8h1.5a2.5 2.5 0 010 5H2V20a2 2 0 002 2h3.8v-1.5a2.5 2.5 0 015 0V22H17a2 2 0 002-2v-4h1.5a2.5 2.5 0 000-5z"/>
+  </svg>
+);
+
 export default function ItemCard({ item, onEdit, onDelete, onAddToQuote }) {
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
 
   const sourceLabel = item.source || 'manual';
+  const isExtension = sourceLabel === 'extension';
   const hasPrice = item.unit_price > 0;
   const stockInfo = item.quantity_in_stock != null && item.quantity_in_stock > 0
     ? `${item.quantity_in_stock} in stock${item.quantity_going_out > 0 ? ` / ${item.quantity_going_out} out` : ''}`
@@ -35,25 +53,39 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote }) {
             aria-hidden
           />
         )}
-        <span className={`badge badge-${sourceLabel} ${styles.sourceBadge}`}>
-          {sourceLabel}
-        </span>
+        {isExtension && (
+          <span className={`badge badge-extension ${styles.sourceBadge}`} title="Imported via Chrome Extension">
+            <PuzzleIcon />
+          </span>
+        )}
         {item.category && (
           <span className={styles.categoryBadge}>{item.category}</span>
         )}
-        {/* Hover overlay with primary action */}
+        {/* Hover overlay with icon action tray */}
         <div className={styles.overlay} onClick={e => e.stopPropagation()}>
-          {onAddToQuote && (
+          <div className={styles.overlayLeft}>
+            {onAddToQuote && (
+              <button
+                className={styles.overlayBtn}
+                title="Add to project"
+                onClick={() => onAddToQuote(item)}
+              >
+                +
+              </button>
+            )}
+            {onEdit && (
+              <button className={styles.overlayBtn} title="Edit item" onClick={() => onEdit(item)}>
+                <EditIcon />
+              </button>
+            )}
+          </div>
+          {onDelete && (
             <button
-              className="btn btn-primary btn-sm"
-              onClick={() => onAddToQuote(item)}
+              className={`${styles.overlayBtn} ${styles.overlayBtnDanger}`}
+              title="Delete item"
+              onClick={() => onDelete(item)}
             >
-              + Add to Quote
-            </button>
-          )}
-          {onEdit && (
-            <button className="btn btn-ghost btn-sm" onClick={() => onEdit(item)}>
-              Edit
+              <TrashIcon />
             </button>
           )}
         </div>
@@ -80,14 +112,6 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote }) {
           {stockInfo && <span className={styles.stock}>{stockInfo}</span>}
         </div>
 
-        {onDelete && (
-          <div className={styles.bodyActions}>
-            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }}
-              onClick={() => onDelete(item)}>
-              Delete
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

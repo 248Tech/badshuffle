@@ -16,7 +16,8 @@ export default function QuoteHeader({
 }) {
   const status = quote.status || 'draft';
   const showUnsignedChanges = (status === 'approved' || status === 'confirmed') && quote.has_unsigned_changes;
-  const displayStatus = showUnsignedChanges ? 'Unsigned Changes' : status;
+  const rawDisplay = status === 'approved' ? 'Signed' : status;
+  const displayStatus = showUnsignedChanges ? 'Unsigned Changes' : rawDisplay;
   const badgeClass = showUnsignedChanges ? styles.badge_unsigned_changes : styles['badge_' + status];
   const date = quote.event_date
     ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString()
@@ -28,15 +29,15 @@ export default function QuoteHeader({
       {showTopRow && (
         <div className={styles.topRow}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
-            ← Quotes
+            ← Projects
           </button>
           <div className={styles.actions + ' ' + styles.actionsTint}>
-            <button type="button" className="btn btn-primary btn-sm" onClick={onSend} title="Email quote link to client">
+            <button type="button" className="btn btn-primary btn-sm" onClick={onSend} title="Email project link to client">
               Send to Client
             </button>
             {typeof onViewQuote === 'function' && (
-              <button type="button" className="btn btn-primary btn-sm" onClick={onViewQuote} title="Open client-viewable quote in new tab">
-                View Quote
+              <button type="button" className="btn btn-primary btn-sm" onClick={onViewQuote} title="Open client-viewable project in new tab">
+                View Project
               </button>
             )}
             {quote.public_token && (
@@ -52,7 +53,7 @@ export default function QuoteHeader({
               className="btn btn-primary btn-sm"
               disabled={duplicating}
               onClick={onDuplicate}
-              title="Duplicate this quote (same details and line items)"
+              title="Duplicate this project (same details and line items)"
             >
               {duplicating ? '…' : 'Duplicate'}
             </button>
@@ -60,7 +61,7 @@ export default function QuoteHeader({
               type="button"
               className={`btn btn-ghost btn-sm ${styles.btnDanger}`}
               onClick={onDelete}
-              title="Delete this quote"
+              title="Delete this project"
             >
               Delete
             </button>
@@ -74,7 +75,7 @@ export default function QuoteHeader({
             type="button"
             className={styles.titleButton}
             onClick={onEdit}
-            title="Edit quote details"
+            title="Edit project details"
           >
             {quote.name}
           </button>

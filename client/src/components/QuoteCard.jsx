@@ -20,6 +20,11 @@ function ConflictStopSignIcon({ className }) {
   );
 }
 
+function statusDisplay(status) {
+  if (status === 'approved') return 'SIGNED';
+  return (status || 'draft').toUpperCase();
+}
+
 export default function QuoteCard({ quote, onDelete, onDuplicate, total, selectable, selected, onToggleSelect, hasConflict }) {
   const navigate = useNavigate();
   const contractTotal = total != null ? total : (quote.contract_total ?? quote.total);
@@ -71,7 +76,7 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
         {hasConflict && <ConflictStopSignIcon className={styles.conflictStopSign} />}
         <h3 className={styles.name}>{quote.name}</h3>
         <span className={`${styles.statusBadge} ${styles['status_' + (quote.status || 'draft')]}`}>
-          {(quote.status || 'draft').toUpperCase()}
+          {statusDisplay(quote.status)}
         </span>
         {date && <span className={styles.date}>{date}</span>}
       </div>
@@ -86,12 +91,15 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
       </div>
       {hasTotal && (
         <div className={styles.totals}>
-          <div className={styles.contractTotal}>Quote total: ${Number(contractTotal).toFixed(2)}</div>
+          <div className={styles.contractTotal}>
+            <span className={styles.totalLabel}>Project total: </span>
+            <span className={styles.totalValue}>${Number(contractTotal).toFixed(2)}</span>
+          </div>
           {showBalance && (
             <div className={overpaid ? styles.remainingOverpaid : styles.remainingBalance}>
               {overpaid
-                ? <>Overpaid: <strong>${Math.abs(remaining).toFixed(2)}</strong> (refund due)</>
-                : <>Remaining balance: <strong>${Number(remaining).toFixed(2)}</strong></>
+                ? <><span className={styles.balanceLabel}>Overpaid: </span><strong>${Math.abs(remaining).toFixed(2)}</strong> (refund due)</>
+                : <><span className={styles.balanceLabel}>Remaining balance: </span><strong>${Number(remaining).toFixed(2)}</strong></>
               }
             </div>
           )}

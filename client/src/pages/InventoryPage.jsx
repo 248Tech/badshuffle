@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../api.js';
 import ItemGrid from '../components/ItemGrid.jsx';
 import AssociationList from '../components/AssociationList.jsx';
@@ -29,6 +29,7 @@ export default function InventoryPage() {
   const [accessories, setAccessories] = useState([]);
   const [accessorySearch, setAccessorySearch] = useState('');
   const [accessoryResults, setAccessoryResults] = useState([]);
+  const formRef = useRef(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -59,6 +60,7 @@ export default function InventoryPage() {
 
   const handleEdit = (item) => {
     setEditingItem(item);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     setAccessories([]);
     setAccessorySearch('');
     setAccessoryResults([]);
@@ -167,17 +169,22 @@ export default function InventoryPage() {
 
       {/* Filter bar */}
       <div className={styles.filters}>
-        <input
-          className={styles.searchInput}
-          placeholder="Search items…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <div className={styles.searchWrap}>
+          <svg className={styles.searchIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            className={styles.searchInput}
+            placeholder="Search items…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Add / Edit Form */}
       {(showAdd || editingItem) && (
-        <div className={`card ${styles.formCard}`}>
+        <div ref={formRef} className={`card ${styles.formCard}`}>
           <h3 className={styles.formTitle}>{editingItem ? 'Edit Item' : 'Add Item'}</h3>
           <form onSubmit={handleSave} className={styles.form}>
             <div className={styles.formRow}>
