@@ -12,7 +12,7 @@ export default function QuotePage() {
   const toast = useToast();
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newStep, setNewStep] = useState(0); // 0=hidden, 1=event details, 2=client info
+  const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState({
     name: '', guest_count: '', event_date: '', notes: '',
     client_first_name: '', client_last_name: '', client_phone: '', client_email: '', client_address: ''
@@ -106,9 +106,9 @@ export default function QuotePage() {
     document.head.appendChild(script);
   }, [googlePlacesKey]);
 
-  // Initialize autocomplete when step 2 is shown and script is ready
+  // Initialize autocomplete when new form is shown and script is ready
   useEffect(() => {
-    if (newStep !== 2 || !googleScriptLoaded || !addressInputRef.current) return;
+    if (!showNew || !googleScriptLoaded || !addressInputRef.current) return;
     if (autocompleteRef.current) return; // already initialized
     const ac = new window.google.maps.places.Autocomplete(addressInputRef.current, { types: ['address'] });
     ac.addListener('place_changed', () => {
@@ -121,17 +121,12 @@ export default function QuotePage() {
     return () => {
       autocompleteRef.current = null;
     };
-  }, [newStep, googleScriptLoaded]);
+  }, [showNew, googleScriptLoaded]);
 
   const resetNewForm = () => {
-    setNewStep(0);
+    setShowNew(false);
     setForm({ name: '', guest_count: '', event_date: '', notes: '', client_first_name: '', client_last_name: '', client_phone: '', client_email: '', client_address: '' });
     autocompleteRef.current = null;
-  };
-
-  const handleStep1 = (e) => {
-    e.preventDefault();
-    setNewStep(2);
   };
 
   const handleCreate = async (e) => {
@@ -263,8 +258,8 @@ export default function QuotePage() {
             <option value="tiles">Tile View</option>
             <option value="list">List View</option>
           </select>
-          <button className="btn btn-primary" onClick={() => newStep === 0 ? setNewStep(1) : resetNewForm()}>
-            {newStep > 0 ? 'Cancel' : '+ New Project'}
+          <button className="btn btn-primary" onClick={() => showNew ? resetNewForm() : setShowNew(true)}>
+            {showNew ? 'Cancel' : '+ New Project'}
           </button>
         </div>
       </div>
@@ -345,13 +340,11 @@ export default function QuotePage() {
         </div>
       )}
 
-      {newStep === 1 && (
+      {showNew && (
         <div className={`card ${styles.formCard}`}>
-          <div className={styles.wizardHeader}>
-            <h3 className={styles.formTitle}>New Project — Event Details</h3>
-            <span className={styles.wizardStep}>Step 1 of 2</span>
-          </div>
-          <form onSubmit={handleStep1} className={styles.form}>
+          <h3 className={styles.formTitle}>New Project</h3>
+          <form onSubmit={handleCreate} className={styles.form}>
+            <div className={styles.formSectionLabel}>Event Details</div>
             <div className={styles.formRow}>
               <div className="form-group" style={{ flex: 2 }}>
                 <label>Event name *</label>
@@ -391,33 +384,11 @@ export default function QuotePage() {
                 placeholder="Any relevant details…"
               />
             </div>
-            <div className={styles.formActions}>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={resetNewForm}>
-                Cancel
-              </button>
-              <button type="submit" className="btn btn-primary btn-sm">
-                Continue: Client Info →
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {newStep === 2 && (
-        <div className={`card ${styles.formCard}`}>
-          <div className={styles.wizardHeader}>
-            <h3 className={styles.formTitle}>New Project — Client Info</h3>
-            <span className={styles.wizardStep}>Step 2 of 2</span>
-          </div>
-          <p className={styles.wizardSub}>
-            <strong>{form.name}</strong>{form.event_date ? ` · ${new Date(form.event_date + 'T00:00:00').toLocaleDateString()}` : ''}
-          </p>
-          <form onSubmit={handleCreate} className={styles.form}>
+            <div className={styles.formSectionLabel}>Client Info</div>
             <div className={styles.formRow}>
               <div className="form-group">
                 <label>First name</label>
                 <input
-                  autoFocus
                   value={form.client_first_name}
                   onChange={e => setForm(f => ({ ...f, client_first_name: e.target.value }))}
                   placeholder="Jane"
@@ -463,8 +434,8 @@ export default function QuotePage() {
               />
             </div>
             <div className={styles.formActions}>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setNewStep(1)}>
-                ← Back
+              <button type="button" className="btn btn-ghost btn-sm" onClick={resetNewForm}>
+                Cancel
               </button>
               <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
                 {saving ? 'Creating…' : 'Create & Open Project →'}

@@ -8,6 +8,16 @@
 .formRow { display: flex; gap: 12px; flex-wrap: wrap; }
 .formRow .form-group { min-width: 120px; }
 .formActions { display: flex; gap: 8px; justify-content: flex-end; }
+.formSectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border);
+}
 .headerActions { display: flex; align-items: center; gap: 12px; }
 .viewSelect {
   padding: 6px 10px;
@@ -55,11 +65,6 @@
 .filterCheck { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text-muted); cursor: pointer; white-space: nowrap; }
 .filterCheck input { margin: 0; }
 
-/* Wizard */
-.wizardHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.wizardHeader .formTitle { margin-bottom: 0; }
-.wizardStep { font-size: 12px; font-weight: 600; color: var(--color-text-muted); background: var(--color-bg-elevated); padding: 3px 8px; border-radius: 999px; }
-.wizardSub { font-size: 13px; color: var(--color-text-muted); margin: -6px 0 12px; }
 
 /* Status badge in list */
 .statusBadge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }

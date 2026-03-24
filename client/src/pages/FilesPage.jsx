@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api.js';
 import { useToast } from '../components/Toast.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import styles from './FilesPage.module.css';
 
 function formatSize(bytes) {
@@ -32,6 +33,9 @@ export default function FilesPage() {
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('tiles');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const fileInputRef = useRef(null);
 
   function load() {
@@ -66,19 +70,47 @@ export default function FilesPage() {
   }
 
   async function handleDelete(file) {
-    if (!window.confirm('Delete "' + file.original_name + '"?')) return;
     try {
       await api.deleteFile(file.id);
       toast.info('Deleted ' + file.original_name);
+      setSelectedIds(s => { const n = new Set(s); n.delete(file.id); return n; });
       load();
     } catch (e) {
       toast.error(e.message);
     }
   }
 
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    try {
+      for (const id of ids) await api.deleteFile(id);
+      toast.info(`Deleted ${ids.length} file(s)`);
+      setSelectedIds(new Set());
+      load();
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setConfirmBulkDelete(false);
+    }
+  }
+
   function copyUrl(file) {
     navigator.clipboard.writeText(window.location.origin + api.fileServeUrl(file.id));
     toast.success('URL copied');
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    if (selectedIds.size === filtered.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filtered.map(f => f.id)));
   }
 
   const isImage = (f) => f.mime_type && f.mime_type.startsWith('image/');
@@ -89,11 +121,15 @@ export default function FilesPage() {
     return true;
   });
 
+  const selectedCount = selectedIds.size;
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Files</h1>
-        <p className={styles.sub}>Upload images and documents to attach to emails or quote items.</p>
+        <div>
+          <h1 className={styles.title}>Files</h1>
+          <p className={styles.sub}>Upload images and documents to attach to emails or project items.</p>
+        </div>
       </div>
 
       <div
@@ -128,16 +164,55 @@ export default function FilesPage() {
           </button>
         ))}
         <span className={styles.count}>{filtered.length} file{filtered.length !== 1 ? 's' : ''}</span>
+        <div className={styles.filterSpacer} />
+        <select
+          className={styles.viewSelect}
+          value={viewMode}
+          onChange={e => setViewMode(e.target.value)}
+          aria-label="View mode"
+        >
+          <option value="tiles">Tile View</option>
+          <option value="list">List View</option>
+        </select>
       </div>
+
+      {selectedCount > 0 && (
+        <div className={styles.bulkBar}>
+          <span>{selectedCount} selected</span>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ color: 'var(--color-danger)' }}
+            onClick={() => setConfirmBulkDelete(true)}
+          >
+            Delete ({selectedCount})
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedIds(new Set())}>
+            Clear
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="empty-state"><div className="spinner" /></div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">No files yet. Upload something above.</div>
-      ) : (
+      ) : viewMode === 'tiles' ? (
         <div className={styles.grid}>
           {filtered.map(file => (
-            <div key={file.id} className={styles.card}>
+            <div
+              key={file.id}
+              className={`${styles.card} ${selectedIds.has(file.id) ? styles.cardSelected : ''}`}
+            >
+              <div className={styles.cardCheckbox} onClick={e => { e.stopPropagation(); toggleSelect(file.id); }}>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(file.id)}
+                  onChange={() => toggleSelect(file.id)}
+                  aria-label={`Select ${file.original_name}`}
+                  onClick={e => e.stopPropagation()}
+                />
+              </div>
               {isImage(file) ? (
                 <div className={styles.imgWrapper}>
                   <img
@@ -174,6 +249,82 @@ export default function FilesPage() {
             </div>
           ))}
         </div>
+      ) : (
+        <div className={`card ${styles.listCard}`}>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th className={styles.colCheck}>
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                      onChange={selectAll}
+                      aria-label="Select all"
+                    />
+                  </th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Uploaded</th>
+                  <th className={styles.colActions}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(file => (
+                  <tr key={file.id} className={selectedIds.has(file.id) ? styles.rowSelected : ''}>
+                    <td className={styles.colCheck}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(file.id)}
+                        onChange={() => toggleSelect(file.id)}
+                        aria-label={`Select ${file.original_name}`}
+                      />
+                    </td>
+                    <td className={styles.listFileName}>
+                      <span className={styles.listFileIcon}>{isImage(file) ? '🖼️' : mimeIcon(file.mime_type)}</span>
+                      <span title={file.original_name}>{file.original_name}</span>
+                    </td>
+                    <td className={styles.listMeta}>{file.mime_type || '—'}</td>
+                    <td className={styles.listMeta}>{formatSize(file.size)}</td>
+                    <td className={styles.listMeta}>
+                      {file.created_at ? new Date(file.created_at).toLocaleDateString() : '—'}
+                    </td>
+                    <td className={styles.colActions}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => copyUrl(file)}>Copy URL</button>
+                      {!isImage(file) && (
+                        <a
+                          href={api.fileServeUrl(file.id)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-ghost btn-sm"
+                        >
+                          Download
+                        </a>
+                      )}
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: 'var(--color-danger)' }}
+                        onClick={() => handleDelete(file)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {confirmBulkDelete && (
+        <ConfirmDialog
+          title="Delete selected files?"
+          message={`Delete ${selectedCount} file(s)? This cannot be undone.`}
+          onConfirm={handleBulkDelete}
+          onCancel={() => setConfirmBulkDelete(false)}
+        />
       )}
     </div>
   );
