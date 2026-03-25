@@ -1,11 +1,11 @@
 'use strict';
 /**
- * postpackage.js — assemble release archives without publishing desktop executables.
+ * postpackage.js — run after `pkg` produces all exes.
  * 1. Copies client/dist/ → dist/www/
  * 2. Copies .env.example → dist/.env.example
- * 3. Removes legacy .exe / START.bat artifacts from dist/
- * 4. Creates dist/www.zip
- * 5. Creates dist/badshuffle-extension.zip
+ * 3. Writes dist/START.bat
+ * 4. Creates dist/www.zip          (for updater downloads)
+ * 5. Creates dist/badshuffle-extension.zip  (for extension install page)
  */
 const fs           = require('fs');
 const path         = require('path');
@@ -51,15 +51,20 @@ if (fs.existsSync(envExample)) {
   console.log('Copied .env.example → dist/.env.example');
 }
 
-// ── 3. Remove legacy desktop artifacts ───────────────────────────────────────
+// ── 3. Write START.bat ───────────────────────────────────────────────────────
 
-for (const legacyFile of ['badshuffle-server.exe', 'badshuffle-client.exe', 'badshuffle-updater.exe', 'START.bat']) {
-  const legacyPath = path.join(DIST, legacyFile);
-  if (fs.existsSync(legacyPath)) {
-    fs.rmSync(legacyPath, { force: true });
-    console.log(`Removed dist/${legacyFile}`);
-  }
-}
+const bat = `@echo off
+echo Starting BadShuffle server...
+start "" "%~dp0badshuffle-server.exe"
+timeout /t 2 /nobreak >nul
+echo Starting BadShuffle client...
+start "" "%~dp0badshuffle-client.exe"
+echo.
+echo To check for updates, run badshuffle-updater.exe
+`;
+
+fs.writeFileSync(path.join(DIST, 'START.bat'), bat);
+console.log('Wrote dist/START.bat');
 
 // ── 4. Create www.zip (for updater downloads) ────────────────────────────────
 

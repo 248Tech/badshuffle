@@ -3,7 +3,7 @@
 ![Release](https://img.shields.io/badge/release-0.0.8-0a7ea4)
 ![Status](https://img.shields.io/badge/status-pre--release-c79200)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
-![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Web%20Archive-2ea44f)
+![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Windows%20EXE-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-111111)
 
 BadShuffle is a self-hosted event rental software platform for project-centric quoting, inventory management, client approvals, billing, files, messaging, and public catalog publishing. It combines internal operator workflows with SEO-friendly public surfaces, optional AI assistance, and local-first deployment choices instead of recurring SaaS lock-in.
@@ -17,13 +17,13 @@ BadShuffle is a self-hosted event rental software platform for project-centric q
 ## Why This Repo Is Worth Reviewing
 
 - **Real product scope** — Inventory, quotes, approvals, messages, templates, files, SEO catalog pages, and operational tooling live in one codebase.
-- **Full-stack ownership** — React/Vite frontend, Express API, SQLite/sql.js persistence, Chrome extension, Docker deployment, and release archive distribution all ship together.
+- **Full-stack ownership** — React/Vite frontend, Express API, SQLite/sql.js persistence, Chrome extension, Docker deployment, and Windows packaging all ship together.
 - **Domain complexity** — Availability conflicts, per-line pricing overrides, reusable rental/payment policies, and public quote signing target actual event-rental workflows.
-- **Deployment pragmatism** — Run it locally, on a LAN, in Docker, or by serving the built web bundle.
+- **Deployment pragmatism** — Run it locally, on a LAN, in Docker, or as packaged Windows executables.
 
 ## What’s New In v0.0.8
 
-`v0.0.8` is the navigation, admin continuity, and UX polish release. It reorganizes the operator experience around workflow-based navigation, adds in-app database backup/restore, introduces dedicated directory/settings surfaces, and tightens resilience through better loading, accessibility, and error handling. This release now ships archive assets only; Windows `.exe` artifacts are no longer part of the published release bundle.
+`v0.0.8` is the navigation, admin continuity, and UX polish release. It reorganizes the operator experience around workflow-based navigation, adds in-app database backup/restore, introduces dedicated directory/settings surfaces, and tightens resilience through better loading, accessibility, and error handling.
 
 - **Navigation architecture refresh** — The sidebar is now grouped around workflows (Projects, Inventory, Messages, Directory, Settings), supports collapse + flyout behavior, and surfaces unread-message plus pending-admin counts alongside live team presence.
 - **Admin continuity tooling** — Admin now includes SQLite backup export/import so operators can migrate or restore data without leaving the app.
@@ -76,7 +76,7 @@ badshuffle/
 │   │   │            Stats, Files, Messages, Settings, Leads, Templates, Vendors,
 │   │   │            PublicCatalog, PublicItem
 │   │   └── components/
-│   └── serve.js     Static file server entry kept for legacy packaged runtime support
+│   └── serve.js     Zero-dep static server used by the packaged exe
 ├── extension/       Chrome MV3 extension (load unpacked)
 ├── ai/              Architecture notes, features, workflows, roadmap, setup
 ├── Dockerfile       Multi-stage build (Bun → client, Node:20 → server)
@@ -91,11 +91,12 @@ badshuffle/
 | Requirement | Version | Notes |
 |---|---|---|
 | Bun | 1.1+ | Recommended for repo scripts and dev flow |
-| Node.js | 20+ | Fine for local tooling, server runtime, and release archive generation |
+| Node.js | 20+ | Fine for general local tooling and fallback runtime |
+| Node.js | 14.x | Only required for current `pkg` executable targets |
 | Docker | 24+ | Optional |
 | Chrome | Current | Optional, for the extension |
 
-> The scripted dev flow assumes Bun is installed. Node 20+ is sufficient for current local and release workflows.
+> The scripted dev flow assumes Bun is installed. The packaged `.exe` build still targets Node 14 because of `pkg`.
 
 ---
 
@@ -279,19 +280,36 @@ The container serves the API on port 3001 and also serves the built React SPA. V
 
 ---
 
-## Release Artifacts
+## Building Standalone Executables
 
-Current GitHub releases publish archive assets instead of Windows executables.
+Produces two `.exe` files that run on Windows without Node.js installed.
 
-```text
-dist/
-├── www/                       Built React SPA
-├── www.zip                    Archive of the built client
-├── badshuffle-extension.zip   Archive of the Chrome extension
-└── .env.example
+```bash
+npm run package
 ```
 
-Use `npm run build:client` to build the web bundle locally, or use Docker for a production-style run.
+Output in `dist/`:
+
+```
+dist/
+├── badshuffle-server.exe   Express API
+├── badshuffle-client.exe   Static file server (opens browser automatically)
+├── www/                    Built React SPA
+├── .env.example
+└── START.bat               Launches both exes in sequence
+```
+
+**First run** downloads ~30 MB Node 14 win-x64 binary to `~/.pkg-cache` (cached for future builds).
+
+### Running the packaged app
+
+1. Copy the `dist/` folder anywhere on the target machine
+2. (Optional) Copy `.env.example` → `.env` and add any AI provider keys you want
+3. Double-click **`START.bat`** (or run each exe separately)
+4. The browser opens to `http://localhost:5173` automatically
+
+> `badshuffle.db` is created next to the server exe and persists between runs.
+> An `uploads/` folder is created in the same directory for file storage.
 
 ---
 
@@ -402,7 +420,7 @@ All endpoints are prefixed with `/api`. Protected endpoints require `Authorizati
 |---|---|---|
 | GET | `/updates` | Current version + cached update check status |
 | GET | `/updates/releases` | Fetch GitHub releases and flag newer tags |
-| POST | `/updates/apply` | Download selected release assets and restart (legacy packaged desktop mode only) |
+| POST | `/updates/apply` | Download selected release assets and restart (packaged `.exe` mode only) |
 
 ### Public Catalog (no auth)
 
@@ -461,9 +479,9 @@ Client helpers in `client/src/api.js`: `getVendors`, `getConflicts`, `getQuoteAv
 - The `server/db.js` shim exposes a synchronous API matching `better-sqlite3` so routes don't need to be aware of async WASM initialization
 - DB is saved to disk after every write (or after each transaction commit)
 - All DB migrations use `try/catch` + `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE` so they're safe to run on every startup against existing databases
-- Uploaded files are stored in `uploads/` next to the project root in local development; the directory is auto-created on startup
+- Uploaded files are stored in `uploads/` next to the project root (dev) or next to the server exe (packaged); the directory is auto-created on startup
 - The IMAP poller only runs when `imap_host`, `imap_user`, and `imap_poll_enabled=1` are all set
-- Initial Bun support has been tested in the dev workflow (server runs under `bun index.js` in dev); production and release-archive generation continue to use Node
+- Initial Bun support has been tested in the dev workflow (server runs under `bun index.js` in dev); packaging and production continue to use Node
 
 ---
 

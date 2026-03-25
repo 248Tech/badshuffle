@@ -16,7 +16,7 @@
     "package:client": "pkg client/serve.js --target node14-win-x64 --output dist/badshuffle-client.exe",
     "package:updater": "pkg updater/index.js --target node14-win-x64 --output dist/badshuffle-updater.exe",
     "package": "npm run build:client && npm run package:server && npm run package:client && npm run package:updater && node scripts/postpackage.js",
-    "release": "npm run build:client && node scripts/postpackage.js && gh release create v%npm_package_version% dist/www.zip dist/badshuffle-extension.zip --title v%npm_package_version% --generate-notes"
+    "release": "npm run package && gh release create v%npm_package_version% dist/badshuffle-server.exe dist/badshuffle-client.exe dist/badshuffle-updater.exe dist/www.zip dist/badshuffle-extension.zip --title v%npm_package_version% --notes \"\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
