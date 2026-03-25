@@ -16,6 +16,7 @@ const ALLOWED_KEYS = [
   'ui_theme',
   'message_email_signature', 'message_theme', 'message_auto_attach_pdf',
   'inventory_default_view', 'inventory_items_per_page',
+  'verbose_errors',
 ];
 
 module.exports = function makeRouter(db) {

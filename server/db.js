@@ -361,7 +361,7 @@ async function initDb() {
   ).run();
 
   // Seed default settings
-  const defaults = { tax_rate: '0', currency: 'USD', company_name: '', company_email: '', company_logo: '', company_address: '', mapbox_access_token: '' };
+  const defaults = { tax_rate: '0', currency: 'USD', company_name: '', company_email: '', company_logo: '', company_address: '', mapbox_access_token: '', verbose_errors: '0' };
   for (const [k, v] of Object.entries(defaults)) {
     db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
   }

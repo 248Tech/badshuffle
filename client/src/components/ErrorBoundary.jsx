@@ -3,7 +3,7 @@ import React from 'react';
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { error: null };
+    this.state = { error: null, verbose: false };
   }
 
   static getDerivedStateFromError(error) {
@@ -12,6 +12,11 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     console.error('[ErrorBoundary]', error, info.componentStack);
+    const token = localStorage.getItem('bs_token') || '';
+    fetch('/api/settings', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(s => { if (s.verbose_errors === '1') this.setState({ verbose: true }); })
+      .catch(() => {});
   }
 
   render() {
@@ -31,9 +36,14 @@ export default class ErrorBoundary extends React.Component {
           <p style={{ fontSize: 14, maxWidth: 360, margin: 0 }}>
             An unexpected error occurred. Try refreshing the page. If the problem persists, check the browser console for details.
           </p>
+          {this.state.verbose && (
+            <p style={{ fontSize: 13, maxWidth: 480, margin: 0, fontFamily: 'monospace', color: 'var(--color-danger, #c0392b)', background: 'var(--color-bg-alt, #f8f8f8)', padding: '8px 12px', borderRadius: 6, wordBreak: 'break-word' }}>
+              {this.state.error.toString()}
+            </p>
+          )}
           <button
             className="btn btn-ghost"
-            onClick={() => { this.setState({ error: null }); window.location.reload(); }}
+            onClick={() => { this.setState({ error: null, verbose: false }); window.location.reload(); }}
           >
             Reload page
           </button>

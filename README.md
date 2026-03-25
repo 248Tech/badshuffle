@@ -23,13 +23,16 @@ BadShuffle is a self-hosted event rental software platform for project-centric q
 
 ## What’s New In v0.0.8
 
-`v0.0.8` is the navigation, admin continuity, and UX polish release. It reorganizes the operator experience around workflow-based navigation, adds in-app database backup/restore, introduces dedicated directory/settings surfaces, and tightens resilience through better loading, accessibility, and error handling.
+`v0.0.8` is the navigation, admin continuity, UX polish, and Windows host packaging release, now followed by a hotfix pass that focuses on performance, mobile behavior, editing safety, and import resilience. It reorganizes the operator experience around workflow-based navigation, adds in-app database backup/restore, ships packaged Windows `.exe` artifacts for self-hosted deployments, and tightens daily operator workflows with better loading, error handling, and guardrails.
 
 - **Navigation architecture refresh** — The sidebar is now grouped around workflows (Projects, Inventory, Messages, Directory, Settings), supports collapse + flyout behavior, and surfaces unread-message plus pending-admin counts alongside live team presence.
 - **Admin continuity tooling** — Admin now includes SQLite backup export/import so operators can migrate or restore data without leaving the app.
 - **New workspace surfaces** — Added a Directory hub for Leads/Vendors plus dedicated Inventory Settings and Message Settings screens for operational preferences.
-- **UX resilience pass** — Added skeleton loading states, contextual empty-search feedback, a global React error boundary, toast screen-reader announcements, and lazy-loaded inventory imagery.
-- **Theme and builder polish** — Replaced more hardcoded UI colors with theme tokens, fixed remaining surface-token mismatches, tightened quote-builder item presentation, and constrained the main content width for better wide-screen balance.
+- **Windows host packaging** — The project is packaged for Windows hosts with separate server, client, and updater `.exe` artifacts so operators can run BadShuffle without a manual Node deployment.
+- **Performance hotfixes** — Heavy operator and public routes now lazy-load on first navigation, reducing the initial client bundle cost for day-to-day use.
+- **Workflow safety hotfixes** — Quote detail editing now warns before reload or navigation when there are unsaved changes, making large project edits harder to lose accidentally.
+- **Responsive messaging polish** — Messages now behaves as a focused single-pane experience on smaller screens, with cleaner thread/detail transitions during mobile use.
+- **Debugging and import hardening** — Settings can enable verbose error output for debugging, quote creation failures now return cleaner API errors, and sheet/item imports reject numeric-only titles that commonly come from spreadsheet date serials or malformed source data.
 
 ## Core Features
 
@@ -51,9 +54,9 @@ BadShuffle is a self-hosted event rental software platform for project-centric q
 
 ## Near-Term Roadmap
 
-- **Cross-theme QA + responsive pass** — Finish theme verification and close remaining mobile layout gaps across quote editing, messages, and modal-heavy views.
-- **Performance follow-up** — Lazy-load heavy pages and finish image lazy loading on the remaining public/files surfaces.
-- **Workflow safety** — Add unsaved-changes warnings plus better inline confirmation patterns for destructive actions.
+- **Cross-theme QA + responsive pass** — Finish theme verification and close the remaining mobile layout gaps across quote editing, messages, and modal-heavy views.
+- **Performance follow-up** — Finish image lazy loading on the remaining public/files surfaces and review post-split route chunk sizes.
+- **Workflow safety** — Extend unsaved-change protection to other high-risk forms and replace destructive browser confirms with better inline confirmation patterns.
 - **Operations depth** — Send preview, pull sheets, and richer warehouse workflows.
 
 More context lives in [ai/KNOWN_GAPS.md](ai/KNOWN_GAPS.md) and [ai/TODO.md](ai/TODO.md).

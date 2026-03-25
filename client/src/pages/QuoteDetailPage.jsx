@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigationBlocker } from '../hooks/useNavigationBlocker.js';
 import { api } from '../api.js';
 import QuoteBuilder from '../components/QuoteBuilder.jsx';
 import QuoteExport from '../components/QuoteExport.jsx';
@@ -108,6 +109,39 @@ export default function QuoteDetailPage() {
   // Payment policies + rental terms lists (for edit form selectors)
   const [paymentPolicies, setPaymentPolicies] = useState([]);
   const [rentalTermsList, setRentalTermsList] = useState([]);
+  // Discard-changes confirm (Cancel Edit when dirty)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  // ── Unsaved-changes tracking ──────────────────────────────────────────────
+  // Snapshot of `form` at the moment editing began (or after the last save).
+  const savedFormRef = useRef(null);
+
+  // Capture baseline whenever editing flips on; clear it when editing ends.
+  useEffect(() => {
+    if (editing) {
+      savedFormRef.current = form;
+    } else {
+      savedFormRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
+
+  const isDirty = editing
+    && savedFormRef.current !== null
+    && JSON.stringify(form) !== JSON.stringify(savedFormRef.current);
+
+  // Warn on browser refresh / tab close
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  // Block in-app navigation when there are unsaved changes
+  const blocker = useNavigationBlocker(isDirty);
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   const load = useCallback(() => {
     api.getQuote(id)
@@ -375,6 +409,7 @@ export default function QuoteDetailPage() {
         client_address: form.client_address || null
       });
       toast.success('Quote updated');
+      savedFormRef.current = null;
       setEditing(false);
       load();
     } catch (e) {
@@ -392,6 +427,18 @@ export default function QuoteDetailPage() {
     } catch (e) {
       toast.error(e.message);
     }
+  };
+
+  const handleCancelEdit = () => {
+    if (isDirty) { setShowCancelConfirm(true); return; }
+    savedFormRef.current = null;
+    setEditing(false);
+  };
+
+  const confirmCancelEdit = () => {
+    setShowCancelConfirm(false);
+    savedFormRef.current = null;
+    setEditing(false);
   };
 
   const handleSendClick = () => setShowSendModal(true);
@@ -625,8 +672,8 @@ export default function QuoteDetailPage() {
             ← Projects
           </button>
           <div className={styles.topActions}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>
-              Cancel Edit
+            <button className="btn btn-ghost btn-sm" onClick={handleCancelEdit}>
+              Cancel Edit{isDirty ? ' ●' : ''}
             </button>
           </div>
         </div>
@@ -1234,7 +1281,7 @@ export default function QuoteDetailPage() {
                 </button>
               </div>
               {payments.length > 0 ? (
-                <table className={styles.logTable}>
+                <div className={styles.logTableWrap}><table className={styles.logTable}>
                   <thead>
                     <tr>
                       <th>Date</th>
@@ -1257,7 +1304,7 @@ export default function QuoteDetailPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               ) : (
                 <p className={styles.emptyHint}>No payments recorded yet.</p>
               )}
@@ -1463,6 +1510,26 @@ export default function QuoteDetailPage() {
           currentFileIds={quoteFiles.map(f => f.file_id)}
           onSelect={handleAttachFile}
           onClose={() => setShowFilePicker(false)}
+        />
+      )}
+
+      {showCancelConfirm && (
+        <ConfirmDialog
+          message="You have unsaved changes. Discard them?"
+          confirmLabel="Discard"
+          confirmClass="btn-danger"
+          onConfirm={confirmCancelEdit}
+          onCancel={() => setShowCancelConfirm(false)}
+        />
+      )}
+
+      {blocker.state === 'blocked' && (
+        <ConfirmDialog
+          message="You have unsaved changes that will be lost. Leave this page?"
+          confirmLabel="Leave"
+          confirmClass="btn-danger"
+          onConfirm={() => blocker.proceed()}
+          onCancel={() => blocker.reset()}
         />
       )}
 

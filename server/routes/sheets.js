@@ -3,6 +3,12 @@ const Papa = require('papaparse');
 const multer = require('multer');
 const { fetchCsv } = require('../lib/sheetsParser');
 
+/** Returns true if a string is a bare number (integer or float) with no alpha characters.
+ *  Used to reject Excel date serials / numeric IDs that get mapped as item titles. */
+function isNumericOnly(str) {
+  return /^\d+(\.\d+)?$/.test(str.trim());
+}
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 module.exports = function makeRouter(db) {
@@ -23,12 +29,13 @@ module.exports = function makeRouter(db) {
         const result = Papa.parse(data, { header: true, skipEmptyLines: true });
         rows = result.data;
       } else {
-        // xlsx / xls
+        // xlsx / xls — cellDates:true converts date cells to JS Date objects;
+        // raw:false then formats them as locale strings instead of raw serial floats.
         const XLSX = require('xlsx');
         const buf = Buffer.from(data, 'base64');
-        const wb = XLSX.read(buf, { type: 'buffer' });
+        const wb = XLSX.read(buf, { type: 'buffer', cellDates: true });
         const sheet = wb.Sheets[wb.SheetNames[0]];
-        rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
       }
 
       if (!rows || rows.length === 0) {
@@ -57,7 +64,7 @@ module.exports = function makeRouter(db) {
       const upsertMany = db.transaction((rows) => {
         for (const row of rows) {
           const title = row[title_column] ? String(row[title_column]).trim() : '';
-          if (!title) { skipped++; continue; }
+          if (!title || isNumericOnly(title)) { skipped++; continue; }
 
           const photo_url = photo_column ? (row[photo_column] ? String(row[photo_column]).trim() : null) : null;
           const existing  = db.prepare('SELECT id FROM items WHERE title = ? COLLATE NOCASE').get(title);
@@ -120,7 +127,7 @@ module.exports = function makeRouter(db) {
       const upsertMany = db.transaction((rows) => {
         for (const row of rows) {
           const title = row[title_column] ? String(row[title_column]).trim() : '';
-          if (!title) { skipped++; continue; }
+          if (!title || isNumericOnly(title)) { skipped++; continue; }
 
           const photo_url = photo_column ? (row[photo_column] ? String(row[photo_column]).trim() : null) : null;
           const existing = db.prepare('SELECT id FROM items WHERE title = ? COLLATE NOCASE').get(title);

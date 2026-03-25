@@ -228,6 +228,7 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 16px;
 }
 .modal {
   background: var(--color-bg);
@@ -372,7 +373,8 @@
 .billingBalance { color: var(--color-primary); }
 .billingBlockOverpaid { padding: 12px; background: #fefce8; border: 2px solid #eab308; border-radius: var(--radius-sm); }
 .billingOverpaid { font-size: 18px; font-weight: 700; margin-top: 4px; color: #a16207; }
-.logTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.logTableWrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.logTable { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 480px; }
 .logTable th, .logTable td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border); }
 .logTable th { background: var(--color-surface); font-weight: 600; color: var(--color-text-muted); }
 .rowDeleteBtn { background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 12px; padding: 2px 6px; border-radius: 4px; line-height: 1; }

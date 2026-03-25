@@ -601,7 +601,10 @@
 
 @media (max-width: 480px) {
   .pickerGrid { max-height: 320px; }
-  .quoteList { max-height: 200px; }
+  /* quoteList: no max-height — let page scroll naturally on narrow screens */
+  .dragHandle { display: none; }
+  .laborHours { display: none; }
+  .lineTotal { display: none; }
 }
 
 .pickerTile {

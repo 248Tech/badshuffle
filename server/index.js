@@ -309,6 +309,15 @@ async function start() {
     res.status(404).json({ error: 'Not found', path: req.path });
   });
 
+  // Global error handler — catches unhandled throws in route handlers and returns JSON
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    console.error('[unhandled error]', err);
+    const verboseRow = db.prepare("SELECT value FROM settings WHERE key = 'verbose_errors'").get();
+    const verbose = verboseRow && verboseRow.value === '1';
+    res.status(500).json({ error: verbose ? err.message : 'Internal server error' });
+  });
+
   // Serve built React client (production/Docker)
   const CLIENT_DIST = path.join(__dirname, '../client/dist');
   if (fs.existsSync(CLIENT_DIST)) {

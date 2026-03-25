@@ -83,7 +83,7 @@ module.exports = function makeRouter(db) {
     for (const it of items) {
       const { title, photo_url, hidden = 0, quantity_in_stock, unit_price,
               category, description, contract_description, taxable, labor_hours } = it;
-      if (!title) { errors++; continue; }
+      if (!title || /^\d+(\.\d+)?$/.test(String(title).trim())) { errors++; continue; }
       try {
         const existing = db.prepare('SELECT id FROM items WHERE title = ? COLLATE NOCASE').get(title);
         if (existing) {
@@ -140,6 +140,7 @@ module.exports = function makeRouter(db) {
       quantity_in_stock, unit_price, category, description, contract_description, taxable, labor_hours
     } = req.body;
     if (!title) return res.status(400).json({ error: 'title required' });
+    if (/^\d+(\.\d+)?$/.test(String(title).trim())) return res.status(400).json({ error: 'title must not be a bare number' });
 
     const existing = db.prepare('SELECT * FROM items WHERE title = ? COLLATE NOCASE').get(title);
 
@@ -223,6 +224,7 @@ module.exports = function makeRouter(db) {
       taxable = 1, labor_hours = 0, is_subrental = 0, vendor_id, item_type = 'product'
     } = req.body;
     if (!title) return res.status(400).json({ error: 'title required' });
+    if (/^\d+(\.\d+)?$/.test(String(title).trim())) return res.status(400).json({ error: 'title must not be a bare number' });
 
     try {
       const result = db.prepare(`

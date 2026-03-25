@@ -406,19 +406,23 @@ module.exports = function makeRouter(db, uploadsDir) {
     const { rental_start, rental_end, delivery_date, pickup_date } = body;
     if (!name) return res.status(400).json({ error: 'name required' });
 
-    const result = db.prepare(
-      `INSERT INTO quotes (name, guest_count, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate, client_first_name, client_last_name, client_email, client_phone, client_address, rental_start, rental_end, delivery_date, pickup_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      name, guest_count, event_date || null, notes || null,
-      venue_name || null, venue_email || null, venue_phone || null, venue_address || null, venue_contact || null, venue_notes || null, quote_notes || null,
-      tax_rate != null ? Number(tax_rate) : null,
-      client_first_name || null, client_last_name || null, client_email || null, client_phone || null, client_address || null,
-      rental_start || null, rental_end || null, delivery_date || null, pickup_date || null
-    );
+    try {
+      const result = db.prepare(
+        `INSERT INTO quotes (name, guest_count, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate, client_first_name, client_last_name, client_email, client_phone, client_address, rental_start, rental_end, delivery_date, pickup_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        name, guest_count, event_date || null, notes || null,
+        venue_name || null, venue_email || null, venue_phone || null, venue_address || null, venue_contact || null, venue_notes || null, quote_notes || null,
+        tax_rate != null ? Number(tax_rate) : null,
+        client_first_name || null, client_last_name || null, client_email || null, client_phone || null, client_address || null,
+        rental_start || null, rental_end || null, delivery_date || null, pickup_date || null
+      );
 
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json({ quote });
+      const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(result.lastInsertRowid);
+      res.status(201).json({ quote });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // PUT /api/quotes/:id

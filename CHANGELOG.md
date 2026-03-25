@@ -11,7 +11,7 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.0.5** - In-app updater and extension fallback import release
 - **0.0.6** - UI foundation and layout redesign release
 - **0.0.7** - Projects-first workflow and operations tooling release
-- **0.0.8** - Navigation, admin backup, and UX polish release
+- **0.0.8** - Navigation, admin backup, UX polish, and hotfix stabilization release
 
 ---
 
@@ -22,6 +22,7 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **Directory workspace** - Added a dedicated Directory page that groups Leads and Vendors under one navigation entry.
 - **Dedicated settings subpages** - Added Inventory Settings and Message Settings pages with persisted settings scaffolding for inventory display and outbound messaging preferences.
 - **Global crash fallback** - Added a top-level React `ErrorBoundary` with a user-facing reload recovery screen.
+- **Verbose error diagnostics toggle** - Added the `verbose_errors` setting so operators can temporarily expose detailed server and crash-screen error messages while debugging.
 
 ### Changed
 - **Sidebar information architecture** - Reworked navigation into grouped sections with collapsible mode, hover flyouts, unread/pending badges, and live team presence context.
@@ -29,11 +30,17 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **Quote builder polish** - Added add-to-project flash feedback and refined line-item spacing/thumbnail treatment.
 - **Theme consistency pass** - Replaced remaining hardcoded accent/focus colors with theme tokens, fixed the Files page elevated-surface token mismatch, and added a max-width constraint to the main layout.
 - **Dashboard polish** - Updated KPI accent styling to use theme variables and improved loading presentation during data fetches.
+- **Route-level bundle loading** - Converted heavy operator and public screens to lazy-loaded routes so the initial client payload is smaller and secondary pages only load when visited.
+- **Quote detail editing safety** - Quote detail now tracks dirty form state, blocks in-app navigation when edits are unsaved, and warns on browser reload/close.
+- **Messages mobile layout** - The Messages workspace now swaps to a focused single-pane detail flow on smaller screens instead of forcing the desktop split-pane layout.
 
 ### Fixed
 - **Public quote browser tab title** - Public quote pages now set `document.title` from the active quote name.
 - **Toast accessibility** - Toast notifications now announce through `role="status"` and `aria-live`.
 - **Inventory card action labels** - Icon-only item card actions now expose accessible names for assistive technologies.
+- **Spreadsheet import title validation** - Sheets import now rejects numeric-only item titles, preventing Excel date serials and bare numeric IDs from being imported as inventory names.
+- **Item API metadata parity** - Item create/update/bulk upsert flows now preserve `contract_description` consistently while also rejecting numeric-only titles.
+- **Quote creation failure handling** - Quote creation now returns a structured API error instead of bubbling an unhandled server failure.
 
 ---
 

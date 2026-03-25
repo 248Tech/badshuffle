@@ -52,6 +52,7 @@ export default function SettingsPage() {
     ai_email_draft_enabled: '0', ai_email_draft_model: 'claude',
     ai_description_enabled: '0', ai_description_model: 'claude',
   });
+  const [advanced, setAdvanced] = useState({ verbose_errors: '0' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingImap, setTestingImap] = useState(false);
@@ -140,6 +141,7 @@ export default function SettingsPage() {
           ai_description_enabled: s.ai_description_enabled || '0',
           ai_description_model: s.ai_description_model || 'claude',
         });
+        setAdvanced({ verbose_errors: s.verbose_errors || '0' });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -217,6 +219,7 @@ export default function SettingsPage() {
         ai_openai_key_enc: aiKeys.ai_openai_key,
         ai_gemini_key_enc: aiKeys.ai_gemini_key,
         ...aiFeatures,
+        ...advanced,
       });
       localStorage.setItem('bs_theme', form.ui_theme || 'default');
       localStorage.setItem('bs_ui_scale', form.ui_scale || '100');
@@ -914,6 +917,21 @@ export default function SettingsPage() {
           {updateReleases && updateReleases.length === 0 && (
             <p className={styles.hint} style={{ marginTop: 8 }}>No releases found.</p>
           )}
+        </div>
+
+        <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>
+          <h3 className={styles.section}>Advanced</h3>
+          <label className={styles.checkRow}>
+            <input
+              type="checkbox"
+              checked={advanced.verbose_errors === '1'}
+              onChange={e => setAdvanced(a => ({ ...a, verbose_errors: e.target.checked ? '1' : '0' }))}
+            />
+            <span>Show verbose error details on error screens</span>
+          </label>
+          <p className={styles.hint} style={{ marginTop: 6 }}>
+            When enabled, internal error messages are shown on error screens and returned in API error responses. Useful for debugging; disable in production.
+          </p>
         </div>
 
         <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>

@@ -181,7 +181,7 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      <div className={styles.panes}>
+      <div className={`${styles.panes} ${selectedThread ? styles.mobileDetail : ''}`}>
         <div className={styles.listPane}>
           {loading ? (
             <div className="empty-state"><div className="spinner" /></div>
@@ -228,6 +228,7 @@ export default function MessagesPage() {
           ) : (
             <div className={styles.threadDetail}>
               <div className={styles.detailHeader}>
+                <button type="button" className={styles.backBtn} onClick={() => setSelectedThread(null)}>← Back</button>
                 <h2 className={styles.detailTitle}>{selectedThread.quote_name}</h2>
                 {selectedThread.quote_id && (
                   <button

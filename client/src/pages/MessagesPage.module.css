@@ -30,8 +30,33 @@
   min-height: 0;
 }
 
+/* Mobile: show only one pane at a time */
 @media (max-width: 700px) {
-  .panes { grid-template-columns: 1fr; }
+  .panes {
+    display: flex;
+    flex-direction: column;
+  }
+  .listPane {
+    flex: 1;
+    min-height: 0;
+  }
+  /* Hide detail pane until a thread is selected */
+  .detailPane {
+    display: none;
+  }
+  .mobileDetail .listPane {
+    display: none;
+  }
+  .mobileDetail .detailPane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .mobileDetail .threadDetail {
+    height: auto;
+  }
 }
 
 .listPane {
@@ -127,3 +152,21 @@
 .expandBtn { background: none; border: none; cursor: pointer; color: var(--color-primary); font-size: 12px; padding: 4px 0; }
 .msgBodyHtml { font-size: 13px; }
 .htmlFrame { width: 100%; border: none; display: block; min-height: 60px; overflow: hidden; }
+
+.backBtn {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  line-height: 1;
+}
+@media (max-width: 700px) {
+  .backBtn { display: flex; }
+}
