@@ -57,7 +57,7 @@ BadShuffle is a self-hosted event rental software platform for project-centric q
 - **Workflow safety** — Extend unsaved-change protection and better destructive-action confirmation patterns to other high-risk forms.
 - **Operations depth** — Send preview, pull sheets, richer warehouse workflows, and migration/versioning cleanup for the database bootstrap.
 
-More context lives in [ai/KNOWN_GAPS.md](ai/KNOWN_GAPS.md) and [ai/TODO.md](ai/TODO.md).
+More context lives in [AI/TODO.md](/mnt/ssd/badshuffle/AI/TODO.md) and the coordination docs under [AI/](/mnt/ssd/badshuffle/AI).
 
 ---
 
@@ -79,7 +79,7 @@ badshuffle/
 │   │   └── components/
 │   └── serve.js     Zero-dep static server used by the packaged exe
 ├── extension/       Chrome MV3 extension (load unpacked)
-├── ai/              Architecture notes, features, workflows, roadmap, setup
+├── AI/              Architecture notes, audits, workflows, roadmap, setup
 ├── Dockerfile       Multi-stage build (Bun → client, Node:20 → server)
 ├── docker-compose.yml
 └── scripts/
