@@ -258,6 +258,7 @@ export const api = {
     const qs = new URLSearchParams(Object.entries(params || {}).filter(function(e) { return e[1] !== undefined && e[1] !== ''; }));
     return request('/messages?' + qs);
   },
+  sendQuoteMessage:  (quoteId, body) => request('/messages', { method: 'POST', body: { quote_id: quoteId, ...body } }),
   getUnreadCount:    () => request('/messages/unread-count'),
   markMessageRead:   (id) => request('/messages/' + id + '/read', { method: 'PUT' }),
   deleteMessage:     (id) => request('/messages/' + id, { method: 'DELETE' }),

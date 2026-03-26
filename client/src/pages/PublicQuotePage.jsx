@@ -2,46 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { api } from '../api';
+import { computeTotals, effectivePrice } from '../lib/quoteTotals.js';
 import s from './PublicQuotePage.module.css';
 
 const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
-
-function effectivePrice(item) {
-  const base = item.unit_price_override != null ? item.unit_price_override : (item.unit_price || 0);
-  if (item.discount_type === 'percent' && item.discount_amount > 0) {
-    return base * (1 - item.discount_amount / 100);
-  }
-  if (item.discount_type === 'fixed' && item.discount_amount > 0) {
-    return Math.max(0, base - item.discount_amount);
-  }
-  return base;
-}
-
-function computeAdjustmentsTotal(adjustments, preTaxBase) {
-  return (adjustments || []).reduce((sum, adj) => {
-    const val = adj.value_type === 'percent' ? preTaxBase * (adj.amount / 100) : adj.amount;
-    return sum + (adj.type === 'discount' ? -val : val);
-  }, 0);
-}
-
-function computeTotals(items, customItems, adjustments, taxRate) {
-  const list = items || [];
-  const equipment = list.filter(it => !isLogistics(it));
-  const logistics = list.filter(it => isLogistics(it));
-  const subtotal = equipment.reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
-  const deliveryTotal = logistics.reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
-  const ciList = customItems || [];
-  const customSubtotal = ciList.reduce((sum, ci) => sum + (ci.unit_price || 0) * (ci.quantity || 1), 0);
-  const taxableEquipment = equipment.filter(it => it.taxable !== 0).reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
-  const taxableDelivery = logistics.filter(it => it.taxable !== 0).reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
-  const taxableCustom = ciList.filter(ci => ci.taxable !== 0).reduce((sum, ci) => sum + (ci.unit_price || 0) * (ci.quantity || 1), 0);
-  const preTaxBase = subtotal + deliveryTotal + customSubtotal;
-  const adjTotal = computeAdjustmentsTotal(adjustments, preTaxBase);
-  const rate = parseFloat(taxRate) || 0;
-  const tax = (taxableEquipment + taxableDelivery + taxableCustom) * (rate / 100);
-  const grandTotal = preTaxBase + adjTotal + tax;
-  return { subtotal, deliveryTotal, customSubtotal, adjTotal, tax, total: grandTotal, rate };
-}
 
 function fmt(n) {
   return '$' + (n || 0).toFixed(2);
@@ -107,8 +71,6 @@ export default function PublicQuotePage() {
   // Live messaging
   const [messages, setMessages] = useState([]);
   const [msgText, setMsgText] = useState('');
-  const [msgName, setMsgName] = useState('');
-  const [msgEmail, setMsgEmail] = useState('');
   const [msgSending, setMsgSending] = useState(false);
   const [msgSent, setMsgSent] = useState(false);
 
@@ -139,7 +101,9 @@ export default function PublicQuotePage() {
     if (!msgText.trim()) return;
     setMsgSending(true);
     try {
-      await api.sendPublicMessage(token, { body_text: msgText.trim(), from_name: msgName.trim() || undefined, from_email: msgEmail.trim() || undefined });
+      const clientName = [quote?.client_first_name, quote?.client_last_name].filter(Boolean).join(' ') || undefined;
+      const clientEmail = quote?.client_email || undefined;
+      await api.sendPublicMessage(token, { body_text: msgText.trim(), from_name: clientName, from_email: clientEmail });
       setMsgText('');
       setMsgSent(true);
       // Immediately reload messages
@@ -214,7 +178,12 @@ export default function PublicQuotePage() {
   }
 
   const taxRate = quote.tax_rate != null ? quote.tax_rate : 0;
-  const totals = computeTotals(quote.items, quote.customItems, quote.adjustments, taxRate);
+  const totals = computeTotals({
+    items: quote.items,
+    customItems: quote.customItems,
+    adjustments: quote.adjustments,
+    taxRate,
+  });
   const equipmentItems = (quote.items || []).filter(it => !isLogistics(it));
   const logisticsItems = (quote.items || []).filter(it => isLogistics(it));
   const customItems = quote.customItems || [];
@@ -598,22 +567,6 @@ export default function PublicQuotePage() {
             )}
 
             <form onSubmit={handleSendMessage} className={s.msgForm}>
-              <div className={s.msgFormTop}>
-                <input
-                  className={s.msgInput}
-                  type="text"
-                  placeholder="Your name (optional)"
-                  value={msgName}
-                  onChange={e => setMsgName(e.target.value)}
-                />
-                <input
-                  className={s.msgInput}
-                  type="email"
-                  placeholder="Your email (optional)"
-                  value={msgEmail}
-                  onChange={e => setMsgEmail(e.target.value)}
-                />
-              </div>
               <textarea
                 className={s.msgTextarea}
                 rows={3}

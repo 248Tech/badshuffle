@@ -649,6 +649,10 @@ async function initDb() {
   // quote_items: per-booking price override
   try { db.exec('ALTER TABLE quote_items ADD COLUMN unit_price_override REAL'); } catch (e) {}
 
+  // quote_items: contract-specific description and internal notes
+  try { db.exec('ALTER TABLE quote_items ADD COLUMN description TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE quote_items ADD COLUMN notes TEXT'); } catch (e) {}
+
   // Quote adjustments (discounts / surcharges at quote level)
   try {
     db.exec(`

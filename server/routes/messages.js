@@ -20,6 +20,34 @@ module.exports = function makeRouter(db) {
     res.json({ messages });
   });
 
+  // POST /api/messages — internal team sends a message on a quote thread
+  router.post('/', (req, res) => {
+    const { quote_id, body_text, subject } = req.body || {};
+    if (!quote_id || !body_text || !String(body_text).trim()) {
+      return res.status(400).json({ error: 'quote_id and body_text required' });
+    }
+    const quote = db.prepare('SELECT id, name, client_email FROM quotes WHERE id = ?').get(quote_id);
+    if (!quote) return res.status(404).json({ error: 'Quote not found' });
+    const userEmail = req.user?.email || null;
+    try {
+      db.prepare(`
+        INSERT INTO messages (quote_id, direction, from_email, to_email, subject, body_text, status, sent_at, quote_name)
+        VALUES (?, 'outbound', ?, ?, ?, ?, 'sent', datetime('now'), ?)
+      `).run(
+        quote.id,
+        userEmail,
+        quote.client_email || null,
+        subject || 'Message regarding your quote',
+        String(body_text).trim(),
+        quote.name || ''
+      );
+      const messages = db.prepare('SELECT * FROM messages WHERE quote_id = ? ORDER BY sent_at ASC').all(quote.id);
+      res.json({ ok: true, messages });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // GET /api/messages/unread-count
   router.get('/unread-count', (req, res) => {
     const row = db.prepare("SELECT COUNT(*) as count FROM messages WHERE status = 'unread'").get();

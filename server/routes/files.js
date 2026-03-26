@@ -4,6 +4,27 @@ const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 
+// Allowed MIME types and their magic-byte signatures
+const ALLOWED = [
+  { mime: 'image/jpeg',       sig: [0xFF, 0xD8, 0xFF] },
+  { mime: 'image/png',        sig: [0x89, 0x50, 0x4E, 0x47] },
+  { mime: 'image/gif',        sig: [0x47, 0x49, 0x46] },
+  { mime: 'image/webp',       sig: [0x52, 0x49, 0x46, 0x46] },
+  { mime: 'application/pdf',  sig: [0x25, 0x50, 0x44, 0x46] },
+];
+const ALLOWED_MIMES = new Set(ALLOWED.map(a => a.mime));
+
+function detectMime(filePath) {
+  const buf = Buffer.alloc(8);
+  const fd = fs.openSync(filePath, 'r');
+  fs.readSync(fd, buf, 0, 8, 0);
+  fs.closeSync(fd);
+  for (const { mime, sig } of ALLOWED) {
+    if (sig.every((b, i) => buf[i] === b)) return mime;
+  }
+  return null;
+}
+
 module.exports = function makeRouter(db, uploadsDir) {
   const router = express.Router();
 
@@ -31,9 +52,14 @@ module.exports = function makeRouter(db, uploadsDir) {
     const userId = req.user ? req.user.id : null;
     const inserted = [];
     for (const f of req.files) {
+      const detectedMime = detectMime(f.path);
+      if (!detectedMime) {
+        fs.unlinkSync(f.path);
+        return res.status(400).json({ error: `Unsupported file type: ${f.originalname}` });
+      }
       const result = db.prepare(
         'INSERT INTO files (original_name, stored_name, mime_type, size, uploaded_by) VALUES (?, ?, ?, ?, ?)'
-      ).run(f.originalname, f.filename, f.mimetype, f.size, userId);
+      ).run(f.originalname, f.filename, detectedMime, f.size, userId);
       inserted.push(db.prepare('SELECT id, original_name, mime_type, size, created_at FROM files WHERE id = ?').get(result.lastInsertRowid));
     }
     res.status(201).json({ files: inserted });

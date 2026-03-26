@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useNavigationBlocker } from '../hooks/useNavigationBlocker.js';
+import { useQuoteDetail } from '../hooks/useQuoteDetail.js';
 import { api } from '../api.js';
 import QuoteBuilder from '../components/QuoteBuilder.jsx';
 import QuoteExport from '../components/QuoteExport.jsx';
@@ -9,47 +10,13 @@ import AISuggestModal from '../components/AISuggestModal.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import AddressMapModal from '../components/AddressMapModal.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { computeTotals } from '../lib/quoteTotals.js';
+import QuoteFilePicker from '../components/QuoteFilePicker.jsx';
+import ImagePicker from '../components/ImagePicker.jsx';
+import QuoteSendModal from '../components/QuoteSendModal.jsx';
 import styles from './QuoteDetailPage.module.css';
 
 const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
-
-function effectivePrice(it) {
-  const base = it.unit_price_override != null ? it.unit_price_override : (it.unit_price || 0);
-  if (it.discount_type === 'percent' && it.discount_amount > 0) {
-    return base * (1 - it.discount_amount / 100);
-  }
-  if (it.discount_type === 'fixed' && it.discount_amount > 0) {
-    return Math.max(0, base - it.discount_amount);
-  }
-  return base;
-}
-
-function computeAdjustmentsTotal(adjustments, preTaxBase) {
-  return (adjustments || []).reduce((sum, adj) => {
-    const val = adj.value_type === 'percent' ? preTaxBase * (adj.amount / 100) : adj.amount;
-    return sum + (adj.type === 'discount' ? -val : val);
-  }, 0);
-}
-
-function computeTotals(items, customItems, adjustments, taxRate) {
-  const list = items || [];
-  const equipment = list.filter(it => !isLogistics(it));
-  const logistics = list.filter(it => isLogistics(it));
-  const laborHours = list.reduce((sum, it) => sum + (Number(it.labor_hours) || 0) * (it.quantity || 1), 0);
-  const subtotal = equipment.reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
-  const deliveryTotal = logistics.reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
-  const taxableEquipment = equipment.filter(it => it.taxable !== 0).reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
-  const taxableDelivery = logistics.filter(it => it.taxable !== 0).reduce((sum, it) => sum + effectivePrice(it) * (it.quantity || 1), 0);
-  const ciList = customItems || [];
-  const customSubtotal = ciList.reduce((sum, ci) => sum + (ci.unit_price || 0) * (ci.quantity || 1), 0);
-  const taxableCustom = ciList.filter(ci => ci.taxable !== 0).reduce((sum, ci) => sum + (ci.unit_price || 0) * (ci.quantity || 1), 0);
-  const preTaxBase = subtotal + deliveryTotal + customSubtotal;
-  const adjTotal = computeAdjustmentsTotal(adjustments, preTaxBase);
-  const rate = parseFloat(taxRate) || 0;
-  const tax = (taxableEquipment + taxableDelivery + taxableCustom) * (rate / 100);
-  const grandTotal = preTaxBase + adjTotal + tax;
-  return { laborHours, subtotal, deliveryTotal, customSubtotal, adjTotal, tax, total: grandTotal, rate };
-}
 
 export default function QuoteDetailPage() {
   const { id } = useParams();
@@ -57,13 +24,9 @@ export default function QuoteDetailPage() {
   const location = useLocation();
   const toast = useToast();
 
-  const [quote, setQuote] = useState(null);
-  const [customItems, setCustomItems] = useState([]);
-  const [settings, setSettings] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(!!(location.state?.autoEdit));
-  const [form, setForm] = useState({});
-  const [saving, setSaving] = useState(false);
+  const controller = useQuoteDetail(id, { autoEdit: !!(location.state?.autoEdit) });
+  const { quote, customItems, settings, loading, editing, form, saving, adjustments, availability } = controller;
+  const { setQuote, setCustomItems, setEditing, setForm } = controller;
   const [showAI, setShowAI] = useState(false);
   const [venueEditing, setVenueEditing] = useState(false);
   const [clientEditing, setClientEditing] = useState(false);
@@ -96,9 +59,11 @@ export default function QuoteDetailPage() {
   // Logs tab
   const [activity, setActivity] = useState([]);
   // Availability
-  const [availability, setAvailability] = useState({});
   // Adjustments
-  const [adjustments, setAdjustments] = useState([]);
+  // Quote messages (for sales team view)
+  const [quoteMessages, setQuoteMessages] = useState([]);
+  const [msgText, setMsgText] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
   // Status transitions
   const [transitioning, setTransitioning] = useState(false);
   // Damage charges (closed quotes)
@@ -111,24 +76,7 @@ export default function QuoteDetailPage() {
   const [rentalTermsList, setRentalTermsList] = useState([]);
   // Discard-changes confirm (Cancel Edit when dirty)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-
-  // ── Unsaved-changes tracking ──────────────────────────────────────────────
-  // Snapshot of `form` at the moment editing began (or after the last save).
-  const savedFormRef = useRef(null);
-
-  // Capture baseline whenever editing flips on; clear it when editing ends.
-  useEffect(() => {
-    if (editing) {
-      savedFormRef.current = form;
-    } else {
-      savedFormRef.current = null;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing]);
-
-  const isDirty = editing
-    && savedFormRef.current !== null
-    && JSON.stringify(form) !== JSON.stringify(savedFormRef.current);
+  const isDirty = controller.isDirty;
 
   // Warn on browser refresh / tab close
   useEffect(() => {
@@ -142,57 +90,12 @@ export default function QuoteDetailPage() {
   const blocker = useNavigationBlocker(isDirty);
 
   // ─────────────────────────────────────────────────────────────────────────
-
-  const load = useCallback(() => {
-    api.getQuote(id)
-      .then(data => {
-        setQuote(data);
-        setCustomItems(data.customItems || []);
-        setAdjustments(data.adjustments || []);
-        setForm({
-          name: data.name,
-          guest_count: data.guest_count || '',
-          event_date: data.event_date || '',
-          rental_start: data.rental_start || '',
-          rental_end: data.rental_end || '',
-          delivery_date: data.delivery_date || '',
-          pickup_date: data.pickup_date || '',
-          expires_at: data.expires_at || '',
-          expiration_message: data.expiration_message || '',
-          payment_policy_id: data.payment_policy_id != null ? String(data.payment_policy_id) : '',
-          rental_terms_id: data.rental_terms_id != null ? String(data.rental_terms_id) : '',
-          notes: data.notes || '',
-          venue_name: data.venue_name || '',
-          venue_email: data.venue_email || '',
-          venue_phone: data.venue_phone || '',
-          venue_address: data.venue_address || '',
-          venue_contact: data.venue_contact || '',
-          venue_notes: data.venue_notes || '',
-          quote_notes: data.quote_notes || '',
-          tax_rate: data.tax_rate != null ? data.tax_rate : '',
-          client_first_name: data.client_first_name || '',
-          client_last_name: data.client_last_name || '',
-          client_email: data.client_email || '',
-          client_phone: data.client_phone || '',
-          client_address: data.client_address || ''
-        });
-      })
-      .catch(() => navigate('/quotes'))
-      .finally(() => setLoading(false));
-  }, [id, navigate]);
-
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    api.getSettings().then(s => setSettings(s)).catch(() => {});
-  }, []);
-  useEffect(() => {
-    if (!id) return;
-    api.getQuoteAvailability(id).then(d => setAvailability(d.conflicts || {})).catch(() => {});
-  }, [id, quote?.items?.length]);
+  const load = controller.load;
   useEffect(() => {
     if (!id) return;
     api.getQuoteFiles(id).then(d => setQuoteFiles(d.files || [])).catch(() => setQuoteFiles([]));
     api.getQuoteContract(id).then(d => setContract(d.contract)).catch(() => {});
+    api.getMessages({ quote_id: id }).then(d => setQuoteMessages((d.messages || []).slice().reverse())).catch(() => {});
   }, [id]);
 
   // Load contract, contract templates, payment policies, rental terms when editing
@@ -376,48 +279,7 @@ export default function QuoteDetailPage() {
       setDuplicating(false);
     }
   };
-
-  const handleSaveEdit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await api.updateQuote(id, {
-        name: form.name,
-        guest_count: Number(form.guest_count) || 0,
-        event_date: form.event_date || null,
-        rental_start: form.rental_start || null,
-        rental_end: form.rental_end || null,
-        delivery_date: form.delivery_date || null,
-        pickup_date: form.pickup_date || null,
-        expires_at: form.expires_at || null,
-        expiration_message: form.expiration_message || null,
-        payment_policy_id: form.payment_policy_id ? Number(form.payment_policy_id) : null,
-        rental_terms_id: form.rental_terms_id ? Number(form.rental_terms_id) : null,
-        notes: form.notes,
-        venue_name: form.venue_name || null,
-        venue_email: form.venue_email || null,
-        venue_phone: form.venue_phone || null,
-        venue_address: form.venue_address || null,
-        venue_contact: form.venue_contact || null,
-        venue_notes: form.venue_notes || null,
-        quote_notes: form.quote_notes || null,
-        tax_rate: form.tax_rate === '' ? null : parseFloat(form.tax_rate),
-        client_first_name: form.client_first_name || null,
-        client_last_name: form.client_last_name || null,
-        client_email: form.client_email || null,
-        client_phone: form.client_phone || null,
-        client_address: form.client_address || null
-      });
-      toast.success('Quote updated');
-      savedFormRef.current = null;
-      setEditing(false);
-      load();
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleSaveEdit = controller.handleSaveEdit;
 
   const handleAIAdd = async (item) => {
     try {
@@ -431,14 +293,12 @@ export default function QuoteDetailPage() {
 
   const handleCancelEdit = () => {
     if (isDirty) { setShowCancelConfirm(true); return; }
-    savedFormRef.current = null;
-    setEditing(false);
+    controller.discardEdits();
   };
 
   const confirmCancelEdit = () => {
     setShowCancelConfirm(false);
-    savedFormRef.current = null;
-    setEditing(false);
+    controller.discardEdits();
   };
 
   const handleSendClick = () => setShowSendModal(true);
@@ -661,7 +521,12 @@ export default function QuoteDetailPage() {
 
   const taxRate = quote.tax_rate != null ? quote.tax_rate : settings.tax_rate;
   const visibleItems = (quote.items || []).filter(i => !i.hidden_from_quote);
-  const totals = computeTotals(visibleItems, customItems, adjustments, taxRate);
+  const totals = computeTotals({
+    items: visibleItems,
+    customItems,
+    adjustments,
+    taxRate,
+  });
   const logisticsItems = (quote.items || []).filter(it => (it.category || '').toLowerCase().includes('logistics'));
 
   return (
@@ -1084,7 +949,7 @@ export default function QuoteDetailPage() {
                   photo_url: url,
                   unit_price: (price != null && f.unit_price === '') ? String(price) : f.unit_price
                 }));
-              }} />
+              }} classNames={styles} />
               <div className={styles.formActions}>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowCustomForm(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary btn-sm">Add item</button>
@@ -1158,6 +1023,50 @@ export default function QuoteDetailPage() {
           <div className={`card ${styles.exportCard}`}>
             <h3 className={styles.exportTitle}>Export</h3>
             <QuoteExport quote={quote} settings={settings} totals={totals} customItems={customItems} visibleItems={visibleItems} />
+          </div>
+          <div className={`card ${styles.exportCard}`}>
+            <h3 className={styles.exportTitle}>Messages</h3>
+            {quoteMessages.length > 0 ? (
+              <div className={styles.msgList}>
+                {quoteMessages.map(m => (
+                  <div key={m.id} className={`${styles.msgBubble} ${m.direction === 'inbound' ? styles.msgIn : styles.msgOut}`}>
+                    <div className={styles.msgBubbleBody}>{m.body_text || m.subject || ''}</div>
+                    <div className={styles.msgBubbleMeta}>
+                      {m.direction === 'inbound' ? (m.from_email || 'Client') : 'You'}
+                      {' · '}
+                      {m.sent_at ? new Date(m.sent_at.replace(' ', 'T') + 'Z').toLocaleString() : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className={styles.msgEmpty}>No messages yet.</p>
+            )}
+            <form onSubmit={async e => {
+              e.preventDefault();
+              if (!msgText.trim()) return;
+              setMsgSending(true);
+              try {
+                const d = await api.sendQuoteMessage(id, { body_text: msgText.trim() });
+                setMsgText('');
+                setQuoteMessages((d.messages || []).slice().reverse());
+              } catch (err) {
+                toast.error('Failed to send message');
+              } finally {
+                setMsgSending(false);
+              }
+            }} className={styles.msgForm}>
+              <textarea
+                className={styles.msgTextarea}
+                rows={2}
+                placeholder="Add a message or note…"
+                value={msgText}
+                onChange={e => setMsgText(e.target.value)}
+              />
+              <button type="submit" className={styles.msgSendBtn} disabled={msgSending || !msgText.trim()}>
+                {msgSending ? 'Sending…' : 'Send'}
+              </button>
+            </form>
           </div>
           {(totals.laborHours > 0 || totals.subtotal > 0 || totals.deliveryTotal > 0 || totals.customSubtotal > 0 || (quote?.items?.length > 0)) && (
             <div className={`card ${styles.totalsCard}`}>
@@ -1462,6 +1371,7 @@ export default function QuoteDetailPage() {
           onClose={() => setShowSendModal(false)}
           onSent={() => { setShowSendModal(false); load(); toast.success('Quote sent; client link ready.'); }}
           onError={e => toast.error(e.message)}
+          classNames={styles}
         />
       )}
 
@@ -1510,6 +1420,7 @@ export default function QuoteDetailPage() {
           currentFileIds={quoteFiles.map(f => f.file_id)}
           onSelect={handleAttachFile}
           onClose={() => setShowFilePicker(false)}
+          classNames={styles}
         />
       )}
 
@@ -1560,229 +1471,6 @@ export default function QuoteDetailPage() {
           onClose={() => setAddressModalData(null)}
         />
       )}
-    </div>
-  );
-}
-
-// File picker for quote attachments — pick from media library
-function QuoteFilePicker({ currentFileIds = [], onSelect, onClose }) {
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    api.getFiles().then(d => setFiles(d.files || [])).catch(() => setFiles([])).finally(() => setLoading(false));
-  }, []);
-  const attached = new Set(currentFileIds);
-  return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modal} style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
-        <div className={styles.imagePickerHeader}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Add file to quote</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
-        </div>
-        {loading ? (
-          <div style={{ padding: 20, textAlign: 'center' }}><div className="spinner" /></div>
-        ) : files.length === 0 ? (
-          <p className={styles.emptyHint}>No files in library. Upload files on the Files page first.</p>
-        ) : (
-          <ul className={styles.quoteFilesList} style={{ maxHeight: 320, overflowY: 'auto' }}>
-            {files.map(f => (
-              <li key={f.id} className={styles.quoteFileItem}>
-                <span className={styles.quoteFileName}>{f.original_name || 'File #' + f.id}</span>
-                {attached.has(f.id) ? (
-                  <span className={styles.quoteFileSize}> (already attached)</span>
-                ) : (
-                  <button type="button" className="btn btn-primary btn-sm" style={{ marginLeft: 8 }} onClick={() => onSelect(f.id)}>Attach</button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Image picker for custom items — loads from Files + Inventory
-function ImagePicker({ onSelect }) {
-  const [open, setOpen] = useState(false);
-  const [fileImages, setFileImages] = useState([]);
-  const [invImages, setInvImages] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setLoading(true);
-    Promise.all([
-      api.getFiles().catch(() => ({ files: [] })),
-      api.getItems({ hidden: '0' }).catch(() => ({ items: [] }))
-    ]).then(([filesData, itemsData]) => {
-      setFileImages((filesData.files || []).filter(f => f.mime_type && f.mime_type.startsWith('image/')));
-      setInvImages((itemsData.items || []).filter(i => i.photo_url));
-    }).finally(() => setLoading(false));
-  }, [open]);
-
-  if (!open) {
-    return (
-      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(true)}>
-        Pick image from library
-      </button>
-    );
-  }
-
-  return (
-    <div className={styles.imagePicker}>
-      <div className={styles.imagePickerHeader}>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>Pick an image</span>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>Close</button>
-      </div>
-      {loading ? (
-        <div style={{ padding: 20, textAlign: 'center' }}><div className="spinner" /></div>
-      ) : (
-        <div className={styles.imagePickerGrid}>
-          {fileImages.map(f => (
-            <button
-              key={'f-' + f.id}
-              type="button"
-              className={styles.imagePickerThumb}
-              onClick={() => { onSelect(api.fileServeUrl(f.id), null); setOpen(false); }}
-              title={f.original_name}
-            >
-              <img src={api.fileServeUrl(f.id)} alt={f.original_name} onError={e => { e.target.style.display = 'none'; }} />
-            </button>
-          ))}
-          {invImages.map(i => (
-            <button
-              key={'i-' + i.id}
-              type="button"
-              className={styles.imagePickerThumb}
-              onClick={() => { onSelect(api.proxyImageUrl(i.photo_url), i.unit_price || null); setOpen(false); }}
-              title={i.title}
-            >
-              <img src={api.proxyImageUrl(i.photo_url)} alt={i.title} onError={e => { e.target.style.display = 'none'; }} />
-            </button>
-          ))}
-          {fileImages.length === 0 && invImages.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', padding: 12 }}>No images found. Upload images to the Files page first.</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Email send modal: To, template, subject, body, attachments, Send
-function QuoteSendModal({ quote, onClose, onSent, onError }) {
-  const [templates, setTemplates] = useState([]);
-  const [selectedId, setSelectedId] = useState('');
-  const [toEmail, setToEmail] = useState(quote?.client_email || '');
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
-  const [sending, setSending] = useState(false);
-  const [allFiles, setAllFiles] = useState([]);
-  const [attachmentIds, setAttachmentIds] = useState([]);
-
-  useEffect(() => {
-    api.getTemplates().then(d => {
-      const list = d.templates || [];
-      setTemplates(list);
-      const defaultT = list.find(t => t.is_default);
-      if (defaultT) {
-        setSelectedId(String(defaultT.id));
-        api.getTemplate(defaultT.id).then(t => {
-          setSubject(t.subject || '');
-          setBody(t.body_text || t.body_html || '');
-        }).catch(() => {});
-      }
-    }).catch(() => {});
-    api.getFiles().then(d => setAllFiles(d.files || [])).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    setToEmail(quote?.client_email || '');
-  }, [quote?.client_email]);
-
-  const loadTemplate = (id) => {
-    if (!id) return;
-    api.getTemplate(id).then(t => {
-      setSubject(t.subject || '');
-      setBody(t.body_text || t.body_html || '');
-    }).catch(() => {});
-  };
-
-  function toggleAttachment(id) {
-    setAttachmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  }
-
-  const handleSend = async (e) => {
-    e.preventDefault();
-    setSending(true);
-    try {
-      await api.sendQuote(quote.id, { templateId: selectedId || undefined, subject, bodyText: body, bodyHtml: body, toEmail: toEmail || undefined, attachmentIds });
-      onSent();
-    } catch (e) {
-      onError(e);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <div className={styles.modalOverlay} onClick={onClose} onKeyDown={e => e.key === 'Escape' && onClose()}>
-      <div className={styles.modal} onClick={e => e.stopPropagation()}>
-        <h3 className={styles.modalTitle}>Send quote to client</h3>
-        <form onSubmit={handleSend} className={styles.sendForm}>
-          <div className="form-group">
-            <label>To</label>
-            <input type="email" required value={toEmail} onChange={e => setToEmail(e.target.value)} placeholder="client@example.com" />
-          </div>
-          <div className="form-group">
-            <label>Template</label>
-            <select value={selectedId} onChange={e => { setSelectedId(e.target.value); loadTemplate(e.target.value); }}>
-              <option value="">— None —</option>
-              {templates.map(t => <option key={t.id} value={t.id}>{t.name}{t.is_default ? ' (default)' : ''}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Subject</label>
-            <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Quote from..." />
-          </div>
-          <div className="form-group">
-            <label>Body</label>
-            <textarea rows={6} value={body} onChange={e => setBody(e.target.value)} placeholder="Email body..." />
-          </div>
-          {allFiles.length > 0 && (
-            <div className="form-group">
-              <label>Attachments</label>
-              <div className={styles.attachmentGrid}>
-                {allFiles.map(f => {
-                  const isImg = f.mime_type && f.mime_type.startsWith('image/');
-                  const selected = attachmentIds.includes(f.id);
-                  return (
-                    <button
-                      key={f.id}
-                      type="button"
-                      className={`${styles.attachThumb} ${selected ? styles.attachSelected : ''}`}
-                      onClick={() => toggleAttachment(f.id)}
-                      title={f.original_name}
-                    >
-                      {isImg
-                        ? <img src={api.fileServeUrl(f.id)} alt={f.original_name} onError={e => { e.target.style.display = 'none'; }} />
-                        : <span style={{ fontSize: 24 }}>📎</span>
-                      }
-                      <span className={styles.attachName}>{f.original_name}</span>
-                      {selected && <span className={styles.attachCheck}>✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          <div className={styles.formActions}>
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={sending}>{sending ? 'Sending…' : 'Send'}</button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 }

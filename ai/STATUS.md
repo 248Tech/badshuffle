@@ -1,5 +1,7 @@
 # STATUS
 
+**Released v0.0.9** (2026-03-26): Security hardening + quote workflow refactor release. Highlights: stricter auth/file/public quote handling; extracted backend quote services (`quoteActivity`, `itemStatsService`, `quoteService`); shared quote totals utility; QuoteDetail and QuoteBuilder decomposition into focused hooks/components/panels; and release/versioning docs aligned to `0.0.9`.
+
 **Released v0.0.8** (2026-03-24): Navigation + UX polish release. Highlights: grouped collapsible sidebar with hover flyouts, unread/pending badges, and live team presence; new Directory landing page; new Inventory Settings and Message Settings pages; Admin database export/import; ErrorBoundary fallback; skeleton loaders; contextual empty-search states; lazy-loaded inventory thumbnails; toast `aria-live`; PublicQuotePage `document.title`; theme-token cleanup and layout max-width polish.
 
 **Released v0.0.7** (2026-03-24): PRD batch 2 — files list view + bulk delete, billing search/sort/export, single-screen new project creation. PRD batch 1 — rename Quotes→Projects, fix inventory hover, file auth, search bars.
@@ -495,4 +497,3 @@ Help: `node server/cli.js --help`
 
 ## Next Steps
 - Optional: add more target fields to lead import (e.g. guest count, delivery address) if sheet columns expand.
-

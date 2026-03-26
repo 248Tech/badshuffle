@@ -664,6 +664,198 @@
   line-height: 1.2;
 }
 
+/* Tile stock badge — overlaid on top-left of photo */
+.tileStockBadgeOk {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(10, 123, 10, 0.75);
+  padding: 2px 5px;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+.tileStockBadgeConflict {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(180, 83, 9, 0.85);
+  padding: 2px 5px;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+/* Picker qty input on tiles */
+.pickerQtyInput {
+  width: 100%;
+  padding: 3px 6px;
+  font-size: 12px;
+  text-align: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-sizing: border-box;
+}
+.pickerQtyInput:focus { outline: none; border-color: var(--color-primary); }
+
+/* Picker qty input on list rows */
+.pickerQtyInputList {
+  width: 52px;
+  flex-shrink: 0;
+  padding: 4px 6px;
+  font-size: 13px;
+  text-align: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.pickerQtyInputList:focus { outline: none; border-color: var(--color-primary); }
+
+/* Clickable thumb in quote item list */
+.thumbClickable {
+  cursor: pointer;
+}
+.thumbClickable:hover {
+  opacity: 0.85;
+}
+
+/* Quote-item-specific edit modal */
+.qiModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.qiModal {
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+}
+.qiModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.qiModalTitle {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+.qiModalClose {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.qiModalClose:hover { color: var(--color-text); }
+.qiModalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.qiModalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--color-border);
+}
+.qiLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  margin-bottom: 4px;
+  display: block;
+}
+.qiLabelHint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-style: italic;
+}
+.qiRow {
+  display: flex;
+  gap: 12px;
+}
+.qiField {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.qiInput {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.qiInput:focus { outline: none; border-color: var(--color-primary); }
+.qiTextarea {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: var(--font);
+  resize: vertical;
+  box-sizing: border-box;
+}
+.qiTextarea:focus { outline: none; border-color: var(--color-primary); }
+.qiCancelBtn {
+  padding: 7px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.qiCancelBtn:hover { background: var(--color-surface); }
+.qiSaveBtn {
+  padding: 7px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.qiSaveBtn:hover:not(:disabled) { filter: brightness(1.1); }
+.qiSaveBtn:disabled { opacity: 0.5; cursor: default; }
 
 /* Inline stock warning on quote line items */
 .stockBadge {

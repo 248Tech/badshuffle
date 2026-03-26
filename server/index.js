@@ -107,7 +107,7 @@ async function start() {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing' });
 
     const authHeader = req.headers.authorization || '';
-    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.query.token || null);
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const secret = process.env.JWT_SECRET || 'change-me';
     let allowed = false;
     if (bearer) {
@@ -129,7 +129,14 @@ async function start() {
 
   // Public quote view (no auth) — add signed file URLs for images so public page can load them
   app.get('/api/quotes/public/:token', (req, res) => {
-    const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
+    const quote = db.prepare(`
+      SELECT id, name, status, event_date, guest_count, expires_at, expiration_message,
+             quote_notes, tax_rate,
+             client_first_name, client_last_name, client_email, client_phone, client_address,
+             venue_name, venue_email, venue_phone, venue_address,
+             payment_policy_id, rental_terms_id
+      FROM quotes WHERE public_token = ?
+    `).get(req.params.token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
     const today = new Date().toISOString().slice(0, 10);
     const isExpired = !!(quote.expires_at && quote.expires_at < today);
@@ -203,14 +210,17 @@ async function start() {
   app.post('/api/quotes/approve-by-token', (req, res) => {
     const token = (req.body && req.body.token) || '';
     if (!token) return res.status(400).json({ error: 'token required' });
-    const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(token);
+    const quote = db.prepare('SELECT id, status, expires_at FROM quotes WHERE public_token = ?').get(token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
     const today = new Date().toISOString().slice(0, 10);
     if (quote.expires_at && quote.expires_at < today) {
       return res.status(400).json({ error: 'This quote has expired and can no longer be approved' });
     }
-    db.prepare("UPDATE quotes SET status = 'approved', has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?").run(quote.id);
-    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(quote.id);
+    if (quote.status !== 'sent') {
+      return res.status(409).json({ error: 'Quote is not in an approvable state' });
+    }
+    db.prepare("UPDATE quotes SET status = 'approved', has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ? AND status = 'sent'").run(quote.id);
+    const updated = db.prepare('SELECT id, status, has_unsigned_changes, updated_at FROM quotes WHERE id = ?').get(quote.id);
     res.json({ quote: updated });
   });
 
@@ -285,8 +295,8 @@ async function start() {
   }));
 
   app.use('/api/files',     auth, require('./routes/files')(db, UPLOADS_DIR));
-  app.use('/api/items',       auth, require('./routes/items')(db));
-  app.use('/api/sheets',      auth, require('./routes/sheets')(db));
+  app.use('/api/items',       requireAuth(db, { allowExtension: true }), require('./routes/items')(db));
+  app.use('/api/sheets',      requireAuth(db, { allowExtension: true }), require('./routes/sheets')(db));
   app.use('/api/quotes',      auth, require('./routes/quotes')(db, UPLOADS_DIR));
   app.use('/api/stats',       auth, require('./routes/stats')(db));
   app.use('/api/ai',          auth, require('./routes/ai')(db));

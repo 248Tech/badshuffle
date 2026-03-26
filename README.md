@@ -1,6 +1,6 @@
-# BadShuffle v0.0.8
+# BadShuffle v0.0.9
 
-![Release](https://img.shields.io/badge/release-0.0.8-0a7ea4)
+![Release](https://img.shields.io/badge/release-0.0.9-0a7ea4)
 ![Status](https://img.shields.io/badge/status-pre--release-c79200)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
 ![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Windows%20EXE-2ea44f)
@@ -21,18 +21,16 @@ BadShuffle is a self-hosted event rental software platform for project-centric q
 - **Domain complexity** — Availability conflicts, per-line pricing overrides, reusable rental/payment policies, and public quote signing target actual event-rental workflows.
 - **Deployment pragmatism** — Run it locally, on a LAN, in Docker, or as packaged Windows executables.
 
-## What’s New In v0.0.8
+## What’s New In v0.0.9
 
-`v0.0.8` is the navigation, admin continuity, UX polish, and Windows host packaging release, now followed by a hotfix pass that focuses on performance, mobile behavior, editing safety, and import resilience. It reorganizes the operator experience around workflow-based navigation, adds in-app database backup/restore, ships packaged Windows `.exe` artifacts for self-hosted deployments, and tightens daily operator workflows with better loading, error handling, and guardrails.
+`v0.0.9` is the security hardening and quote-workflow refactor release. It tightens public/auth/file handling on the backend, breaks the largest quote surfaces into smaller maintainable modules, and standardizes shared pricing logic so the operator and public quote experiences stay in sync as the product grows.
 
-- **Navigation architecture refresh** — The sidebar is now grouped around workflows (Projects, Inventory, Messages, Directory, Settings), supports collapse + flyout behavior, and surfaces unread-message plus pending-admin counts alongside live team presence.
-- **Admin continuity tooling** — Admin now includes SQLite backup export/import so operators can migrate or restore data without leaving the app.
-- **New workspace surfaces** — Added a Directory hub for Leads/Vendors plus dedicated Inventory Settings and Message Settings screens for operational preferences.
-- **Windows host packaging** — The project is packaged for Windows hosts with separate server, client, and updater `.exe` artifacts so operators can run BadShuffle without a manual Node deployment.
-- **Performance hotfixes** — Heavy operator and public routes now lazy-load on first navigation, reducing the initial client bundle cost for day-to-day use.
-- **Workflow safety hotfixes** — Quote detail editing now warns before reload or navigation when there are unsaved changes, making large project edits harder to lose accidentally.
-- **Responsive messaging polish** — Messages now behaves as a focused single-pane experience on smaller screens, with cleaner thread/detail transitions during mobile use.
-- **Debugging and import hardening** — Settings can enable verbose error output for debugging, quote creation failures now return cleaner API errors, and sheet/item imports reject numeric-only titles that commonly come from spreadsheet date serials or malformed source data.
+- **Security hardening pass** — JWT and extension-token handling is narrowed, file-serving auth is stricter, public quote payloads are least-privilege, upload MIME detection is content-based, and quote email attachments are scoped to the active project.
+- **Backend quote-service extraction** — Quote send, duplicate, activity logging, status transitions, and item stats bookkeeping now live in dedicated service/lib modules instead of a single oversized route file.
+- **Quote detail decomposition** — QuoteDetailPage now relies on extracted helpers/components and a shared controller hook so editing, files, sending, and totals logic are easier to evolve independently.
+- **Quote builder decomposition** — QuoteBuilder has been split into focused line-items, adjustments, and inventory-picker panels, reducing rerender pressure and making future UI changes less risky.
+- **Shared totals utility** — Quote total/adjustment logic now comes from one shared utility instead of drifting between QuoteDetail and PublicQuote.
+- **Release documentation refresh** — README, changelog, status notes, package versions, and release notes have all been aligned to `0.0.9`.
 
 ## Core Features
 
@@ -54,10 +52,10 @@ BadShuffle is a self-hosted event rental software platform for project-centric q
 
 ## Near-Term Roadmap
 
-- **Cross-theme QA + responsive pass** — Finish theme verification and close the remaining mobile layout gaps across quote editing, messages, and modal-heavy views.
-- **Performance follow-up** — Finish image lazy loading on the remaining public/files surfaces and review post-split route chunk sizes.
-- **Workflow safety** — Extend unsaved-change protection to other high-risk forms and replace destructive browser confirms with better inline confirmation patterns.
-- **Operations depth** — Send preview, pull sheets, and richer warehouse workflows.
+- **Frontend refactor completion** — Finish landing the QuoteDetail/QuoteBuilder extraction work and smoke-test the refactored flows across desktop and mobile.
+- **Cross-theme QA + responsive pass** — Close the remaining theme/mobile gaps across quote editing, messages, and modal-heavy views.
+- **Workflow safety** — Extend unsaved-change protection and better destructive-action confirmation patterns to other high-risk forms.
+- **Operations depth** — Send preview, pull sheets, richer warehouse workflows, and migration/versioning cleanup for the database bootstrap.
 
 More context lives in [ai/KNOWN_GAPS.md](ai/KNOWN_GAPS.md) and [ai/TODO.md](ai/TODO.md).
 
@@ -491,4 +489,3 @@ Client helpers in `client/src/api.js`: `getVendors`, `getConflicts`, `getQuoteAv
 ## License
 
 MIT. See [LICENSE](LICENSE).
-

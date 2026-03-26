@@ -1,19 +1,16 @@
 const express = require('express');
-const path = require('path');
 const crypto = require('crypto');
+const {
+  logActivity,
+  markUnsignedChangesIfApproved,
+  buildQuoteItemSnapshot,
+  buildCustomItemSnapshot,
+} = require('../lib/quoteActivity');
+const { upsertItemStats } = require('../services/itemStatsService');
+const quoteService = require('../services/quoteService');
 
 module.exports = function makeRouter(db, uploadsDir) {
   const router = express.Router();
-
-  function logActivity(quoteId, eventType, description, oldValue, newValue, req) {
-    const userId = req && req.user && req.user.sub;
-    const userEmail = (req && req.user && req.user.email) || (userId ? db.prepare('SELECT email FROM users WHERE id = ?').get(userId)?.email : null) || null;
-    try {
-      db.prepare(
-        'INSERT INTO quote_activity_log (quote_id, event_type, description, old_value, new_value, user_id, user_email) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).run(quoteId, eventType, description || null, oldValue || null, newValue || null, userId || null, userEmail);
-    } catch (e) {}
-  }
 
   // GET /api/quotes — include computed total, amount_paid, remaining_balance, overpaid; optional filters
   // Query params: search (name/client), status, event_from, event_to, has_balance, venue
@@ -223,7 +220,7 @@ module.exports = function makeRouter(db, uploadsDir) {
     if (!file) return res.status(404).json({ error: 'File not found' });
     try {
       db.prepare('INSERT OR IGNORE INTO quote_attachments (quote_id, file_id) VALUES (?, ?)').run(req.params.id, file_id);
-      logActivity(req.params.id, 'file_attached', 'Attached file: ' + (file.original_name || file_id), null, null, req);
+      logActivity(db, req.params.id, 'file_attached', 'Attached file: ' + (file.original_name || file_id), null, null, req);
     } catch (e) {
       return res.status(500).json({ error: e.message });
     }
@@ -272,7 +269,7 @@ module.exports = function makeRouter(db, uploadsDir) {
       db.prepare(
         'INSERT INTO quote_payments (quote_id, amount, method, status, reference, paid_at, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       ).run(req.params.id, amt, method || null, 'charged', reference || null, paid_at || null, note || null, userId || null);
-      logActivity(req.params.id, 'payment_applied', `Recorded payment: $${amt.toFixed(2)} (${method || 'offline'})`, null, null, req);
+      logActivity(db, req.params.id, 'payment_applied', `Recorded payment: $${amt.toFixed(2)} (${method || 'offline'})`, null, null, req);
       try {
         db.prepare(
           'INSERT INTO billing_history (quote_id, event_type, amount, note, user_email) VALUES (?, ?, ?, ?, ?)'
@@ -376,6 +373,7 @@ module.exports = function makeRouter(db, uploadsDir) {
     const items = db.prepare(`
       SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote,
              qi.unit_price_override, qi.discount_type, qi.discount_amount,
+             qi.description as qi_description, qi.notes as qi_notes,
              i.id, i.title, i.photo_url, i.source, i.hidden,
              i.unit_price, i.taxable, i.category, i.labor_hours, i.is_subrental
       FROM quote_items qi
@@ -496,7 +494,7 @@ module.exports = function makeRouter(db, uploadsDir) {
     );
 
     const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    logActivity(req.params.id, 'quote_updated', 'Project details updated', null, null, req);
+    logActivity(db, req.params.id, 'quote_updated', 'Project details updated', null, null, req);
     res.json({ quote: updated });
   });
 
@@ -514,129 +512,62 @@ module.exports = function makeRouter(db, uploadsDir) {
 
   // POST /api/quotes/:id/send — email; set status to 'sent', generate public_token
   router.post('/:id/send', async (req, res) => {
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    if (!quote) return res.status(404).json({ error: 'Not found' });
-
-    const { templateId, subject, bodyHtml, bodyText, toEmail, attachmentIds = [] } = req.body || {};
-
-    const token = quote.public_token || crypto.randomBytes(24).toString('hex');
-    db.prepare("UPDATE quotes SET status = 'sent', public_token = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(token, req.params.id);
-
-    const msgId = '<bs-q' + req.params.id + '-' + Date.now() + '@badshuffle.local>';
-    let emailPreview = null;
-    let fromAddr = null;
-
-    if (toEmail) {
-      const smtpRows = db.prepare("SELECT key, value FROM settings WHERE key LIKE 'smtp_%'").all();
-      const smtp = {};
-      smtpRows.forEach(r => { smtp[r.key] = r.value; });
-      fromAddr = smtp.smtp_from || smtp.smtp_user || null;
-
-      if (smtp.smtp_host && smtp.smtp_user) {
-        try {
-          const nodemailer = require('nodemailer');
-          const { decrypt } = require('../lib/crypto');
-          const transporter = nodemailer.createTransport({
-            host: smtp.smtp_host,
-            port: parseInt(smtp.smtp_port || '587'),
-            secure: smtp.smtp_secure === 'true',
-            auth: { user: smtp.smtp_user, pass: smtp.smtp_pass_enc ? decrypt(smtp.smtp_pass_enc) : '' }
-          });
-
-          const mailOptions = {
-            from: fromAddr,
-            to: toEmail,
-            subject: subject || '',
-            text: bodyText || '',
-            html: bodyHtml || undefined,
-            messageId: msgId,
-            attachments: []
-          };
-
-          // Add file attachments
-          for (const fid of attachmentIds) {
-            const f = db.prepare('SELECT * FROM files WHERE id = ?').get(fid);
-            if (f && uploadsDir) {
-              const filePath = path.join(uploadsDir, f.stored_name);
-              mailOptions.attachments.push({ filename: f.original_name, path: filePath });
-            }
-          }
-
-          await transporter.sendMail(mailOptions);
-
-          if (quote.lead_id) {
-            try {
-              db.prepare('INSERT INTO lead_events (lead_id, event_type, note) VALUES (?, ?, ?)')
-                .run(quote.lead_id, 'email_sent', subject || 'Quote sent');
-            } catch (e) {}
-          }
-          logActivity(req.params.id, 'quote_sent', 'Quote sent to ' + (toEmail || 'client'), null, null, req);
-
-          emailPreview = { to: toEmail, subject: subject || '(No subject)', sent: true };
-        } catch (err) {
-          // SMTP failed — still return success for the status update, include error info
-          emailPreview = { to: toEmail, subject: subject || '(No subject)', error: err.message };
-        }
-      } else {
-        emailPreview = { to: toEmail, subject: subject || '(No subject)', body: bodyText || bodyHtml || '' };
-      }
-    }
-
-    // Always log an outbound message to start/continue the thread, regardless of email/SMTP
     try {
-      db.prepare(`
-        INSERT OR IGNORE INTO messages (quote_id, direction, from_email, to_email, subject, body_text, body_html, message_id, status, sent_at, quote_name)
-        VALUES (?, 'outbound', ?, ?, ?, ?, ?, ?, 'sent', datetime('now'), ?)
-      `).run(req.params.id, fromAddr, toEmail || null, subject || '', bodyText || '', bodyHtml || null, msgId, quote.name || '');
-    } catch (e) {}
-
-    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    res.json({ quote: updated, emailPreview });
-  });
-
-  function markUnsignedChangesIfApproved(quoteId) {
-    const q = db.prepare('SELECT status FROM quotes WHERE id = ?').get(quoteId);
-    if (q && (q.status === 'approved' || q.status === 'confirmed')) {
-      db.prepare('UPDATE quotes SET has_unsigned_changes = 1, updated_at = datetime(\'now\') WHERE id = ?').run(quoteId);
+      const result = await quoteService.sendQuote({
+        db,
+        uploadsDir,
+        quoteId: req.params.id,
+        actor: req.user,
+        input: req.body || {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
-  }
+  });
 
   // DELETE /api/quotes/:id/unsigned-changes — dismiss "unsigned changes" banner without re-sending
   router.delete('/:id/unsigned-changes', (req, res) => {
     const quote = db.prepare('SELECT id FROM quotes WHERE id = ?').get(req.params.id);
     if (!quote) return res.status(404).json({ error: 'Not found' });
     db.prepare("UPDATE quotes SET has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?").run(req.params.id);
-    logActivity(req.params.id, 'status_change', 'Unsigned-changes flag cleared (dismissed by staff)', null, null, req);
+    logActivity(db, req.params.id, 'status_change', 'Unsigned-changes flag cleared (dismissed by staff)', null, null, req);
     res.json({ ok: true });
   });
 
   // POST /api/quotes/:id/confirm — transition approved → confirmed (hard inventory reservation)
   router.post('/:id/confirm', (req, res) => {
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    if (!quote) return res.status(404).json({ error: 'Not found' });
-    if ((quote.status || 'draft') !== 'approved') {
-      return res.status(400).json({ error: 'Quote must be in "approved" status to confirm' });
+    try {
+      const result = quoteService.transitionQuoteStatus({
+        db,
+        quoteId: req.params.id,
+        fromStatuses: 'approved',
+        toStatus: 'confirmed',
+        actor: req.user,
+        clearUnsignedChanges: true,
+        description: 'Quote confirmed — inventory reserved',
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
-    db.prepare("UPDATE quotes SET status = 'confirmed', has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?")
-      .run(req.params.id);
-    logActivity(req.params.id, 'status_changed', 'Quote confirmed — inventory reserved', 'approved', 'confirmed', req);
-    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    res.json({ quote: updated });
   });
 
   // POST /api/quotes/:id/close — transition confirmed → closed (post-event, releases inventory)
   router.post('/:id/close', (req, res) => {
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    if (!quote) return res.status(404).json({ error: 'Not found' });
-    if ((quote.status || 'draft') !== 'confirmed') {
-      return res.status(400).json({ error: 'Quote must be in "confirmed" status to close' });
+    try {
+      const result = quoteService.transitionQuoteStatus({
+        db,
+        quoteId: req.params.id,
+        fromStatuses: 'confirmed',
+        toStatus: 'closed',
+        actor: req.user,
+        description: 'Quote closed — inventory released, damage charges enabled',
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
-    db.prepare("UPDATE quotes SET status = 'closed', updated_at = datetime('now') WHERE id = ?")
-      .run(req.params.id);
-    logActivity(req.params.id, 'status_changed', 'Quote closed — inventory released, damage charges enabled', 'confirmed', 'closed', req);
-    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    res.json({ quote: updated });
   });
 
   // GET /api/quotes/:id/damage-charges
@@ -666,7 +597,7 @@ module.exports = function makeRouter(db, uploadsDir) {
       db.prepare(
         'INSERT INTO quote_damage_charges (quote_id, title, amount, note, created_by) VALUES (?, ?, ?, ?, ?)'
       ).run(req.params.id, title, amt, note || null, userId || null);
-      logActivity(req.params.id, 'damage_charge_added', `Damage charge added: ${title} ($${amt.toFixed(2)})`, null, amt.toFixed(2), req);
+      logActivity(db, req.params.id, 'damage_charge_added', `Damage charge added: ${title} ($${amt.toFixed(2)})`, null, amt.toFixed(2), req);
     } catch (e) {
       return res.status(500).json({ error: e.message });
     }
@@ -681,7 +612,7 @@ module.exports = function makeRouter(db, uploadsDir) {
     const charge = db.prepare('SELECT * FROM quote_damage_charges WHERE id = ? AND quote_id = ?').get(req.params.cid, req.params.id);
     if (!charge) return res.status(404).json({ error: 'Charge not found' });
     db.prepare('DELETE FROM quote_damage_charges WHERE id = ?').run(req.params.cid);
-    logActivity(req.params.id, 'damage_charge_removed', `Damage charge removed: ${charge.title} ($${Number(charge.amount).toFixed(2)})`, Number(charge.amount).toFixed(2), null, req);
+    logActivity(db, req.params.id, 'damage_charge_removed', `Damage charge removed: ${charge.title} ($${Number(charge.amount).toFixed(2)})`, Number(charge.amount).toFixed(2), null, req);
     const charges = db.prepare('SELECT * FROM quote_damage_charges WHERE quote_id = ? ORDER BY created_at DESC').all(req.params.id);
     res.json({ deleted: true, charges });
   });
@@ -712,12 +643,12 @@ module.exports = function makeRouter(db, uploadsDir) {
       db.prepare(
         'INSERT INTO quote_adjustments (quote_id, label, type, value_type, amount, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
       ).run(req.params.id, label, type, value_type, amt, sort_order != null ? sort_order : 0);
-      logActivity(req.params.id, 'adjustment_added', `${type === 'discount' ? 'Discount' : 'Surcharge'} added: ${label} (${value_type === 'percent' ? amt + '%' : '$' + amt.toFixed(2)})`, null, null, req);
+      logActivity(db, req.params.id, 'adjustment_added', `${type === 'discount' ? 'Discount' : 'Surcharge'} added: ${label} (${value_type === 'percent' ? amt + '%' : '$' + amt.toFixed(2)})`, null, null, req);
     } catch (e) {
       return res.status(500).json({ error: e.message });
     }
     const adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(req.params.id);
-    markUnsignedChangesIfApproved(req.params.id);
+    markUnsignedChangesIfApproved(db, req.params.id);
     res.status(201).json({ adjustments });
   });
 
@@ -737,7 +668,7 @@ module.exports = function makeRouter(db, uploadsDir) {
     db.prepare(
       'UPDATE quote_adjustments SET label=?, type=?, value_type=?, amount=?, sort_order=? WHERE id=?'
     ).run(newLabel, newType, newValueType, newAmt, newSort, req.params.aid);
-    markUnsignedChangesIfApproved(req.params.id);
+    markUnsignedChangesIfApproved(db, req.params.id);
     const adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(req.params.id);
     res.json({ adjustments });
   });
@@ -747,34 +678,44 @@ module.exports = function makeRouter(db, uploadsDir) {
     const adj = db.prepare('SELECT * FROM quote_adjustments WHERE id = ? AND quote_id = ?').get(req.params.aid, req.params.id);
     if (!adj) return res.status(404).json({ error: 'Adjustment not found' });
     db.prepare('DELETE FROM quote_adjustments WHERE id = ?').run(req.params.aid);
-    logActivity(req.params.id, 'adjustment_removed', `Adjustment removed: ${adj.label}`, null, null, req);
-    markUnsignedChangesIfApproved(req.params.id);
+    logActivity(db, req.params.id, 'adjustment_removed', `Adjustment removed: ${adj.label}`, null, null, req);
+    markUnsignedChangesIfApproved(db, req.params.id);
     const adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ? ORDER BY sort_order ASC, id ASC').all(req.params.id);
     res.json({ deleted: true, adjustments });
   });
 
   // POST /api/quotes/:id/approve — set status to 'approved'
   router.post('/:id/approve', (req, res) => {
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    if (!quote) return res.status(404).json({ error: 'Not found' });
-
-    db.prepare("UPDATE quotes SET status = 'approved', has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?")
-      .run(req.params.id);
-
-    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    res.json({ quote: updated });
+    try {
+      const result = quoteService.transitionQuoteStatus({
+        db,
+        quoteId: req.params.id,
+        fromStatuses: ['draft', 'sent', 'approved', 'confirmed', 'closed'],
+        toStatus: 'approved',
+        actor: req.user,
+        clearUnsignedChanges: true,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
   });
 
   // POST /api/quotes/:id/revert — revert approved/sent back to draft
   router.post('/:id/revert', (req, res) => {
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    if (!quote) return res.status(404).json({ error: 'Not found' });
-
-    db.prepare("UPDATE quotes SET status = 'draft', has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?")
-      .run(req.params.id);
-
-    const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    res.json({ quote: updated });
+    try {
+      const result = quoteService.transitionQuoteStatus({
+        db,
+        quoteId: req.params.id,
+        fromStatuses: ['draft', 'sent', 'approved', 'confirmed', 'closed'],
+        toStatus: 'draft',
+        actor: req.user,
+        clearUnsignedChanges: true,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
   });
 
   // DELETE /api/quotes/:id
@@ -788,44 +729,12 @@ module.exports = function makeRouter(db, uploadsDir) {
 
   // POST /api/quotes/:id/duplicate — create a copy (same details, items, custom items); no lead_id
   router.post('/:id/duplicate', (req, res) => {
-    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
-    if (!quote) return res.status(404).json({ error: 'Not found' });
-
-    const result = db.prepare(`
-      INSERT INTO quotes (name, guest_count, event_date, notes, venue_name, venue_email, venue_phone, venue_address, venue_contact, venue_notes, quote_notes, tax_rate, client_first_name, client_last_name, client_email, client_phone, client_address, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
-    `).run(
-      (quote.name || 'Quote') + ' (copy)',
-      quote.guest_count ?? 0,
-      quote.event_date || null,
-      quote.notes || null,
-      quote.venue_name || null,
-      quote.venue_email || null,
-      quote.venue_phone || null,
-      quote.venue_address || null,
-      quote.venue_contact || null,
-      quote.venue_notes || null,
-      quote.quote_notes || null,
-      quote.tax_rate != null ? quote.tax_rate : null,
-      quote.client_first_name || null,
-      quote.client_last_name || null,
-      quote.client_email || null,
-      quote.client_phone || null,
-      quote.client_address || null
-    );
-    const newId = result.lastInsertRowid;
-
-    const items = db.prepare('SELECT item_id, quantity, label, sort_order, hidden_from_quote FROM quote_items WHERE quote_id = ? ORDER BY sort_order, id').all(req.params.id);
-    const itemStmt = db.prepare('INSERT INTO quote_items (quote_id, item_id, quantity, label, sort_order, hidden_from_quote) VALUES (?, ?, ?, ?, ?, ?)');
-    items.forEach(it => itemStmt.run(newId, it.item_id, it.quantity ?? 1, it.label, it.sort_order ?? 0, it.hidden_from_quote ?? 0));
-
-    const customItems = db.prepare('SELECT title, unit_price, quantity, photo_url, taxable, sort_order FROM quote_custom_items WHERE quote_id = ? ORDER BY sort_order, id').all(req.params.id);
-    const customStmt = db.prepare('INSERT INTO quote_custom_items (quote_id, title, unit_price, quantity, photo_url, taxable, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    customItems.forEach(ci => customStmt.run(newId, ci.title, ci.unit_price ?? 0, ci.quantity ?? 1, ci.photo_url, ci.taxable ?? 1, ci.sort_order ?? 0));
-
-    db.prepare("UPDATE quotes SET public_token = NULL WHERE id = ?").run(newId);
-    const newQuote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(newId);
-    res.status(201).json({ quote: newQuote });
+    try {
+      const result = quoteService.duplicateQuote({ db, sourceQuoteId: req.params.id });
+      res.status(201).json(result);
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
   });
 
   // POST /api/quotes/:id/items
@@ -844,52 +753,19 @@ module.exports = function makeRouter(db, uploadsDir) {
       'INSERT INTO quote_items (quote_id, item_id, quantity, label, sort_order, hidden_from_quote) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(req.params.id, item_id, quantity, label || null, sort_order, hidden);
 
-    // Upsert item_stats
-    const guestCount = quote.guest_count || 0;
-    const existing = db.prepare('SELECT id, times_quoted, total_guests FROM item_stats WHERE item_id = ?').get(item_id);
-    if (existing) {
-      db.prepare(`
-        UPDATE item_stats SET
-          times_quoted = times_quoted + 1,
-          total_guests = total_guests + ?,
-          last_used_at = datetime('now')
-        WHERE item_id = ?
-      `).run(guestCount, item_id);
-    } else {
-      db.prepare(
-        "INSERT INTO item_stats (item_id, times_quoted, total_guests, last_used_at) VALUES (?, 1, ?, datetime('now'))"
-      ).run(item_id, guestCount);
-    }
-
-    // Update usage_brackets
-    if (guestCount > 0) {
-      const bMin = Math.floor(guestCount / 25) * 25;
-      const bMax = bMin + 24;
-      const existingBracket = db.prepare(
-        'SELECT id FROM usage_brackets WHERE item_id = ? AND bracket_min = ?'
-      ).get(item_id, bMin);
-
-      if (existingBracket) {
-        db.prepare('UPDATE usage_brackets SET times_used = times_used + 1 WHERE id = ?')
-          .run(existingBracket.id);
-      } else {
-        db.prepare(
-          'INSERT INTO usage_brackets (item_id, bracket_min, bracket_max, times_used) VALUES (?, ?, ?, 1)'
-        ).run(item_id, bMin, bMax);
-      }
-    }
+    upsertItemStats(db, item_id, quote.guest_count || 0);
 
     const qitem = db.prepare('SELECT * FROM quote_items WHERE id = ?').get(result.lastInsertRowid);
     const title = (label || item.title || '').trim() || item.title || 'Item';
-    const newVal = `Title: ${title}, Unit price: $${(item.unit_price || 0).toFixed(2)}, Qty: ${quantity || 1}`;
-    logActivity(req.params.id, 'item_added', 'Added line item: ' + title, null, newVal, req);
-    markUnsignedChangesIfApproved(req.params.id);
+    const newVal = buildQuoteItemSnapshot({ label: title, item_title: item.title, unit_price: item.unit_price, quantity: quantity || 1 });
+    logActivity(db, req.params.id, 'item_added', 'Added line item: ' + title, null, newVal, req);
+    markUnsignedChangesIfApproved(db, req.params.id);
     res.status(201).json({ qitem });
   });
 
   // PUT /api/quotes/:id/items/:qitem_id — zero quantity removes the item
   router.put('/:id/items/:qitem_id', (req, res) => {
-    const { quantity, label, sort_order, hidden_from_quote, unit_price_override, discount_type, discount_amount } = req.body;
+    const { quantity, label, sort_order, hidden_from_quote, unit_price_override, discount_type, discount_amount, description, notes } = req.body;
     const oldRow = db.prepare(`
       SELECT qi.quantity, qi.label, qi.unit_price_override, i.title as item_title, i.unit_price
       FROM quote_items qi
@@ -900,11 +776,11 @@ module.exports = function makeRouter(db, uploadsDir) {
 
     const qtyNum = quantity !== undefined && quantity !== null ? Number(quantity) : null;
     if (qtyNum === 0) {
-      const oldVal = `Title: ${(oldRow.label || oldRow.item_title || '').trim() || oldRow.item_title || 'Item'}, Unit price: $${(oldRow.unit_price || 0).toFixed(2)}, Qty: ${oldRow.quantity ?? 1}`;
+      const oldVal = buildQuoteItemSnapshot(oldRow);
       db.prepare('DELETE FROM quote_items WHERE id = ? AND quote_id = ?')
         .run(req.params.qitem_id, req.params.id);
-      logActivity(req.params.id, 'item_removed', 'Removed line item (zero quantity)', oldVal, null, req);
-      markUnsignedChangesIfApproved(req.params.id);
+      logActivity(db, req.params.id, 'item_removed', 'Removed line item (zero quantity)', oldVal, null, req);
+      markUnsignedChangesIfApproved(db, req.params.id);
       return res.json({ deleted: true });
     }
 
@@ -922,7 +798,9 @@ module.exports = function makeRouter(db, uploadsDir) {
         hidden_from_quote   = COALESCE(?, hidden_from_quote),
         unit_price_override = ?,
         discount_type       = COALESCE(?, discount_type),
-        discount_amount     = COALESCE(?, discount_amount)
+        discount_amount     = COALESCE(?, discount_amount),
+        description         = COALESCE(?, description),
+        notes               = COALESCE(?, notes)
       WHERE id = ? AND quote_id = ?
     `).run(
       quantity !== undefined ? quantity : null,
@@ -932,6 +810,8 @@ module.exports = function makeRouter(db, uploadsDir) {
       newOverride !== undefined ? newOverride : null,
       discount_type !== undefined ? discount_type : null,
       discount_amount !== undefined ? parseFloat(discount_amount) : null,
+      description !== undefined ? description : null,
+      notes !== undefined ? notes : null,
       req.params.qitem_id,
       req.params.id
     );
@@ -942,12 +822,11 @@ module.exports = function makeRouter(db, uploadsDir) {
       JOIN items i ON i.id = qi.item_id
       WHERE qi.id = ? AND qi.quote_id = ?
     `).get(req.params.qitem_id, req.params.id);
-    const oldTitle = (oldRow.label || oldRow.item_title || '').trim() || oldRow.item_title || 'Item';
     const newTitle = (qitem.label || qitem.item_title || '').trim() || qitem.item_title || 'Item';
-    const oldVal = `Title: ${oldTitle}, Unit price: $${(oldRow.unit_price || 0).toFixed(2)}, Qty: ${oldRow.quantity ?? 1}`;
-    const newVal = `Title: ${newTitle}, Unit price: $${(qitem.unit_price || 0).toFixed(2)}, Qty: ${qitem.quantity ?? 1}`;
+    const oldVal = buildQuoteItemSnapshot(oldRow);
+    const newVal = buildQuoteItemSnapshot(qitem);
     if (oldVal !== newVal) {
-      logActivity(req.params.id, 'item_updated', 'Updated line item: ' + newTitle, oldVal, newVal, req);
+      logActivity(db, req.params.id, 'item_updated', 'Updated line item: ' + newTitle, oldVal, newVal, req);
     }
     const qitemFull = db.prepare('SELECT * FROM quote_items WHERE id = ?').get(req.params.qitem_id);
     res.json({ qitem: qitemFull });
@@ -961,13 +840,11 @@ module.exports = function makeRouter(db, uploadsDir) {
       JOIN items i ON i.id = qi.item_id
       WHERE qi.id = ? AND qi.quote_id = ?
     `).get(req.params.qitem_id, req.params.id);
-    const oldVal = oldRow
-      ? `Title: ${(oldRow.label || oldRow.item_title || '').trim() || oldRow.item_title || 'Item'}, Unit price: $${(oldRow.unit_price || 0).toFixed(2)}, Qty: ${oldRow.quantity ?? 1}`
-      : null;
+    const oldVal = buildQuoteItemSnapshot(oldRow);
     db.prepare('DELETE FROM quote_items WHERE id = ? AND quote_id = ?')
       .run(req.params.qitem_id, req.params.id);
-    if (oldVal) logActivity(req.params.id, 'item_removed', 'Removed line item', oldVal, null, req);
-    markUnsignedChangesIfApproved(req.params.id);
+    if (oldVal) logActivity(db, req.params.id, 'item_removed', 'Removed line item', oldVal, null, req);
+    markUnsignedChangesIfApproved(db, req.params.id);
     res.json({ deleted: true });
   });
 
@@ -984,9 +861,9 @@ module.exports = function makeRouter(db, uploadsDir) {
     ).run(req.params.id, title, unit_price, quantity, photo_url || null, taxable ? 1 : 0, sort_order);
 
     const item = db.prepare('SELECT * FROM quote_custom_items WHERE id = ?').get(result.lastInsertRowid);
-    const newVal = `Title: ${title}, Unit price: $${(Number(unit_price) || 0).toFixed(2)}, Qty: ${quantity || 1}`;
-    logActivity(req.params.id, 'custom_item_added', 'Added custom item: ' + title, null, newVal, req);
-    markUnsignedChangesIfApproved(req.params.id);
+    const newVal = buildCustomItemSnapshot({ title, unit_price, quantity: quantity || 1 });
+    logActivity(db, req.params.id, 'custom_item_added', 'Added custom item: ' + title, null, newVal, req);
+    markUnsignedChangesIfApproved(db, req.params.id);
     res.status(201).json({ item });
   });
 
@@ -1014,11 +891,11 @@ module.exports = function makeRouter(db, uploadsDir) {
 
     const qtyNum = quantity !== undefined && quantity !== null ? Number(quantity) : null;
     if (qtyNum === 0) {
-      const oldVal = `Title: ${oldRow.title || ''}, Unit price: $${(oldRow.unit_price || 0).toFixed(2)}, Qty: ${oldRow.quantity ?? 1}`;
+      const oldVal = buildCustomItemSnapshot(oldRow);
       db.prepare('DELETE FROM quote_custom_items WHERE id = ? AND quote_id = ?')
         .run(req.params.cid, req.params.id);
-      logActivity(req.params.id, 'custom_item_removed', 'Removed custom item (zero quantity)', oldVal, null, req);
-      markUnsignedChangesIfApproved(req.params.id);
+      logActivity(db, req.params.id, 'custom_item_removed', 'Removed custom item (zero quantity)', oldVal, null, req);
+      markUnsignedChangesIfApproved(db, req.params.id);
       return res.json({ deleted: true });
     }
 
@@ -1043,12 +920,12 @@ module.exports = function makeRouter(db, uploadsDir) {
     );
 
     const newRow = db.prepare('SELECT title, unit_price, quantity FROM quote_custom_items WHERE id = ? AND quote_id = ?').get(req.params.cid, req.params.id);
-    const oldVal = `Title: ${oldRow.title || ''}, Unit price: $${(oldRow.unit_price || 0).toFixed(2)}, Qty: ${oldRow.quantity ?? 1}`;
-    const newVal = `Title: ${newRow.title || ''}, Unit price: $${(newRow.unit_price || 0).toFixed(2)}, Qty: ${newRow.quantity ?? 1}`;
+    const oldVal = buildCustomItemSnapshot(oldRow);
+    const newVal = buildCustomItemSnapshot(newRow);
     if (oldVal !== newVal) {
-      logActivity(req.params.id, 'custom_item_updated', 'Updated custom item: ' + (newRow.title || ''), oldVal, newVal, req);
+      logActivity(db, req.params.id, 'custom_item_updated', 'Updated custom item: ' + (newRow.title || ''), oldVal, newVal, req);
     }
-    markUnsignedChangesIfApproved(req.params.id);
+    markUnsignedChangesIfApproved(db, req.params.id);
     const item = db.prepare('SELECT * FROM quote_custom_items WHERE id = ?').get(req.params.cid);
     res.json({ item });
   });
@@ -1056,13 +933,11 @@ module.exports = function makeRouter(db, uploadsDir) {
   // DELETE /api/quotes/:id/custom-items/:cid
   router.delete('/:id/custom-items/:cid', (req, res) => {
     const oldRow = db.prepare('SELECT title, unit_price, quantity FROM quote_custom_items WHERE id = ? AND quote_id = ?').get(req.params.cid, req.params.id);
-    const oldVal = oldRow
-      ? `Title: ${oldRow.title || ''}, Unit price: $${(oldRow.unit_price || 0).toFixed(2)}, Qty: ${oldRow.quantity ?? 1}`
-      : null;
+    const oldVal = buildCustomItemSnapshot(oldRow);
     db.prepare('DELETE FROM quote_custom_items WHERE id = ? AND quote_id = ?')
       .run(req.params.cid, req.params.id);
-    if (oldVal) logActivity(req.params.id, 'custom_item_removed', 'Removed custom item', oldVal, null, req);
-    markUnsignedChangesIfApproved(req.params.id);
+    if (oldVal) logActivity(db, req.params.id, 'custom_item_removed', 'Removed custom item', oldVal, null, req);
+    markUnsignedChangesIfApproved(db, req.params.id);
     res.json({ deleted: true });
   });
 

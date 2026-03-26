@@ -270,7 +270,6 @@
 
 .totalsCard {
   padding: 20px;
-  margin-top: 16px;
 }
 
 .totalsList {
@@ -315,9 +314,58 @@
 }
 
 .builderCol { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.exportCol { min-width: 0; position: sticky; top: 24px; align-self: start; }
+.exportCol { min-width: 0; position: sticky; top: 24px; align-self: start; display: flex; flex-direction: column; gap: 16px; }
 .exportCard { padding: 20px; }
 .exportTitle { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 14px; }
+
+/* Messages card (sales team view) */
+.msgList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.msgBubble {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.msgIn { border-left: 3px solid var(--color-primary); }
+.msgOut { border-left: 3px solid var(--color-accent); }
+.msgBubbleBody { margin-bottom: 4px; }
+.msgBubbleMeta { font-size: 11px; color: var(--color-text-muted); }
+.msgEmpty { font-size: 13px; color: var(--color-text-muted); font-style: italic; margin-bottom: 12px; }
+.msgForm { display: flex; flex-direction: column; gap: 8px; }
+.msgTextarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: var(--font);
+  resize: vertical;
+  box-sizing: border-box;
+}
+.msgTextarea:focus { outline: none; border-color: var(--color-primary); }
+.msgSendBtn {
+  align-self: flex-end;
+  padding: 6px 16px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.msgSendBtn:hover:not(:disabled) { filter: brightness(1.1); }
+.msgSendBtn:disabled { opacity: 0.5; cursor: default; }
 
 /* Custom Items */
 .customItemsBlock { padding: 12px 0; border-top: 1px solid var(--color-border); }

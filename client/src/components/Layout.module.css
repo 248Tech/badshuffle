@@ -108,11 +108,9 @@
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   background: var(--color-surface);
-  padding: 24px 32px;
+  padding: 20px 24px;
 }
 
 .mainInner {
   width: 100%;
-  max-width: 1440px;
-  margin: 0 auto;
 }

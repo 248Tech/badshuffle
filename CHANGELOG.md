@@ -12,8 +12,28 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.0.6** - UI foundation and layout redesign release
 - **0.0.7** - Projects-first workflow and operations tooling release
 - **0.0.8** - Navigation, admin backup, UX polish, and hotfix stabilization release
+- **0.0.9** - Security hardening and quote-workflow refactor release
 
 ---
+
+## [0.0.9] - 2026-03-26
+
+### Added
+- **Quote workflow service modules** - Added `server/lib/quoteActivity.js`, `server/services/itemStatsService.js`, and `server/services/quoteService.js` so activity logging, item analytics bookkeeping, quote send, duplication, and status transitions are reusable outside the route layer.
+- **Quote UI extraction primitives** - Added `client/src/lib/quoteTotals.js`, `client/src/hooks/useQuoteDetail.js`, extracted quote modals (`ImagePicker`, `QuoteFilePicker`, `QuoteSendModal`), and dedicated `quote-builder/` panel components.
+- **Release notes for 0.0.9** - Added a dedicated `RELEASE_NOTES_0.0.9.md` summary for packaging/tagging and downstream release publishing.
+
+### Changed
+- **Quote detail architecture** - `QuoteDetailPage.jsx` has been reduced substantially by moving shared state and modal/file-picker concerns into dedicated modules.
+- **Quote builder architecture** - `QuoteBuilder.jsx` now delegates line-item editing, adjustment management, and inventory browsing to smaller focused panels.
+- **Shared pricing logic** - Public and operator quote totals now derive from the same shared helper instead of duplicating pricing/adjustment math in two pages.
+- **Backend route structure** - `server/routes/quotes.js` now routes through extracted quote services/helpers instead of hosting the core orchestration inline.
+
+### Fixed
+- **JWT and extension-auth fallback behavior** - Auth middleware no longer leaves broad route access coupled to a generic extension token path.
+- **Public file and quote exposure** - File serving and public quote payloads now use tighter access checks and smaller response surfaces.
+- **Upload and attachment safety** - File uploads are validated from actual file signatures, and outbound quote mail only attaches files already linked to the quote.
+- **Public quote state mutation guardrails** - Public approval/signing-related flows now have stronger state checks and safer backend handling.
 
 ## [0.0.8] - 2026-03-24
 
