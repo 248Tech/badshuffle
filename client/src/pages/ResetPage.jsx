@@ -33,7 +33,7 @@ export default function ResetPage() {
     return (
       <div className={styles.page}>
         <div className={styles.card}>
-          <div className={styles.logo}>🔀</div>
+          <div className={styles.logo} aria-hidden="true">🔀</div>
           <h1 className={styles.title}>Invalid link</h1>
           <p className={styles.sub}>This reset link is missing a token.</p>
           <div className={styles.footer}>
@@ -47,7 +47,7 @@ export default function ResetPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <div className={styles.logo}>🔀</div>
+        <div className={styles.logo} aria-hidden="true">🔀</div>
         <h1 className={styles.title}>Set new password</h1>
 
         {done ? (
@@ -59,7 +59,7 @@ export default function ResetPage() {
           </>
         ) : (
           <form onSubmit={handleSubmit} className={styles.form}>
-            {error && <div className={styles.error}>{error}</div>}
+            {error && <div className={styles.error} role="alert">{error}</div>}
             <label className={styles.label}>
               New password
               <input

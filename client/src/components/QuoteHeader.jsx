@@ -40,28 +40,28 @@ export default function QuoteHeader({
       {showTopRow && (
         <div className={styles.topRow}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
-            ← Projects
+            <span aria-hidden="true">←</span> Projects
           </button>
           <div className={styles.actions + ' ' + styles.actionsTint}>
             <button type="button" className="btn btn-primary btn-sm" onClick={onSend} title="Email project link to client">
               Send to Client
             </button>
             {typeof onViewQuote === 'function' && (
-              <button type="button" className="btn btn-primary btn-sm" onClick={onViewQuote} title="Open client-viewable project in new tab">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={onViewQuote} title="Open client-viewable project in new tab">
                 View Project
               </button>
             )}
             {quote.public_token && (
-              <button type="button" className="btn btn-primary btn-sm" onClick={onCopyLink}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={onCopyLink}>
                 Copy Client Link
               </button>
             )}
-            <button type="button" className="btn btn-primary btn-sm" onClick={onAISuggest}>
-              ✨ AI Suggest
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onAISuggest}>
+              <span aria-hidden="true">✨</span> AI Suggest
             </button>
             <button
               type="button"
-              className="btn btn-primary btn-sm"
+              className="btn btn-ghost btn-sm"
               disabled={duplicating}
               onClick={onDuplicate}
               title="Duplicate this project (same details and line items)"
@@ -102,12 +102,17 @@ export default function QuoteHeader({
       <div className={styles.meta}>
         {date && (
           <span className={styles.metaTag} aria-label={`Event date: ${date}`}>
-            📅 {date}
+            <span aria-hidden="true">📅</span> {date}
           </span>
         )}
         {quote.guest_count > 0 && (
           <span className={styles.metaTag} aria-label={`${quote.guest_count} guests`}>
-            👥 {quote.guest_count} guests
+            <span aria-hidden="true">👥</span> {quote.guest_count} guests
+          </span>
+        )}
+        {quote.event_type && (
+          <span className={styles.metaTag} aria-label={`Event type: ${quote.event_type}`}>
+            {quote.event_type}
           </span>
         )}
         <span className={styles.metaTag} aria-label={`${itemCount} items`}>
@@ -120,14 +125,14 @@ export default function QuoteHeader({
           title="View messages for this project"
           aria-label="View client messages"
         >
-          ✉ Messages
+          <span aria-hidden="true">✉</span> Messages
         </button>
         {expiresAt && (
           <span
             className={`${styles.metaTag} ${isExpired ? styles.metaTagExpired : expiringSoon ? styles.metaTagExpiringSoon : ''}`}
             aria-label={isExpired ? `Expired ${expiresAt}` : `Expires ${expiresAt}`}
           >
-            ⏱ {isExpired ? 'Expired' : 'Expires'} {expiresAt}
+            <span aria-hidden="true">⏱</span> {isExpired ? 'Expired' : 'Expires'} {expiresAt}
           </span>
         )}
       </div>
@@ -136,7 +141,7 @@ export default function QuoteHeader({
 
       {isExpired && (
         <div className={styles.expiredBanner} role="alert">
-          <span className={styles.unsignedIcon}>🚫</span>
+          <span className={styles.unsignedIcon} aria-hidden="true">🚫</span>
           <span className={styles.expiredText}>
             This project expired on {expiresAt}. The client can no longer view or approve it.
           </span>
@@ -150,7 +155,7 @@ export default function QuoteHeader({
 
       {showUnsignedChanges && (
         <div className={styles.unsignedBanner} role="alert">
-          <span className={styles.unsignedIcon}>⚠️</span>
+          <span className={styles.unsignedIcon} aria-hidden="true">⚠️</span>
           <span className={styles.unsignedText}>
             Changes were made after this project was signed. Send the updated contract to the client for re-approval.
           </span>

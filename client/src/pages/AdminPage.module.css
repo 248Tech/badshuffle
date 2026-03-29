@@ -6,7 +6,7 @@
   align-items: flex-start;
 }
 
-.title { font-size: 22px; font-weight: 700; }
+.title { font-size: clamp(18px, 2.2vw, 24px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
 .sub { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
 
 .createForm {
@@ -93,12 +93,12 @@
 .table tbody tr:hover { background: var(--color-surface); }
 .table tbody tr:last-child td { border-bottom: none; }
 
-.actions { display: flex; gap: 6px; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .badgeApproved {
   display: inline-block;
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--color-success-subtle);
+  color: var(--color-success-strong);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
@@ -107,8 +107,8 @@
 
 .badgePending {
   display: inline-block;
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-subtle);
+  color: var(--color-warning-strong);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
@@ -144,8 +144,8 @@
 
 .badgeUpdate {
   display: inline-block;
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-subtle);
+  color: var(--color-warning-strong);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
@@ -153,8 +153,8 @@
 }
 .badgeCurrent {
   display: inline-block;
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--color-success-subtle);
+  color: var(--color-success-strong);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;

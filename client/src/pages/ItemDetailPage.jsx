@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../components/Toast.jsx';
 import styles from './ItemDetailPage.module.css';
@@ -7,11 +7,12 @@ import styles from './ItemDetailPage.module.css';
 export default function ItemDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
 
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(!!location.state?.autoEdit);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -71,16 +72,45 @@ export default function ItemDetailPage() {
     }
   };
 
-  if (loading) return <div className="empty-state"><div className="spinner" /></div>;
+  if (loading) return (
+    <div className={styles.page} aria-busy="true" aria-label="Loading item">
+      <div className={styles.topBar} aria-hidden="true">
+        <div className="skeleton" style={{ height: 30, width: 100, borderRadius: 6 }} />
+        <div className="skeleton" style={{ height: 30, width: 64, borderRadius: 6 }} />
+      </div>
+      <div className={styles.layout} aria-hidden="true">
+        <div className={styles.imageCol}>
+          <div className="skeleton" style={{ width: '100%', paddingTop: '75%', borderRadius: 8 }} />
+          <div className="skeleton" style={{ height: 22, width: 80, borderRadius: 999 }} />
+        </div>
+        <div className={styles.infoCol}>
+          <div className="skeleton" style={{ height: 28, width: '55%', borderRadius: 6 }} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i}>
+                <div className="skeleton" style={{ height: 11, width: 60, borderRadius: 3, marginBottom: 5 }} />
+                <div className="skeleton" style={{ height: 18, width: 80, borderRadius: 4 }} />
+              </div>
+            ))}
+          </div>
+          <div>
+            <div className="skeleton" style={{ height: 11, width: 80, borderRadius: 3, marginBottom: 8 }} />
+            <div className="skeleton" style={{ height: 13, width: '90%', borderRadius: 4, marginBottom: 5 }} />
+            <div className="skeleton" style={{ height: 13, width: '70%', borderRadius: 4 }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   if (!item) return null;
 
   return (
     <div className={styles.page}>
       <div className={styles.topBar}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/inventory')}>
-          ← Inventory
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/inventory')}>
+          <span aria-hidden="true">←</span> Inventory
         </button>
-        <button className="btn btn-ghost btn-sm" onClick={() => setEditing(v => !v)}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(v => !v)}>
           {editing ? 'Cancel' : '✏️ Edit'}
         </button>
       </div>
@@ -97,7 +127,7 @@ export default function ItemDetailPage() {
                 onError={() => setImgError(true)}
               />
             ) : (
-              <img src="/placeholder.png" alt="" className={styles.img} aria-hidden />
+              <img src="/placeholder.png" alt="" className={styles.img} aria-hidden="true" />
             )}
           </div>
           {item.category && <span className={`badge ${styles.catBadge}`}>{item.category}</span>}
@@ -108,39 +138,39 @@ export default function ItemDetailPage() {
           {editing ? (
             <form onSubmit={handleSave} className={styles.form}>
               <div className="form-group">
-                <label>Title *</label>
-                <input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+                <label htmlFor="idp-title">Title *</label>
+                <input id="idp-title" required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
               </div>
               <div className={styles.formRow}>
                 <div className="form-group">
-                  <label>Category</label>
-                  <input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                  <label htmlFor="idp-category">Category</label>
+                  <input id="idp-category" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                     list="cat-list" placeholder="e.g. Chairs" />
                   <datalist id="cat-list">{categories.map(c => <option key={c} value={c} />)}</datalist>
                 </div>
                 <div className="form-group">
-                  <label>Unit Price ($)</label>
-                  <input type="number" min="0" step="0.01" value={form.unit_price}
+                  <label htmlFor="idp-price">Unit Price ($)</label>
+                  <input id="idp-price" type="number" min="0" step="0.01" value={form.unit_price}
                     onChange={e => setForm(f => ({ ...f, unit_price: e.target.value }))} placeholder="0.00" />
                 </div>
                 <div className="form-group">
-                  <label>Qty in Stock</label>
-                  <input type="number" min="0" value={form.quantity_in_stock}
+                  <label htmlFor="idp-stock">Qty in Stock</label>
+                  <input id="idp-stock" type="number" min="0" value={form.quantity_in_stock}
                     onChange={e => setForm(f => ({ ...f, quantity_in_stock: e.target.value }))} placeholder="0" />
                 </div>
                 <div className="form-group">
-                  <label>Labor hours</label>
-                  <input type="number" min="0" step="0.25" value={form.labor_hours}
+                  <label htmlFor="idp-labor">Labor hours</label>
+                  <input id="idp-labor" type="number" min="0" step="0.25" value={form.labor_hours}
                     onChange={e => setForm(f => ({ ...f, labor_hours: e.target.value }))} placeholder="0" />
                 </div>
               </div>
               <div className="form-group">
-                <label>Photo URL</label>
-                <input value={form.photo_url} onChange={e => setForm(f => ({ ...f, photo_url: e.target.value }))} placeholder="https://…" />
+                <label htmlFor="idp-photo">Photo URL</label>
+                <input id="idp-photo" value={form.photo_url} onChange={e => setForm(f => ({ ...f, photo_url: e.target.value }))} placeholder="https://…" />
               </div>
               <div className="form-group">
-                <label>Description</label>
-                <textarea rows={3} value={form.description}
+                <label htmlFor="idp-desc">Description</label>
+                <textarea id="idp-desc" rows={3} value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
               </div>
               <div className={styles.checkboxRow}>

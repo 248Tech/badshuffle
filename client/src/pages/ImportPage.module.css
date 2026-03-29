@@ -1,41 +1,59 @@
 .page { display: flex; flex-direction: column; gap: 20px; }
 .header { display: flex; flex-direction: column; gap: 4px; }
-.title { font-size: 22px; font-weight: 700; }
+.title { font-size: clamp(18px, 2.2vw, 24px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
 .sub { font-size: 13px; color: var(--color-text-muted); }
 
 .stepper {
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 4px 0 8px;
+  padding: 4px 0 12px;
 }
 .step {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: var(--color-text-muted);
-  transition: color 0.15s;
+  transition: color 0.2s;
 }
 .stepActive { color: var(--color-primary); }
-.stepDone { color: var(--color-success, #38a169); }
+.stepDone { color: var(--color-success); }
 .stepNum {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--color-border);
+  border: 2px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;
-  transition: background 0.15s;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
-.stepActive .stepNum { background: var(--color-primary); color: #fff; }
-.stepDone .stepNum { background: var(--color-success, #38a169); color: #fff; }
-.stepLabel { font-size: 13px; font-weight: 500; white-space: nowrap; }
-.stepLine { flex: 1; height: 2px; background: var(--color-border); min-width: 24px; margin: 0 6px; transition: background 0.15s; }
-.stepLineDone { background: var(--color-success, #38a169); }
+.stepActive .stepNum {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 0 0 4px var(--color-primary-subtle);
+}
+.stepDone .stepNum {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: #fff;
+}
+.stepLabel { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.stepLine {
+  flex: 1;
+  height: 2px;
+  background: var(--color-border);
+  min-width: 20px;
+  margin: 0 8px;
+  border-radius: 2px;
+  transition: background 0.3s;
+}
+.stepLineDone { background: var(--color-success); }
 
 .card { padding: 24px; }
 .form { display: flex; flex-direction: column; gap: 16px; }
@@ -70,7 +88,7 @@
   text-align: left;
 }
 .previewTable th { background: var(--color-surface); font-weight: 600; position: sticky; top: 0; }
-.highlightCol { background: #edf8f0 !important; }
+.highlightCol { background: var(--color-success-subtle) !important; }
 
 .formActions { display: flex; gap: 8px; }
 

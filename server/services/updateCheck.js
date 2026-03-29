@@ -10,7 +10,7 @@
 const https = require('https');
 
 const REPO        = '248Tech/badshuffle';
-const API_URL     = 'https://api.github.com/repos/' + REPO + '/releases/latest';
+const API_URL     = 'https://api.github.com/repos/' + REPO + '/releases?per_page=20';
 const THROTTLE_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 function getVersion() {
@@ -25,6 +25,13 @@ function isNewer(current, latest) {
     if ((b[i] || 0) < (a[i] || 0)) return false;
   }
   return false;
+}
+
+function hasInstallAssets(release) {
+  var names = new Set((release.assets || []).map(function(a) { return a.name; }));
+  return names.has('badshuffle-server.exe') &&
+    names.has('badshuffle-client.exe') &&
+    names.has('www.zip');
 }
 
 function fetchJson(url) {
@@ -74,8 +81,13 @@ async function run(db) {
     }
 
     console.log('[update-check] Checking for updates…');
-    var release = await fetchJson(API_URL);
-    var latest = release.tag_name;
+    var releases = await fetchJson(API_URL);
+    if (!Array.isArray(releases) || releases.length === 0) {
+      throw new Error('No releases returned');
+    }
+
+    var latestRelease = releases.find(function(r) { return hasInstallAssets(r); }) || releases[0];
+    var latest = latestRelease && latestRelease.tag_name;
     if (!latest) throw new Error('No tag_name in response');
 
     var current = getVersion();

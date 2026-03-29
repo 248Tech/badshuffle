@@ -3,7 +3,9 @@
 }
 
 .title {
-  font-size: 22px;
+  font-size: clamp(18px, 2.2vw, 24px);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
   font-weight: 700;
   margin-bottom: 24px;
 }
@@ -57,4 +59,5 @@
 .actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }

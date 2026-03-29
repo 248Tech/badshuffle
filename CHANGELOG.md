@@ -13,8 +13,30 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.0.7** - Projects-first workflow and operations tooling release
 - **0.0.8** - Navigation, admin backup, UX polish, and hotfix stabilization release
 - **0.0.9** - Security hardening and quote-workflow refactor release
+- **0.0.10** - Workflow expansion, public quote polish, and release-readiness release
 
 ---
+
+## [0.0.10] - 2026-03-29
+
+### Added
+- **Section-aware quote workflows** - Quote item areas now support editable titles, duplication/deletion, grouped subtotals, and richer public/export rendering aligned to client-visible structure.
+- **Settings-backed event and file governance** - Added configurable event types, optional auto-append-city project naming, and a settings-driven extra allowed file type list for uploads.
+- **Signed contract artifact lifecycle** - Contract signing now preserves versioned signed PDFs and surfaces stronger audit metadata around signature events/files.
+- **Release notes for 0.0.10** - Added `RELEASE_NOTES_0.0.10.md` to support packaging, tagging, and downstream release publishing.
+
+### Changed
+- **Public quote experience** - Client quote views now show section titles, section date ranges, item descriptions, and section subtotals instead of flattening everything into one generic item list.
+- **Project financial clarity** - Signed projects, unsigned changes, and outstanding balance visibility now follow signed-state rules more closely in list/tile and detail flows.
+- **Inventory editing UX** - Inventory item editing can now stay in-context via a right-side slideout instead of forcing a full-page jump from the inventory grid.
+- **Route transition performance** - App navigation now warms likely route bundles after auth and prefetches target pages on hover/focus for faster first-hit transitions.
+- **GitHub/discoverability metadata** - README, package metadata, release badges, and release-facing copy were refreshed to better communicate product scope and engineering quality.
+
+### Fixed
+- **Quote section deletion semantics** - Deleting a quote item group now deletes the items inside it instead of orphaning/moving them unexpectedly.
+- **Public quote grouping bugs** - Client-facing quote sections now use their actual configured titles and latest live-state data, including unsigned changes where appropriate.
+- **Project tile interaction** - Clicking a project tile now opens the project instead of trapping the user in accidental multi-select behavior.
+- **Inventory card navigation** - Clicking inventory card media/title from the inventory page now opens the edit workflow expected for that context.
 
 ## [0.0.9] - 2026-03-26
 

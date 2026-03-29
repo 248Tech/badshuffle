@@ -187,7 +187,34 @@ export default function TemplatesPage() {
     } catch (e) { toast.error(e.message); }
   };
 
-  if (loading) return <div className="empty-state"><div className="spinner" /></div>;
+  if (loading) return (
+    <div className={styles.page} aria-busy="true" aria-label="Loading templates">
+      <div aria-hidden="true">
+        <div className="skeleton" style={{ height: 22, width: 140, borderRadius: 5, marginBottom: 8 }} />
+        <div className="skeleton" style={{ height: 13, width: 280, borderRadius: 4 }} />
+      </div>
+      {Array.from({ length: 2 }).map((_, s) => (
+        <div key={s} className={`card ${styles.card}`} aria-hidden="true">
+          <div className={styles.cardHeader}>
+            <div>
+              <div className="skeleton" style={{ height: 16, width: 160, borderRadius: 5, marginBottom: 6 }} />
+              <div className="skeleton" style={{ height: 13, width: 220, borderRadius: 4 }} />
+            </div>
+            <div className="skeleton" style={{ height: 30, width: 100, borderRadius: 6, flexShrink: 0 }} />
+          </div>
+          <div className={styles.list}>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className={styles.row}>
+                <div className="skeleton" style={{ height: 14, borderRadius: 4 }} />
+                <div className="skeleton" style={{ height: 14, borderRadius: 4 }} />
+                <div className="skeleton" style={{ height: 28, width: 56, borderRadius: 6 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className={styles.page}>
@@ -228,16 +255,16 @@ export default function TemplatesPage() {
           <form onSubmit={handleSave} className={styles.form}>
             <h3 className={styles.formTitle}>{editing === 'new' ? 'New template' : 'Edit template'}</h3>
             <div className="form-group">
-              <label>Name *</label>
-              <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Quote cover email" />
+              <label htmlFor="tmpl-name">Name *</label>
+              <input id="tmpl-name" required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Quote cover email" />
             </div>
             <div className="form-group">
-              <label>Subject</label>
-              <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="Quote from..." />
+              <label htmlFor="tmpl-subject">Subject</label>
+              <input id="tmpl-subject" value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="Quote from..." />
             </div>
             <div className="form-group">
-              <label>Body</label>
-              <textarea rows={6} value={form.body_text} onChange={e => setForm(f => ({ ...f, body_text: e.target.value }))} placeholder="Email body (plain text)..." />
+              <label htmlFor="tmpl-body">Body</label>
+              <textarea id="tmpl-body" rows={6} value={form.body_text} onChange={e => setForm(f => ({ ...f, body_text: e.target.value }))} placeholder="Email body (plain text)..." />
             </div>
             <div className={styles.checkRow}>
               <label>
@@ -284,17 +311,17 @@ export default function TemplatesPage() {
           <form onSubmit={handleSaveContractTemplate} className={styles.form}>
             <h3 className={styles.formTitle}>{editingContract ? 'Edit contract template' : 'Add contract template'}</h3>
             <div className="form-group">
-              <label>Name *</label>
-              <input required value={contractForm.name} onChange={e => setContractForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Standard event contract" />
+              <label htmlFor="ct-name">Name *</label>
+              <input id="ct-name" required value={contractForm.name} onChange={e => setContractForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Standard event contract" />
             </div>
             <div className="form-group">
-              <label>Contract body (HTML or plain text)</label>
-              <textarea rows={8} value={contractForm.body_html} onChange={e => setContractForm(f => ({ ...f, body_html: e.target.value }))} placeholder="Paste or type contract text. Simple HTML allowed." />
+              <label htmlFor="ct-body">Contract body (HTML or plain text)</label>
+              <textarea id="ct-body" rows={8} value={contractForm.body_html} onChange={e => setContractForm(f => ({ ...f, body_html: e.target.value }))} placeholder="Paste or type contract text. Simple HTML allowed." />
             </div>
             <div className={styles.formRow}>
               <label className={styles.fileLabel}>
                 Upload file (.html or .txt)
-                <input type="file" accept=".html,.htm,.txt,text/html,text/plain" onChange={handleContractUpload} className={styles.fileInput} />
+                <input type="file" accept=".html,.htm,.txt,text/html,text/plain" onChange={handleContractUpload} className={styles.fileInput} aria-hidden="true" />
               </label>
             </div>
             <div className={styles.formActions}>
@@ -338,12 +365,12 @@ export default function TemplatesPage() {
           <form onSubmit={handleSavePolicy} className={styles.form}>
             <h3 className={styles.formTitle}>{editingPolicy === 'new' ? 'New payment policy' : 'Edit payment policy'}</h3>
             <div className="form-group">
-              <label>Name *</label>
-              <input required value={policyForm.name} onChange={e => setPolicyForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Standard payment schedule" />
+              <label htmlFor="pol-name">Name *</label>
+              <input id="pol-name" required value={policyForm.name} onChange={e => setPolicyForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Standard payment schedule" />
             </div>
             <div className="form-group">
-              <label>Body text (shown on public quote)</label>
-              <textarea rows={5} value={policyForm.body_text} onChange={e => setPolicyForm(f => ({ ...f, body_text: e.target.value }))} placeholder="e.g. 50% due at booking, 50% due 7 days before event." />
+              <label htmlFor="pol-body">Body text (shown on public quote)</label>
+              <textarea id="pol-body" rows={5} value={policyForm.body_text} onChange={e => setPolicyForm(f => ({ ...f, body_text: e.target.value }))} placeholder="e.g. 50% due at booking, 50% due 7 days before event." />
             </div>
             <div className={styles.checkRow}>
               <label>
@@ -393,12 +420,12 @@ export default function TemplatesPage() {
           <form onSubmit={handleSaveTerms} className={styles.form}>
             <h3 className={styles.formTitle}>{editingTerms === 'new' ? 'New rental terms' : 'Edit rental terms'}</h3>
             <div className="form-group">
-              <label>Name *</label>
-              <input required value={termsForm.name} onChange={e => setTermsForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Standard rental agreement" />
+              <label htmlFor="rt-name">Name *</label>
+              <input id="rt-name" required value={termsForm.name} onChange={e => setTermsForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Standard rental agreement" />
             </div>
             <div className="form-group">
-              <label>Body text (shown on public quote)</label>
-              <textarea rows={8} value={termsForm.body_text} onChange={e => setTermsForm(f => ({ ...f, body_text: e.target.value }))} placeholder="Enter your rental terms and conditions…" />
+              <label htmlFor="rt-body">Body text (shown on public quote)</label>
+              <textarea id="rt-body" rows={8} value={termsForm.body_text} onChange={e => setTermsForm(f => ({ ...f, body_text: e.target.value }))} placeholder="Enter your rental terms and conditions…" />
             </div>
             <div className={styles.checkRow}>
               <label>

@@ -58,7 +58,7 @@ const STEPS = [
     title: 'Pin the extension (optional)',
     body: (
       <>
-        Click the puzzle-piece icon (<strong>⑅</strong>) in the Chrome toolbar and pin{' '}
+        Click the puzzle-piece icon (<strong><span aria-hidden="true">⑅</span></strong>) in the Chrome toolbar and pin{' '}
         <strong>BadShuffle</strong> so it's always visible.
       </>
     ),
@@ -97,7 +97,7 @@ export default function ExtensionPage() {
       {/* Download bar */}
       <div className={`card ${styles.downloadBar}`}>
         <div className={styles.downloadInfo}>
-          <span className={styles.extIcon}>🧩</span>
+          <span className={styles.extIcon} aria-hidden="true">🧩</span>
           <div>
             <div className={styles.downloadTitle}>BadShuffle Extension</div>
             <div className={styles.downloadMeta}>Chrome Extension · Manifest V3</div>
@@ -108,7 +108,7 @@ export default function ExtensionPage() {
           download
           className={`btn btn-primary ${styles.downloadBtn}`}
         >
-          ⬇ Download ZIP
+          <span aria-hidden="true">⬇</span> Download ZIP
         </a>
       </div>
 
@@ -136,7 +136,7 @@ export default function ExtensionPage() {
         </p>
         <div className={styles.tokenRow}>
           <code className={styles.tokenCode}>{extToken || '…'}</code>
-          <button className={`btn btn-ghost ${styles.copyBtn}`} onClick={handleCopy} disabled={!extToken}>
+          <button type="button" className={`btn btn-ghost ${styles.copyBtn}`} onClick={handleCopy} disabled={!extToken}>
             {copied ? 'Copied!' : 'Copy'}
           </button>
         </div>
@@ -148,7 +148,7 @@ export default function ExtensionPage() {
         <ul className={styles.featureList}>
           {FEATURES.map((f, i) => (
             <li key={i} className={styles.featureItem}>
-              <span className={styles.featureBullet}>✓</span>
+              <span className={styles.featureBullet} aria-hidden="true">✓</span>
               {f}
             </li>
           ))}

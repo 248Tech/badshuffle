@@ -13,6 +13,60 @@ const ALLOWED = [
   { mime: 'application/pdf',  sig: [0x25, 0x50, 0x44, 0x46] },
 ];
 const ALLOWED_MIMES = new Set(ALLOWED.map(a => a.mime));
+const DEFAULT_ALLOWED_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+  '.pdf',
+]);
+
+function normalizeTypeToken(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (raw.includes('/')) return raw;
+  if (raw.startsWith('.')) return raw;
+  return `.${raw}`;
+}
+
+function getConfiguredAllowedTypes(db) {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'allowed_file_types'").get();
+  const configured = new Set();
+  for (const token of String(row?.value || '').split(/[\s,]+/)) {
+    const normalized = normalizeTypeToken(token);
+    if (normalized) configured.add(normalized);
+  }
+  return configured;
+}
+
+function getFileExtension(filename) {
+  return normalizeTypeToken(path.extname(String(filename || '')));
+}
+
+function isAllowedFileType(file, detectedMime, configuredAllowedTypes) {
+  const extension = getFileExtension(file.originalname);
+  const declaredMime = normalizeTypeToken(file.mimetype);
+  if (detectedMime && (ALLOWED_MIMES.has(detectedMime) || configuredAllowedTypes.has(detectedMime) || DEFAULT_ALLOWED_TYPES.has(detectedMime))) {
+    return true;
+  }
+  if (declaredMime && (configuredAllowedTypes.has(declaredMime) || DEFAULT_ALLOWED_TYPES.has(declaredMime))) {
+    return true;
+  }
+  if (extension && (configuredAllowedTypes.has(extension) || DEFAULT_ALLOWED_TYPES.has(extension))) {
+    return true;
+  }
+  return false;
+}
+
+function resolveStoredMime(file, detectedMime) {
+  return detectedMime || file.mimetype || 'application/octet-stream';
+}
 
 function detectMime(filePath) {
   const buf = Buffer.alloc(8);
@@ -50,16 +104,18 @@ module.exports = function makeRouter(db, uploadsDir) {
       return res.status(400).json({ error: 'No files provided' });
     }
     const userId = req.user ? req.user.id : null;
+    const configuredAllowedTypes = getConfiguredAllowedTypes(db);
     const inserted = [];
     for (const f of req.files) {
       const detectedMime = detectMime(f.path);
-      if (!detectedMime) {
+      if (!isAllowedFileType(f, detectedMime, configuredAllowedTypes)) {
         fs.unlinkSync(f.path);
         return res.status(400).json({ error: `Unsupported file type: ${f.originalname}` });
       }
+      const storedMime = resolveStoredMime(f, detectedMime);
       const result = db.prepare(
         'INSERT INTO files (original_name, stored_name, mime_type, size, uploaded_by) VALUES (?, ?, ?, ?, ?)'
-      ).run(f.originalname, f.filename, detectedMime, f.size, userId);
+      ).run(f.originalname, f.filename, storedMime, f.size, userId);
       inserted.push(db.prepare('SELECT id, original_name, mime_type, size, created_at FROM files WHERE id = ?').get(result.lastInsertRowid));
     }
     res.status(201).json({ files: inserted });

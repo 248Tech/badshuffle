@@ -1,0 +1,38 @@
+.attachRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.attachChip {
+  display: inline-block;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.attachChip:hover {
+  text-decoration: underline;
+}
+
+.linkList {
+  margin: 0 0 8px 16px;
+  padding: 0;
+  font-size: 13px;
+}
+
+.linkList a {
+  color: var(--color-primary);
+  word-break: break-all;
+}
+
+.replyHint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}

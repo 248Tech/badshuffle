@@ -55,12 +55,14 @@ export default function QuoteAdjustmentsPanel({ quoteId, adjustments = [], onAdj
         <form onSubmit={handleAddAdjustment} className={styles.adjForm}>
           <input
             required
+            aria-label="Adjustment label"
             placeholder="Label (e.g. Loyalty discount)"
             value={adjForm.label}
             onChange={(e) => setAdjForm((f) => ({ ...f, label: e.target.value }))}
             className={styles.adjLabelInput}
           />
           <select
+            aria-label="Adjustment type"
             value={adjForm.type}
             onChange={(e) => setAdjForm((f) => ({ ...f, type: e.target.value }))}
             className={styles.adjSelect}
@@ -69,6 +71,7 @@ export default function QuoteAdjustmentsPanel({ quoteId, adjustments = [], onAdj
             <option value="surcharge">Surcharge</option>
           </select>
           <select
+            aria-label="Value type"
             value={adjForm.value_type}
             onChange={(e) => setAdjForm((f) => ({ ...f, value_type: e.target.value }))}
             className={styles.adjSelect}
@@ -78,6 +81,7 @@ export default function QuoteAdjustmentsPanel({ quoteId, adjustments = [], onAdj
           </select>
           <input
             required
+            aria-label="Adjustment amount"
             type="number"
             min="0"
             step="0.01"
@@ -107,9 +111,10 @@ export default function QuoteAdjustmentsPanel({ quoteId, adjustments = [], onAdj
                   type="button"
                   className={styles.adjRemoveBtn}
                   onClick={() => handleRemoveAdjustment(adj.id)}
+                  aria-label={`Remove ${adj.label} adjustment`}
                   title="Remove"
                 >
-                  ✕
+                  <span aria-hidden="true">✕</span>
                 </button>
               </li>
             );

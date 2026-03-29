@@ -103,7 +103,7 @@ Do not suggest items already in the quote. Pick items that make sense for the gu
       res.json({ suggestions, source: 'ai' });
     } catch (e) {
       console.error('AI suggest error:', e.message);
-      fallbackSuggest();
+      return fallbackSuggest();
     }
   });
 

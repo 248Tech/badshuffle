@@ -18,7 +18,7 @@ function EyeIcon({ hidden, className }) {
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        aria-hidden
+        aria-hidden="true"
       >
         <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
         <line x1="1" y1="1" x2="23" y2="23" />
@@ -36,7 +36,7 @@ function EyeIcon({ hidden, className }) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      aria-hidden
+      aria-hidden="true"
     >
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
       <circle cx="12" cy="12" r="3" />
@@ -56,7 +56,7 @@ function ConflictStopSignIcon({ className, title }) {
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        aria-hidden
+        aria-hidden="true"
       >
         <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" />
         <line x1="12" y1="8" x2="12" y2="13" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" fill="none" />
@@ -78,7 +78,7 @@ function AvailableCheckIcon({ className, title }) {
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        aria-hidden
+        aria-hidden="true"
       >
         <path d="M20 6L9 17l-5-5" />
       </svg>
@@ -86,10 +86,29 @@ function AvailableCheckIcon({ className, title }) {
   );
 }
 
-export default function QuoteLineItemsPanel({ quoteId, items = [], availability = {}, onItemsChange }) {
+function PencilIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4M12 8h.01" />
+    </svg>
+  );
+}
+
+export default function QuoteLineItemsPanel({ quoteId, items = [], availability = {}, onItemsChange, onOpenDrawer, onOpenLightbox, title = 'Quote Items' }) {
   const toast = useToast();
   const [localQty, setLocalQty] = useState({});
   const debounceRef = useRef(null);
+  const [orderedItems, setOrderedItems] = useState(items || []);
 
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [priceInput, setPriceInput] = useState('');
@@ -107,8 +126,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
   const [quoteItemSaving, setQuoteItemSaving] = useState(false);
 
   useEffect(() => {
-    // When parent refetches after add, we can clear the flash marker naturally
-    // (kept behavior: still flashes when `newlyAddedItemId` is set by parent previously; now local)
+    setOrderedItems(items || []);
   }, [items]);
 
   useEffect(() => {
@@ -288,18 +306,19 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
     setDragOverId(null);
     const srcId = dragItemRef.current;
     if (!srcId || srcId === targetItem.qitem_id) return;
-    const list = [...(items || [])];
+    const list = [...orderedItems];
     const srcIdx = list.findIndex((i) => i.qitem_id === srcId);
     const tgtIdx = list.findIndex((i) => i.qitem_id === targetItem.qitem_id);
     if (srcIdx < 0 || tgtIdx < 0) return;
     const reordered = [...list];
     const [moved] = reordered.splice(srcIdx, 1);
     reordered.splice(tgtIdx, 0, moved);
-    onItemsChange();
+    setOrderedItems(reordered);
     try {
       await api.reorderQuoteItems(quoteId, reordered.map((i) => i.qitem_id));
       onItemsChange();
     } catch (_err) {
+      setOrderedItems(items || []);
       toast.error('Could not save new order');
     }
   };
@@ -321,10 +340,10 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
 
   return (
     <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>Quote Items ({items?.length || 0})</h3>
-      {(!items || items.length === 0) && <p className={styles.empty}>No items yet. Add from inventory below.</p>}
+      <h3 className={styles.sectionTitle}>{title} ({orderedItems?.length || 0})</h3>
+      {(!orderedItems || orderedItems.length === 0) && <p className={styles.empty}>No items yet. Add from inventory below.</p>}
       <div className={styles.quoteList}>
-        {(items || []).map((item) => {
+        {(orderedItems || []).map((item) => {
           const qty = item.quantity ?? 1;
           const basePrice = item.unit_price ?? 0;
           const hasOverride = item.unit_price_override != null;
@@ -353,7 +372,16 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
               onDrop={(e) => handleDrop(e, item)}
               onDragEnd={handleDragEnd}
             >
-              <span className={styles.dragHandle} title="Drag to reorder">
+                <button
+                type="button"
+                className={styles.itemActionBtn}
+                onClick={(e) => { e.stopPropagation(); openQuoteItemEdit(item); }}
+                title="Edit quote item"
+                aria-label={`Edit quote item: ${item.label || item.title}`}
+              >
+                <PencilIcon />
+              </button>
+              <span className={styles.dragHandle} title="Drag to reorder" aria-hidden="true">
                 ⠿
               </span>
               <div className={styles.thumbWrap}>
@@ -362,27 +390,16 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                     src={api.proxyImageUrl(item.photo_url)}
                     alt={item.title}
                     className={`${styles.thumb} ${styles.thumbClickable}`}
-                    onClick={() => openQuoteItemEdit(item)}
-                    onError={(e) => {
-                      e.target.src = '/placeholder.png';
-                    }}
+                    onClick={(e) => { e.stopPropagation(); onOpenLightbox?.([api.proxyImageUrl(item.photo_url)], 0); }}
+                    onError={(e) => { e.target.src = '/placeholder.png'; }}
                   />
                 ) : (
-                  <img
-                    src="/placeholder.png"
-                    alt=""
-                    className={`${styles.thumb} ${styles.thumbClickable}`}
-                    onClick={() => openQuoteItemEdit(item)}
-                    aria-hidden
-                  />
+                  <img src="/placeholder.png" alt="" className={styles.thumb} aria-hidden />
                 )}
                 <button
                   type="button"
                   className={styles.eyeBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleHidden(item);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); toggleHidden(item); }}
                   title={item.hidden_from_quote ? 'Show on customer quote' : 'Hide from customer quote'}
                   aria-label={item.hidden_from_quote ? 'Show on customer quote' : 'Hide from customer quote'}
                 >
@@ -391,9 +408,11 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
               </div>
               <span
                 className={styles.itemTitleLink}
-                onClick={() => openQuoteItemEdit(item)}
-                title="Edit quote item"
+                onClick={(e) => { e.stopPropagation(); onOpenDrawer?.(itemId); }}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpenDrawer?.(itemId)}
+                title="View item details"
                 role="button"
+                tabIndex={0}
               >
                 {avail && (avail.status === 'reserved' || avail.status === 'potential') && (
                   <ConflictStopSignIcon
@@ -442,6 +461,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                     type="button"
                     className={styles.priceEditSave}
                     onClick={() => commitPriceEdit(item)}
+                    aria-label="Save price"
                     title="Save"
                   >
                     ✓
@@ -450,6 +470,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                     type="button"
                     className={styles.priceEditCancel}
                     onClick={() => setEditingPriceId(null)}
+                    aria-label="Cancel price edit"
                     title="Cancel"
                   >
                     ✕
@@ -483,6 +504,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                     type="button"
                     className={styles.priceEditSave}
                     onClick={() => commitDiscountEdit(item)}
+                    aria-label="Apply discount"
                     title="Apply discount"
                   >
                     ✓
@@ -491,6 +513,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                     type="button"
                     className={styles.priceEditCancel}
                     onClick={() => setEditingDiscountId(null)}
+                    aria-label="Cancel discount edit"
                     title="Cancel"
                   >
                     ✕
@@ -503,12 +526,14 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                       hasDiscount ? styles.unitPriceDiscounted : ''
                     }`}
                     onClick={() => startPriceEdit(item)}
+                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && startPriceEdit(item)}
                     title={
                       hasOverride
                         ? `Override: $${overridePrice.toFixed(2)} (base: $${basePrice.toFixed(2)}). Click to edit.`
                         : `$${basePrice.toFixed(2)} — click to override for this quote`
                     }
                     role="button"
+                    tabIndex={0}
                   >
                     ${unitPrice.toFixed(2)}
                     {hasOverride && (
@@ -519,6 +544,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                           e.stopPropagation();
                           clearPriceOverride(item);
                         }}
+                        aria-label="Reset to base price"
                         title="Reset to base price"
                       >
                         ✕
@@ -529,7 +555,9 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                     <span
                       className={styles.discountBadge}
                       onClick={() => startDiscountEdit(item)}
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && startDiscountEdit(item)}
                       role="button"
+                      tabIndex={0}
                       title="Click to edit discount"
                     >
                       -{item.discount_type === 'percent' ? `${item.discount_amount}%` : `$${Number(item.discount_amount).toFixed(2)}`}
@@ -540,6 +568,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                           e.stopPropagation();
                           clearDiscount(item);
                         }}
+                        aria-label="Remove discount"
                         title="Remove discount"
                       >
                         ✕
@@ -551,6 +580,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                       className={styles.discountBtn}
                       onClick={() => startDiscountEdit(item)}
                       title="Add item discount"
+                      aria-label="Add item discount"
                     >
                       %
                     </button>
@@ -579,6 +609,17 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
               </div>
               <span className={styles.lineTotal}>${lineTotal.toFixed(2)}</span>
               {item.hidden_from_quote && <span className={styles.hiddenBadge}>Hidden from quote</span>}
+              {itemId != null && (
+                <button
+                  type="button"
+                  className={styles.itemActionBtn}
+                  onClick={(e) => { e.stopPropagation(); onOpenDrawer?.(itemId); }}
+                  title="View item details"
+                  aria-label={`View details: ${item.label || item.title}`}
+                >
+                  <InfoIcon />
+                </button>
+              )}
               <button
                 type="button"
                 className={styles.removeBtn}
@@ -597,10 +638,14 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
       </div>
 
       {editingQuoteItem && (
-        <div className={styles.qiModalOverlay} onClick={() => setEditingQuoteItem(null)}>
-          <div className={styles.qiModal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={styles.qiModalOverlay}
+          onClick={() => setEditingQuoteItem(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setEditingQuoteItem(null)}
+        >
+          <div className={styles.qiModal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="qi-modal-title">
             <div className={styles.qiModalHeader}>
-              <h3 className={styles.qiModalTitle}>Edit Quote Item</h3>
+              <h3 id="qi-modal-title" className={styles.qiModalTitle}>Edit Quote Item</h3>
               <button
                 type="button"
                 className={styles.qiModalClose}
@@ -611,10 +656,11 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
               </button>
             </div>
             <div className={styles.qiModalBody}>
-              <label className={styles.qiLabel}>
+              <label htmlFor="qi-alias" className={styles.qiLabel}>
                 Alias title <span className={styles.qiLabelHint}>(overrides display name on quote)</span>
               </label>
               <input
+                id="qi-alias"
                 type="text"
                 className={styles.qiInput}
                 placeholder={editingQuoteItem.title}
@@ -623,8 +669,9 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
               />
               <div className={styles.qiRow}>
                 <div className={styles.qiField}>
-                  <label className={styles.qiLabel}>Contract price</label>
+                  <label htmlFor="qi-price" className={styles.qiLabel}>Contract price</label>
                   <input
+                    id="qi-price"
                     type="number"
                     min="0"
                     step="0.01"
@@ -635,8 +682,9 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                   />
                 </div>
                 <div className={styles.qiField}>
-                  <label className={styles.qiLabel}>Quantity</label>
+                  <label htmlFor="qi-qty" className={styles.qiLabel}>Quantity</label>
                   <input
+                    id="qi-qty"
                     type="number"
                     min="1"
                     step="1"
@@ -646,20 +694,22 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
                   />
                 </div>
               </div>
-              <label className={styles.qiLabel}>
+              <label htmlFor="qi-desc" className={styles.qiLabel}>
                 Contract description <span className={styles.qiLabelHint}>(shown on quote)</span>
               </label>
               <textarea
+                id="qi-desc"
                 className={styles.qiTextarea}
                 rows={3}
                 placeholder="Contract-specific description…"
                 value={quoteItemForm.description}
                 onChange={(e) => setQuoteItemForm((f) => ({ ...f, description: e.target.value }))}
               />
-              <label className={styles.qiLabel}>
+              <label htmlFor="qi-notes" className={styles.qiLabel}>
                 Internal notes <span className={styles.qiLabelHint}>(not shown to client)</span>
               </label>
               <textarea
+                id="qi-notes"
                 className={styles.qiTextarea}
                 rows={2}
                 placeholder="Notes for your team…"
@@ -681,4 +731,3 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
     </div>
   );
 }
-

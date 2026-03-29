@@ -3,37 +3,38 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import Layout from './components/Layout.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import { api, getToken, setToken, clearToken } from './api';
+import { warmCoreRoutes } from './lib/routePrefetch.js';
 
 // ── Auth-path pages — eager (shown before JS bundle is fully parsed) ──────────
-import LoginPage  from './pages/LoginPage.jsx';
-import SetupPage  from './pages/SetupPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import SetupPage from './pages/SetupPage.jsx';
 import ForgotPage from './pages/ForgotPage.jsx';
-import ResetPage  from './pages/ResetPage.jsx';
+import ResetPage from './pages/ResetPage.jsx';
 
 // ── App pages — lazy (only parsed when first navigated to) ────────────────────
-const DashboardPage          = lazy(() => import('./pages/DashboardPage.jsx'));
-const InventoryPage          = lazy(() => import('./pages/InventoryPage.jsx'));
-const ItemDetailPage         = lazy(() => import('./pages/ItemDetailPage.jsx'));
-const ImportPage             = lazy(() => import('./pages/ImportPage.jsx'));
-const QuotePage              = lazy(() => import('./pages/QuotePage.jsx'));
-const QuoteDetailPage        = lazy(() => import('./pages/QuoteDetailPage.jsx'));
-const BillingPage            = lazy(() => import('./pages/BillingPage.jsx'));
-const StatsPage              = lazy(() => import('./pages/StatsPage.jsx'));
-const ExtensionPage          = lazy(() => import('./pages/ExtensionPage.jsx'));
-const LeadsPage              = lazy(() => import('./pages/LeadsPage.jsx'));
-const FilesPage              = lazy(() => import('./pages/FilesPage.jsx'));
-const MessagesPage           = lazy(() => import('./pages/MessagesPage.jsx'));
-const AdminPage              = lazy(() => import('./pages/AdminPage.jsx'));
-const TemplatesPage          = lazy(() => import('./pages/TemplatesPage.jsx'));
-const VendorsPage            = lazy(() => import('./pages/VendorsPage.jsx'));
-const SettingsPage           = lazy(() => import('./pages/SettingsPage.jsx'));
-const DirectoryPage          = lazy(() => import('./pages/DirectoryPage.jsx'));
-const InventorySettingsPage  = lazy(() => import('./pages/InventorySettingsPage.jsx'));
-const MessageSettingsPage    = lazy(() => import('./pages/MessageSettingsPage.jsx'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'));
+const InventoryPage = lazy(() => import('./pages/InventoryPage.jsx'));
+const ItemDetailPage = lazy(() => import('./pages/ItemDetailPage.jsx'));
+const ImportPage = lazy(() => import('./pages/ImportPage.jsx'));
+const QuotePage = lazy(() => import('./pages/QuotePage.jsx'));
+const QuoteDetailPage = lazy(() => import('./pages/QuoteDetailPage.jsx'));
+const BillingPage = lazy(() => import('./pages/BillingPage.jsx'));
+const StatsPage = lazy(() => import('./pages/StatsPage.jsx'));
+const ExtensionPage = lazy(() => import('./pages/ExtensionPage.jsx'));
+const LeadsPage = lazy(() => import('./pages/LeadsPage.jsx'));
+const FilesPage = lazy(() => import('./pages/FilesPage.jsx'));
+const MessagesPage = lazy(() => import('./pages/MessagesPage.jsx'));
+const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
+const TemplatesPage = lazy(() => import('./pages/TemplatesPage.jsx'));
+const VendorsPage = lazy(() => import('./pages/VendorsPage.jsx'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
+const DirectoryPage = lazy(() => import('./pages/DirectoryPage.jsx'));
+const InventorySettingsPage = lazy(() => import('./pages/InventorySettingsPage.jsx'));
+const MessageSettingsPage = lazy(() => import('./pages/MessageSettingsPage.jsx'));
 // Public pages — lazy (most users never visit these from inside the app)
-const PublicQuotePage        = lazy(() => import('./pages/PublicQuotePage.jsx'));
-const PublicCatalogPage      = lazy(() => import('./pages/PublicCatalogPage.jsx'));
-const PublicItemPage         = lazy(() => import('./pages/PublicItemPage.jsx'));
+const PublicQuotePage = lazy(() => import('./pages/PublicQuotePage.jsx'));
+const PublicCatalogPage = lazy(() => import('./pages/PublicCatalogPage.jsx'));
+const PublicItemPage = lazy(() => import('./pages/PublicItemPage.jsx'));
 
 function PageSpinner() {
   return (
@@ -101,7 +102,10 @@ function AuthGate({ children, setRole }) {
             if (!cancelled && data.token) {
               setToken(data.token);
               const me = await api.auth.me();
-              if (!cancelled) { setRole(me.role); setState('authed'); }
+              if (!cancelled) {
+                setRole(me.role);
+                setState('authed');
+              }
             }
           } catch {}
           if (!cancelled) setState('unauthed');
@@ -116,12 +120,19 @@ function AuthGate({ children, setRole }) {
     };
 
     doAuth();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [navigate, setRole, location.pathname]);
 
   useEffect(() => {
     if (location.pathname === '/login') hasRedirectedToLogin.current = false;
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (state !== 'authed') return undefined;
+    return warmCoreRoutes(location.pathname);
+  }, [state, location.pathname]);
 
   if (state === 'loading') return null;
   return children;
@@ -137,43 +148,53 @@ export default function App() {
           <Routes>
             {/* Public routes */}
             <Route path="/quote/public/:token" element={<PublicQuotePage />} />
-            <Route path="/catalog"             element={<PublicCatalogPage />} />
-            <Route path="/catalog/item/:id"    element={<PublicItemPage />} />
+            <Route path="/catalog" element={<PublicCatalogPage />} />
+            <Route path="/catalog/item/:id" element={<PublicItemPage />} />
 
             {/* App routes */}
-            <Route path="*" element={
-              <AuthGate setRole={setRole}>
-                <Routes>
-                  <Route path="/login"  element={<LoginPage />} />
-                  <Route path="/setup"  element={<SetupPage />} />
-                  <Route path="/forgot" element={<ForgotPage />} />
-                  <Route path="/reset"  element={<ResetPage />} />
+            <Route
+              path="*"
+              element={
+                <AuthGate setRole={setRole}>
+                  <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/setup" element={<SetupPage />} />
+                    <Route path="/forgot" element={<ForgotPage />} />
+                    <Route path="/reset" element={<ResetPage />} />
 
-                  <Route path="/" element={<ProtectedRoute><Layout role={role} /></ProtectedRoute>}>
-                    <Route index element={<Navigate to="/dashboard" replace />} />
-                    <Route path="dashboard"          element={<DashboardPage />} />
-                    <Route path="inventory"          element={<InventoryPage />} />
-                    <Route path="inventory/:id"      element={<ItemDetailPage />} />
-                    <Route path="import"             element={<ImportPage />} />
-                    <Route path="quotes"             element={<QuotePage />} />
-                    <Route path="quotes/:id"         element={<QuoteDetailPage />} />
-                    <Route path="billing"            element={<BillingPage />} />
-                    <Route path="stats"              element={<StatsPage />} />
-                    <Route path="extension"          element={<ExtensionPage />} />
-                    <Route path="leads"              element={<LeadsPage />} />
-                    <Route path="files"              element={<FilesPage />} />
-                    <Route path="messages"           element={<MessagesPage />} />
-                    <Route path="admin"              element={<AdminPage />} />
-                    <Route path="templates"          element={<TemplatesPage />} />
-                    <Route path="vendors"            element={<VendorsPage />} />
-                    <Route path="settings"           element={<SettingsPage />} />
-                    <Route path="directory"          element={<DirectoryPage />} />
-                    <Route path="inventory-settings" element={<InventorySettingsPage />} />
-                    <Route path="message-settings"   element={<MessageSettingsPage />} />
-                  </Route>
-                </Routes>
-              </AuthGate>
-            } />
+                    <Route
+                      path="/"
+                      element={
+                        <ProtectedRoute>
+                          <Layout role={role} />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<Navigate to="/dashboard" replace />} />
+                      <Route path="dashboard" element={<DashboardPage />} />
+                      <Route path="inventory" element={<InventoryPage />} />
+                      <Route path="inventory/:id" element={<ItemDetailPage />} />
+                      <Route path="import" element={<ImportPage />} />
+                      <Route path="quotes" element={<QuotePage />} />
+                      <Route path="quotes/:id" element={<QuoteDetailPage />} />
+                      <Route path="billing" element={<BillingPage />} />
+                      <Route path="stats" element={<StatsPage />} />
+                      <Route path="extension" element={<ExtensionPage />} />
+                      <Route path="leads" element={<LeadsPage />} />
+                      <Route path="files" element={<FilesPage />} />
+                      <Route path="messages" element={<MessagesPage />} />
+                      <Route path="admin" element={<AdminPage />} />
+                      <Route path="templates" element={<TemplatesPage />} />
+                      <Route path="vendors" element={<VendorsPage />} />
+                      <Route path="settings" element={<SettingsPage />} />
+                      <Route path="directory" element={<DirectoryPage />} />
+                      <Route path="inventory-settings" element={<InventorySettingsPage />} />
+                      <Route path="message-settings" element={<MessageSettingsPage />} />
+                    </Route>
+                  </Routes>
+                </AuthGate>
+              }
+            />
           </Routes>
         </Suspense>
       </BrowserRouter>

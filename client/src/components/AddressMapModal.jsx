@@ -213,7 +213,7 @@ export default function AddressMapModal({ address, companyAddress = '', mapboxTo
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
           <h3 className={styles.title}>{address || 'Address'}</h3>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">×</button>
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close"><span aria-hidden="true">×</span></button>
         </div>
         <div className={styles.body}>
           {!mapboxToken?.trim() && (
@@ -316,7 +316,7 @@ export default function AddressMapModal({ address, companyAddress = '', mapboxTo
                     disabled={zoom <= ZOOM_MIN}
                     aria-label="Zoom out"
                   >
-                    −
+                    <span aria-hidden="true">−</span>
                   </button>
                   <button
                     type="button"
@@ -325,7 +325,7 @@ export default function AddressMapModal({ address, companyAddress = '', mapboxTo
                     disabled={zoom >= ZOOM_MAX}
                     aria-label="Zoom in"
                   >
-                    +
+                    <span aria-hidden="true">+</span>
                   </button>
                 </div>
                 {imageError && <p className={styles.mapErrorOverlay}>Map image could not be loaded.</p>}

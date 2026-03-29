@@ -120,12 +120,12 @@ export default function LoginPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <div className={styles.logo}>🔀</div>
+        <div className={styles.logo} aria-hidden="true">🔀</div>
         <h1 className={styles.title}>BadShuffle</h1>
         <p className={styles.sub}>Sign in to your account</p>
 
         <form onSubmit={handleSubmit} className={styles.form}>
-          {error && <div className={styles.error}>{error}</div>}
+          {error && <div className={styles.error} role="alert">{error}</div>}
           <label className={styles.label}>
             Email
             <input

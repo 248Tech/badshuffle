@@ -23,6 +23,11 @@ Areas that are incomplete, stubbed, or represent technical debt. Use this to kno
 
 - **Status:** Partial. Quotes have `delivery_date`, `pickup_date`, `rental_start`, and `rental_end` used for availability overlap detection. Logistics is category-based (display and totals). No delivery/return status workflow (e.g. out/returned) or fulfillment state machine. `quote_damage_charges` table exists for post-event billing on closed quotes but no UI is implemented yet.
 
+### Quote item sections vs availability
+
+- **Status:** Partial but improved. `quote_item_sections` exists, quote items/custom items can belong to sections with their own rental windows, and availability now uses section-level date windows plus signed item snapshots for unsigned-change projects.
+- **Missing:** Export/print/PDF flows are still not consistently section-aware, and older signed quotes only gain true signed-vs-unsigned item snapshots after their next signature event.
+
 ---
 
 ## Technical Debt / Temporary Implementations
@@ -43,6 +48,13 @@ Areas that are incomplete, stubbed, or represent technical debt. Use this to kno
 
 - **Status:** No unit or integration tests in the repo. Verification is manual and via CLI/UI.
 
+### Signed contract artifacts
+
+- **Behavior:** Public contract signing now records typed signer name, IP, timestamp, signed total, and creates a signed-contract PDF file attached to the project.
+- **Behavior:** Signature events now also capture request user-agent and a quote snapshot hash, and signed-contract PDF attachments are locked against removal from the project Files API/UI.
+- **Behavior:** Signed item quantities/date windows are snapshotted in `contract_signature_items` per signature event so availability can distinguish committed signed quantities from pending unsigned additions.
+- **Gap:** This is an internal audit/history mechanism, not a formal compliance-reviewed e-signature platform implementation.
+
 ---
 
 ## UI Placeholders / Missing Validations
@@ -50,6 +62,8 @@ Areas that are incomplete, stubbed, or represent technical debt. Use this to kno
 - **Send modal:** No inline preview of email body or public quote link; optional improvement per STATUS.md.
 - **Role badge:** Role is available but not shown in header (backlog item).
 - **Public quote:** Works; no rate limiting or token expiry on public token (by design: token is permanent until quote is deleted).
+- **Public contract resign flow:** Works for unsigned-change quotes. Files tab now labels signed contract versions, but a richer dedicated contract-history surface may still be useful.
+- **Custom item descriptions:** Public quote can render them if present, but there is not yet a dedicated create/edit workflow for custom-item descriptions in the quote editor.
 
 ---
 
@@ -60,6 +74,7 @@ Areas that are incomplete, stubbed, or represent technical debt. Use this to kno
 - **File storage:** Files on disk in `uploads/`; no S3 or external storage. photo_url can be external URL (proxied) or file id (served via /api/files/:id/serve with signed URL for public).
 - **Bundles:** item_associations represent parent/child; UI can show components but current quote builder does not auto-expand bundles into line items (add parent or children manually).
 - **Permanent accessories:** `item_accessories` table exists and is managed in InventoryPage. When a product is added to a quote, its permanent accessories are NOT automatically added — that auto-add behavior is not yet implemented. The data is stored and surfaced on item edit; the quote builder must be updated to query and auto-insert accessories when the parent item is added.
+- **Project title city suffix:** Settings and client logic exist for optional ` - City` title suffixes, but the behavior is client-driven rather than server-enforced. Imports or non-UI quote creation paths may bypass it unless they apply the same helper logic.
 
 ---
 

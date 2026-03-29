@@ -26,7 +26,7 @@ export default function ForgotPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <div className={styles.logo}>🔀</div>
+        <div className={styles.logo} aria-hidden="true">🔀</div>
         <h1 className={styles.title}>Reset password</h1>
 
         {sent ? (
@@ -39,7 +39,7 @@ export default function ForgotPage() {
         ) : (
           <form onSubmit={handleSubmit} className={styles.form}>
             <p className={styles.sub}>Enter your email and we'll send a reset link.</p>
-            {error && <div className={styles.error}>{error}</div>}
+            {error && <div className={styles.error} role="alert">{error}</div>}
             <label className={styles.label}>
               Email
               <input

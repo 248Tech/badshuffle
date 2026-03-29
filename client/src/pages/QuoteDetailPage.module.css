@@ -11,7 +11,7 @@
   justify-content: space-between;
   align-items: center;
 }
-.topActions { display: flex; gap: 8px; }
+.topActions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Top section: divider + tabs + action buttons */
 .topDiv {
@@ -66,14 +66,26 @@
     align-items: stretch;
     gap: 8px;
   }
+  .tabsWrap::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 4px; /* accounts for padding-bottom on .tabs */
+    width: 32px;
+    background: linear-gradient(to right, transparent, var(--color-bg));
+    pointer-events: none;
+  }
   .tabs {
     overflow-x: auto;
     overflow-y: hidden;
     flex-wrap: nowrap;
     padding-bottom: 4px;
+    padding-right: 24px; /* room so last tab isn't hidden under the fade */
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    scrollbar-width: none;
   }
+  .tabs::-webkit-scrollbar { display: none; }
   .tabs .tab,
   .tabs .tabActive { flex-shrink: 0; }
   .topDivActions {
@@ -131,6 +143,10 @@
   background: rgba(229, 62, 62, 0.08) !important;
 }
 
+.tabsWrap {
+  position: relative;
+  min-width: 0;
+}
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
 .tab,
 .tabActive {
@@ -138,14 +154,23 @@
   font-size: 13px;
   border: 1px solid var(--color-primary);
   border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: #fff;
   cursor: pointer;
   flex-shrink: 0;
+  font-weight: 500;
+  transition: background 0.1s, color 0.1s;
 }
-.tab:hover,
+.tab {
+  background: transparent;
+  color: var(--color-primary);
+}
+.tab:hover {
+  background: var(--color-primary-subtle);
+}
+.tabActive {
+  background: var(--color-primary);
+  color: #fff;
+}
 .tabActive:hover { opacity: 0.88; }
-.tabActive { box-shadow: 0 0 0 2px rgba(255,255,255,0.4); }
 
 .notes { font-size: 13px; color: var(--color-text-muted); line-height: 1.5; }
 
@@ -205,20 +230,20 @@
 }
 .emptyHint { font-size: 13px; color: var(--color-text-muted); font-style: italic; margin: 0; }
 
-.contractSignedBlock { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding: 10px 14px; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 6px; }
-.contractSignedLabel { font-size: 13px; font-weight: 600; color: #065f46; }
-.contractSignedMeta { font-size: 12px; color: #065f46; opacity: 0.8; }
+.contractSignedBlock { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding: 10px 14px; background: color-mix(in srgb, var(--color-success) 12%, var(--color-bg)); border: 1px solid color-mix(in srgb, var(--color-success) 35%, var(--color-bg)); border-radius: var(--radius-md); }
+.contractSignedLabel { font-size: 13px; font-weight: 600; color: var(--color-success); }
+.contractSignedMeta { font-size: 12px; color: var(--color-success); opacity: 0.8; }
 
-.damageSection { margin-top: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1rem; }
-.damageSectionHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-.damageSectionHeader h4 { margin: 0; font-size: 0.95rem; }
-.damageForm { background: var(--color-surface); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; }
-.damageList { list-style: none; padding: 0; margin: 0 0 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
-.damageItem { display: flex; gap: 0.75rem; align-items: center; padding: 0.45rem 0.75rem; background: var(--color-surface); border-radius: 6px; border-left: 3px solid #ef4444; }
-.damageTitle { flex: 1; font-weight: 500; font-size: 0.9rem; }
-.damageAmount { font-weight: 600; color: #ef4444; white-space: nowrap; font-size: 0.9rem; }
-.damageNote { font-size: 0.8rem; color: var(--color-text-muted); flex: 1; }
-.damageTotalRow { display: flex; justify-content: space-between; padding: 0.4rem 0.75rem; font-size: 0.9rem; font-weight: 600; }
+.damageSection { margin-top: 24px; border-top: 1px solid var(--color-border); padding-top: 16px; }
+.damageSectionHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.damageSectionHeader h4 { margin: 0; font-size: 14px; }
+.damageForm { background: var(--color-surface); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+.damageList { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-direction: column; gap: 6px; }
+.damageItem { display: flex; gap: 12px; align-items: center; padding: 7px 12px; background: var(--color-surface); border-radius: var(--radius-md); border-left: 3px solid var(--color-danger); }
+.damageTitle { flex: 1; font-weight: 500; font-size: 14px; }
+.damageAmount { font-weight: 600; color: var(--color-danger); white-space: nowrap; font-size: 14px; }
+.damageNote { font-size: 13px; color: var(--color-text-muted); flex: 1; }
+.damageTotalRow { display: flex; justify-content: space-between; padding: 6px 12px; font-size: 14px; font-weight: 600; }
 
 .modalOverlay {
   position: fixed;
@@ -250,8 +275,8 @@
 .logisticsList { margin: 0; padding: 0; list-style: none; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
 .logisticsItem { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
 .logisticsItemName { flex: 1; }
-.logRemoveBtn { background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 12px; padding: 2px 6px; border-radius: 4px; line-height: 1; }
-.logRemoveBtn:hover { background: #fee2e2; color: #dc2626; }
+.logRemoveBtn { background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 12px; padding: 2px 6px; border-radius: 4px; line-height: 1; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.logRemoveBtn:hover { background: color-mix(in srgb, var(--color-danger) 10%, var(--color-bg)); color: var(--color-danger); }
 .logPicker { margin-top: 10px; padding: 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
 .logPickerSearch { width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 10px; background: var(--color-bg); color: var(--color-text); }
 .logPickerList { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
@@ -265,6 +290,14 @@
   gap: 20px;
   align-items: start;
   min-width: 0;
+}
+
+@media (min-width: 1280px) {
+  .columns { grid-template-columns: 1fr 380px; gap: 24px; }
+}
+
+@media (min-width: 1600px) {
+  .columns { grid-template-columns: 1fr 420px; }
 }
 
 
@@ -300,12 +333,12 @@
   padding-top: 12px;
   border-top: 1px solid var(--color-border);
 }
-.totalsRowDiscount .totalsValue { color: #059669; }
-.totalsRowSurcharge .totalsValue { color: #d97706; }
+.totalsRowDiscount .totalsValue { color: var(--color-success); }
+.totalsRowSurcharge .totalsValue { color: var(--color-warning); }
 .totalsRowBalance { padding-top: 8px; border-top: 1px dashed var(--color-border); }
-.totalsValuePaid { color: #059669; }
-.totalsValueRemaining { color: #c00; font-weight: 600; }
-.totalsValueOverpaid { color: #b45309; font-weight: 600; }
+.totalsValuePaid { color: var(--color-success); }
+.totalsValueRemaining { color: var(--color-danger); font-weight: 600; }
+.totalsValueOverpaid { color: var(--color-warning); font-weight: 600; }
 
 .totalsValueGrand {
   font-size: 24px;
@@ -340,6 +373,61 @@
 .msgBubbleMeta { font-size: 11px; color: var(--color-text-muted); }
 .msgEmpty { font-size: 13px; color: var(--color-text-muted); font-style: italic; margin-bottom: 12px; }
 .msgForm { display: flex; flex-direction: column; gap: 8px; }
+.msgFormRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.msgFileInput {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.msgRichLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.msgPending {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.msgPendingChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.msgPendingX {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.msgLinkInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
 .msgTextarea {
   width: 100%;
   padding: 8px 10px;
@@ -419,25 +507,29 @@
 .billingBlock { padding: 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
 .billingTotal, .billingApplied, .billingBalance { font-size: 18px; font-weight: 700; margin-top: 4px; }
 .billingBalance { color: var(--color-primary); }
-.billingBlockOverpaid { padding: 12px; background: #fefce8; border: 2px solid #eab308; border-radius: var(--radius-sm); }
-.billingOverpaid { font-size: 18px; font-weight: 700; margin-top: 4px; color: #a16207; }
+.billingBlockOverpaid { padding: 12px; background: color-mix(in srgb, var(--color-warning) 10%, var(--color-bg)); border: 2px solid var(--color-warning); border-radius: var(--radius-sm); }
+.billingOverpaid { font-size: 18px; font-weight: 700; margin-top: 4px; color: var(--color-warning); }
 .logTableWrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .logTable { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 480px; }
 .logTable th, .logTable td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border); }
 .logTable th { background: var(--color-surface); font-weight: 600; color: var(--color-text-muted); }
-.rowDeleteBtn { background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 12px; padding: 2px 6px; border-radius: 4px; line-height: 1; }
-.rowDeleteBtn:hover { background: #fee2e2; color: #dc2626; }
+.rowDeleteBtn { background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: 12px; padding: 2px 6px; border-radius: 4px; line-height: 1; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.rowDeleteBtn:hover { background: color-mix(in srgb, var(--color-danger) 10%, var(--color-bg)); color: var(--color-danger); }
 
 /* Files tab */
 .quoteFilesList { list-style: none; margin: 0; padding: 0; }
-.quoteFileItem { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--color-border); }
+.quoteFileItem { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
 .quoteFileItem:last-child { border-bottom: none; }
 .quoteFileIcon { font-size: 14px; flex-shrink: 0; }
-.quoteFileName { font-size: 13px; color: var(--color-primary); text-decoration: none; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quoteFileBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.quoteFileHeader { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.quoteFileName { font-size: 13px; color: var(--color-primary); text-decoration: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quoteFileName:hover { text-decoration: underline; }
+.quoteFileBadge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg)); color: var(--color-primary); font-size: 11px; font-weight: 700; }
+.quoteFileMetaRow { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 .quoteFileSize { font-size: 12px; color: var(--color-text-muted); flex-shrink: 0; }
 .quoteFileMeta { font-size: 11px; color: var(--color-text-muted); flex-shrink: 0; }
-.quoteFileSize { font-size: 12px; color: var(--color-text-muted); }
+.quoteFileLocked { font-size: 11px; color: var(--color-text-muted); font-weight: 600; white-space: nowrap; }
 
 /* Activity log tab */
 .activityLogList { list-style: none; margin: 0; padding: 0; }

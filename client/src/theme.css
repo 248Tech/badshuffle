@@ -16,9 +16,25 @@
   --color-text-muted: #637080;
   --color-danger:   #e53e3e;
   --color-success:  #38a169;
+  --color-warning:  #f97316;
+  --color-discount: #7c3aed;
   --color-hover:    rgba(0,0,0,0.04);
   --color-primary-subtle: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
   --color-primary-hover:  color-mix(in srgb, var(--color-primary) 20%, var(--color-bg));
+  --color-info-subtle: color-mix(in srgb, var(--color-primary) 14%, var(--color-bg));
+  --color-info-border: color-mix(in srgb, var(--color-primary) 32%, var(--color-bg));
+  --color-info-strong: color-mix(in srgb, var(--color-primary) 72%, #000);
+  --color-info-hover: color-mix(in srgb, var(--color-primary) 84%, #000);
+  --color-success-subtle: color-mix(in srgb, var(--color-success) 14%, var(--color-bg));
+  --color-success-border: color-mix(in srgb, var(--color-success) 32%, var(--color-bg));
+  --color-success-strong: color-mix(in srgb, var(--color-success) 72%, #000);
+  --color-success-hover: color-mix(in srgb, var(--color-success) 84%, #000);
+  --color-warning-subtle: color-mix(in srgb, var(--color-warning) 14%, var(--color-bg));
+  --color-warning-border: color-mix(in srgb, var(--color-warning) 32%, var(--color-bg));
+  --color-warning-strong: color-mix(in srgb, var(--color-warning) 72%, #000);
+  --color-danger-subtle: color-mix(in srgb, var(--color-danger) 14%, var(--color-bg));
+  --color-danger-border: color-mix(in srgb, var(--color-danger) 32%, var(--color-bg));
+  --color-danger-strong: color-mix(in srgb, var(--color-danger) 72%, #000);
   --radius:         8px;
   --radius-sm:      4px;
   --radius-md:      6px;
@@ -43,8 +59,24 @@
   --color-text-muted:    #71717a;
   --color-danger:        #ef4444;
   --color-success:       #22c55e;
+  --color-warning:       #f97316;
+  --color-discount:      #7c3aed;
   --color-primary-subtle: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
   --color-primary-hover:  color-mix(in srgb, var(--color-primary) 20%, var(--color-bg));
+  --color-info-subtle: color-mix(in srgb, var(--color-primary) 14%, var(--color-bg));
+  --color-info-border: color-mix(in srgb, var(--color-primary) 32%, var(--color-bg));
+  --color-info-strong: color-mix(in srgb, var(--color-primary) 72%, #000);
+  --color-info-hover: color-mix(in srgb, var(--color-primary) 84%, #000);
+  --color-success-subtle: color-mix(in srgb, var(--color-success) 14%, var(--color-bg));
+  --color-success-border: color-mix(in srgb, var(--color-success) 32%, var(--color-bg));
+  --color-success-strong: color-mix(in srgb, var(--color-success) 72%, #000);
+  --color-success-hover: color-mix(in srgb, var(--color-success) 84%, #000);
+  --color-warning-subtle: color-mix(in srgb, var(--color-warning) 14%, var(--color-bg));
+  --color-warning-border: color-mix(in srgb, var(--color-warning) 32%, var(--color-bg));
+  --color-warning-strong: color-mix(in srgb, var(--color-warning) 72%, #000);
+  --color-danger-subtle: color-mix(in srgb, var(--color-danger) 14%, var(--color-bg));
+  --color-danger-border: color-mix(in srgb, var(--color-danger) 32%, var(--color-bg));
+  --color-danger-strong: color-mix(in srgb, var(--color-danger) 72%, #000);
   --radius:              6px;
   --radius-sm:           3px;
   --radius-md:           4px;
@@ -66,14 +98,71 @@
   --color-text-muted:    #757575;
   --color-danger:        #d32f2f;
   --color-success:       #388e3c;
+  --color-warning:       #f57c00;
+  --color-discount:      #6d28d9;
   --color-primary-subtle: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
   --color-primary-hover:  color-mix(in srgb, var(--color-primary) 20%, var(--color-bg));
+  --color-info-subtle: color-mix(in srgb, var(--color-primary) 14%, var(--color-bg));
+  --color-info-border: color-mix(in srgb, var(--color-primary) 32%, var(--color-bg));
+  --color-info-strong: color-mix(in srgb, var(--color-primary) 72%, #000);
+  --color-info-hover: color-mix(in srgb, var(--color-primary) 84%, #000);
+  --color-success-subtle: color-mix(in srgb, var(--color-success) 14%, var(--color-bg));
+  --color-success-border: color-mix(in srgb, var(--color-success) 32%, var(--color-bg));
+  --color-success-strong: color-mix(in srgb, var(--color-success) 72%, #000);
+  --color-success-hover: color-mix(in srgb, var(--color-success) 84%, #000);
+  --color-warning-subtle: color-mix(in srgb, var(--color-warning) 14%, var(--color-bg));
+  --color-warning-border: color-mix(in srgb, var(--color-warning) 32%, var(--color-bg));
+  --color-warning-strong: color-mix(in srgb, var(--color-warning) 72%, #000);
+  --color-danger-subtle: color-mix(in srgb, var(--color-danger) 14%, var(--color-bg));
+  --color-danger-border: color-mix(in srgb, var(--color-danger) 32%, var(--color-bg));
+  --color-danger-strong: color-mix(in srgb, var(--color-danger) 72%, #000);
   --radius:              4px;
   --radius-sm:           2px;
   --radius-md:           3px;
   --shadow:              0 2px 1px -1px rgba(0,0,0,0.2), 0 1px 1px rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.12);
   --shadow-md:           0 3px 3px -2px rgba(0,0,0,0.2), 0 3px 4px rgba(0,0,0,0.14), 0 1px 8px rgba(0,0,0,0.12);
   --font:                Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ── Noir (dark) ───────────────────────────────────────── */
+:root[data-theme="noir"] {
+  --color-primary:       #60a5fa;
+  --color-accent:        #34d399;
+  --color-sidebar:       #050509;
+  --color-sidebar-hover: #18181f;
+  --color-bg:            #0a0a12;
+  --color-surface:       #12121c;
+  --color-bg-elevated:   #1a1a26;
+  --color-border:        #22222e;
+  --color-text:          #e2e8f0;
+  --color-text-muted:    #64748b;
+  --color-danger:        #f87171;
+  --color-success:       #4ade80;
+  --color-warning:       #fb923c;
+  --color-discount:      #a78bfa;
+  --color-hover:         rgba(255,255,255,0.05);
+  --color-primary-subtle: color-mix(in srgb, var(--color-primary) 16%, var(--color-bg));
+  --color-primary-hover:  color-mix(in srgb, var(--color-primary) 28%, var(--color-bg));
+  --color-info-subtle: color-mix(in srgb, var(--color-primary) 14%, var(--color-bg));
+  --color-info-border: color-mix(in srgb, var(--color-primary) 32%, var(--color-bg));
+  --color-info-strong: color-mix(in srgb, var(--color-primary) 85%, #fff);
+  --color-info-hover: color-mix(in srgb, var(--color-primary) 95%, #fff);
+  --color-success-subtle: color-mix(in srgb, var(--color-success) 14%, var(--color-bg));
+  --color-success-border: color-mix(in srgb, var(--color-success) 30%, var(--color-bg));
+  --color-success-strong: color-mix(in srgb, var(--color-success) 85%, #fff);
+  --color-success-hover: color-mix(in srgb, var(--color-success) 95%, #fff);
+  --color-warning-subtle: color-mix(in srgb, var(--color-warning) 14%, var(--color-bg));
+  --color-warning-border: color-mix(in srgb, var(--color-warning) 30%, var(--color-bg));
+  --color-warning-strong: color-mix(in srgb, var(--color-warning) 85%, #fff);
+  --color-danger-subtle: color-mix(in srgb, var(--color-danger) 14%, var(--color-bg));
+  --color-danger-border: color-mix(in srgb, var(--color-danger) 30%, var(--color-bg));
+  --color-danger-strong: color-mix(in srgb, var(--color-danger) 85%, #fff);
+  --radius:              10px;
+  --radius-sm:           6px;
+  --radius-md:           8px;
+  --shadow:              0 2px 8px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03);
+  --shadow-md:           0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
+  --font:                Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ── Chakra UI ─────────────────────────────────────────── */
@@ -89,8 +178,24 @@
   --color-text-muted:    #718096;
   --color-danger:        #e53e3e;
   --color-success:       #38a169;
+  --color-warning:       #ed8936;
+  --color-discount:      #805ad5;
   --color-primary-subtle: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
   --color-primary-hover:  color-mix(in srgb, var(--color-primary) 20%, var(--color-bg));
+  --color-info-subtle: color-mix(in srgb, var(--color-primary) 14%, var(--color-bg));
+  --color-info-border: color-mix(in srgb, var(--color-primary) 32%, var(--color-bg));
+  --color-info-strong: color-mix(in srgb, var(--color-primary) 72%, #000);
+  --color-info-hover: color-mix(in srgb, var(--color-primary) 84%, #000);
+  --color-success-subtle: color-mix(in srgb, var(--color-success) 14%, var(--color-bg));
+  --color-success-border: color-mix(in srgb, var(--color-success) 32%, var(--color-bg));
+  --color-success-strong: color-mix(in srgb, var(--color-success) 72%, #000);
+  --color-success-hover: color-mix(in srgb, var(--color-success) 84%, #000);
+  --color-warning-subtle: color-mix(in srgb, var(--color-warning) 14%, var(--color-bg));
+  --color-warning-border: color-mix(in srgb, var(--color-warning) 32%, var(--color-bg));
+  --color-warning-strong: color-mix(in srgb, var(--color-warning) 72%, #000);
+  --color-danger-subtle: color-mix(in srgb, var(--color-danger) 14%, var(--color-bg));
+  --color-danger-border: color-mix(in srgb, var(--color-danger) 32%, var(--color-bg));
+  --color-danger-strong: color-mix(in srgb, var(--color-danger) 72%, #000);
   --radius:              6px;
   --radius-sm:           4px;
   --radius-md:           5px;
@@ -120,16 +225,52 @@ input, select, textarea {
   font-size: inherit;
 }
 
-/* Utility classes */
+/* ── Typography scale ────────────────────────────────────── */
+.page-title {
+  font-size: clamp(18px, 2.5vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--color-text);
+}
+
+.card-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.page-sub {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Utility classes ─────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 8px 16px;
   border-radius: var(--radius-sm);
   border: none;
   font-weight: 500;
-  transition: opacity .15s, background .15s, transform .1s;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity .15s, background .15s, box-shadow .15s, transform .1s;
 }
 .btn:hover { opacity: .88; }
 .btn:active { opacity: .75; transform: scale(0.97); }
@@ -153,7 +294,7 @@ input, select, textarea {
   color: #fff;
 }
 .btn-sm {
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-size: 12px;
 }
 
@@ -220,6 +361,10 @@ input, select, textarea {
   animation: spin .6s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 /* Add-to-quote flash */
 @keyframes addedFlash {

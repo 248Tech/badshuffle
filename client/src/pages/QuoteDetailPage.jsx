@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useNavigationBlocker } from '../hooks/useNavigationBlocker.js';
 import { useQuoteDetail } from '../hooks/useQuoteDetail.js';
@@ -14,9 +14,17 @@ import { computeTotals } from '../lib/quoteTotals.js';
 import QuoteFilePicker from '../components/QuoteFilePicker.jsx';
 import ImagePicker from '../components/ImagePicker.jsx';
 import QuoteSendModal from '../components/QuoteSendModal.jsx';
+import RenameLogisticsModal from '../components/features/logistics/RenameLogisticsModal.jsx';
+import MessageBody from '../components/messages/MessageBody.jsx';
+import QuoteBillingPanel from './quote-detail/QuoteBillingPanel.jsx';
+import QuoteFilesPanel from './quote-detail/QuoteFilesPanel.jsx';
+import QuoteLogsPanel from './quote-detail/QuoteLogsPanel.jsx';
+import ItemDetailDrawer from '../components/ItemDetailDrawer.jsx';
+import ImageLightbox from '../components/ImageLightbox.jsx';
 import styles from './QuoteDetailPage.module.css';
 
 const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
+
 
 export default function QuoteDetailPage() {
   const { id } = useParams();
@@ -25,19 +33,23 @@ export default function QuoteDetailPage() {
   const toast = useToast();
 
   const controller = useQuoteDetail(id, { autoEdit: !!(location.state?.autoEdit) });
-  const { quote, customItems, settings, loading, editing, form, saving, adjustments, availability } = controller;
-  const { setQuote, setCustomItems, setEditing, setForm } = controller;
+  const { quote, customItems, sections, settings, loading, editing, form, saving, adjustments, availability } = controller;
+  const { setQuote, setCustomItems, setAdjustments, setEditing, setForm } = controller;
+  const eventTypes = String(settings.quote_event_types || '').split('\n').map((v) => v.trim()).filter(Boolean);
   const [showAI, setShowAI] = useState(false);
   const [venueEditing, setVenueEditing] = useState(false);
   const [clientEditing, setClientEditing] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [pendingTransition, setPendingTransition] = useState(null); // { message, label, confirmClass, action }
+  const [pendingPaymentDelete, setPendingPaymentDelete] = useState(null);
+  const [pendingContractTemplate, setPendingContractTemplate] = useState(null);
   const [duplicating, setDuplicating] = useState(false);
   const [addressModalData, setAddressModalData] = useState(null);
   const [showLogPicker, setShowLogPicker] = useState(false);
   const [logSearch, setLogSearch] = useState('');
   const [logItems, setLogItems] = useState([]);
+  const [renameLogistics, setRenameLogistics] = useState(null);
   // Custom items form
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customForm, setCustomForm] = useState({ title: '', unit_price: '', quantity: '1', taxable: true, photo_url: '' });
@@ -48,10 +60,15 @@ export default function QuoteDetailPage() {
   const [contractSaving, setContractSaving] = useState(false);
   const [contractLogs, setContractLogs] = useState([]);
   const [contractTemplates, setContractTemplates] = useState([]);
+  const [savedContractBody, setSavedContractBody] = useState('');
   // Billing tab
   const [payments, setPayments] = useState([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Offline - Check', reference: '', note: '', paid_at: '' });
+  const [paymentForm, setPaymentForm] = useState(() => {
+    const now = new Date();
+    const todayLocal = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    return { amount: '', method: 'Offline - Check', reference: '', note: '', paid_at: todayLocal };
+  });
   const [paymentSaving, setPaymentSaving] = useState(false);
   // Files tab
   const [quoteFiles, setQuoteFiles] = useState([]);
@@ -64,6 +81,10 @@ export default function QuoteDetailPage() {
   const [quoteMessages, setQuoteMessages] = useState([]);
   const [msgText, setMsgText] = useState('');
   const [msgSending, setMsgSending] = useState(false);
+  const [msgLinks, setMsgLinks] = useState('');
+  const [msgAttachments, setMsgAttachments] = useState([]);
+  const [msgRich, setMsgRich] = useState(false);
+  const msgFileInputRef = useRef(null);
   // Status transitions
   const [transitioning, setTransitioning] = useState(false);
   // Damage charges (closed quotes)
@@ -71,23 +92,30 @@ export default function QuoteDetailPage() {
   const [showDamageForm, setShowDamageForm] = useState(false);
   const [damageForm, setDamageForm] = useState({ title: '', amount: '', note: '' });
   const [damageSaving, setDamageSaving] = useState(false);
+  // Item detail drawer
+  const [drawerItemId, setDrawerItemId] = useState(null);
+  // Image lightbox
+  const [lightboxImages, setLightboxImages] = useState([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   // Payment policies + rental terms lists (for edit form selectors)
   const [paymentPolicies, setPaymentPolicies] = useState([]);
   const [rentalTermsList, setRentalTermsList] = useState([]);
   // Discard-changes confirm (Cancel Edit when dirty)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const isDirty = controller.isDirty;
+  const contractDirty = editing && contractBody !== (savedContractBody || '');
+  const hasUnsavedChanges = isDirty || contractDirty;
 
   // Warn on browser refresh / tab close
   useEffect(() => {
-    if (!isDirty) return;
+    if (!hasUnsavedChanges) return;
     const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [isDirty]);
+  }, [hasUnsavedChanges]);
 
   // Block in-app navigation when there are unsaved changes
-  const blocker = useNavigationBlocker(isDirty);
+  const blocker = useNavigationBlocker(hasUnsavedChanges);
 
   // ─────────────────────────────────────────────────────────────────────────
   const load = controller.load;
@@ -103,8 +131,10 @@ export default function QuoteDetailPage() {
     if (!editing || !id) return;
     api.getQuoteContract(id)
       .then(d => {
+        const nextBody = d.contract ? (d.contract.body_html || '') : '';
         setContract(d.contract);
-        setContractBody(d.contract ? (d.contract.body_html || '') : '');
+        setContractBody(nextBody);
+        setSavedContractBody(nextBody);
       })
       .catch(() => toast.error('Failed to load contract'));
     api.getQuoteContractLogs(id)
@@ -142,6 +172,7 @@ export default function QuoteDetailPage() {
     try {
       const d = await api.updateQuoteContract(id, { body_html: contractBody });
       setContract(d.contract);
+      setSavedContractBody(d.contract ? (d.contract.body_html || '') : '');
       const logsRes = await api.getQuoteContractLogs(id);
       setContractLogs(logsRes.logs || []);
       toast.success('Contract saved');
@@ -176,7 +207,8 @@ export default function QuoteDetailPage() {
       });
       setPayments(d.payments || []);
       setShowPaymentModal(false);
-      setPaymentForm(f => ({ amount: '', method: f.method, reference: '', note: '', paid_at: '' }));
+      const nowLocal = new Date(); const todayLocal = new Date(nowLocal.getTime() - nowLocal.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setPaymentForm(f => ({ amount: '', method: f.method, reference: '', note: '', paid_at: todayLocal }));
       const logsRes = await api.getQuoteActivity(id);
       setActivity(logsRes.activity || []);
       toast.success('Payment recorded');
@@ -188,7 +220,6 @@ export default function QuoteDetailPage() {
   };
 
   const handleDeletePayment = async (paymentId) => {
-    if (!window.confirm('Remove this payment record?')) return;
     try {
       const d = await api.removeQuotePayment(id, paymentId);
       setPayments(d.payments || []);
@@ -197,6 +228,8 @@ export default function QuoteDetailPage() {
       toast.info('Payment removed');
     } catch (e) {
       toast.error(e.message);
+    } finally {
+      setPendingPaymentDelete(null);
     }
   };
 
@@ -228,49 +261,7 @@ export default function QuoteDetailPage() {
     if (!quote) return;
     setDuplicating(true);
     try {
-      const body = {
-        name: (quote.name || 'Project') + ' (copy)',
-        guest_count: quote.guest_count ?? 0,
-        event_date: quote.event_date || null,
-        rental_start: quote.rental_start || null,
-        rental_end: quote.rental_end || null,
-        delivery_date: quote.delivery_date || null,
-        pickup_date: quote.pickup_date || null,
-        notes: quote.notes || null,
-        venue_name: quote.venue_name || null,
-        venue_email: quote.venue_email || null,
-        venue_phone: quote.venue_phone || null,
-        venue_address: quote.venue_address || null,
-        venue_contact: quote.venue_contact || null,
-        venue_notes: quote.venue_notes || null,
-        quote_notes: quote.quote_notes || null,
-        tax_rate: quote.tax_rate != null ? quote.tax_rate : null,
-        client_first_name: quote.client_first_name || null,
-        client_last_name: quote.client_last_name || null,
-        client_email: quote.client_email || null,
-        client_phone: quote.client_phone || null,
-        client_address: quote.client_address || null
-      };
-      const { quote: newQuote } = await api.createQuote(body);
-      for (const it of quote.items || []) {
-        await api.addQuoteItem(newQuote.id, {
-          item_id: it.id,
-          quantity: it.quantity ?? 1,
-          label: it.label || null,
-          sort_order: it.sort_order ?? 0,
-          hidden_from_quote: it.hidden_from_quote ? 1 : 0
-        });
-      }
-      for (const ci of customItems) {
-        await api.addCustomItem(newQuote.id, {
-          title: ci.title,
-          unit_price: ci.unit_price ?? 0,
-          quantity: ci.quantity ?? 1,
-          photo_url: ci.photo_url || null,
-          taxable: ci.taxable !== 0 ? 1 : 0,
-          sort_order: ci.sort_order ?? 0
-        });
-      }
+      const { quote: newQuote } = await api.duplicateQuote(id);
       toast.success('Quote duplicated');
       navigate(`/quotes/${newQuote.id}`);
     } catch (e) {
@@ -292,13 +283,46 @@ export default function QuoteDetailPage() {
   };
 
   const handleCancelEdit = () => {
-    if (isDirty) { setShowCancelConfirm(true); return; }
+    if (hasUnsavedChanges) { setShowCancelConfirm(true); return; }
     controller.discardEdits();
+    setContractBody(savedContractBody || '');
   };
 
   const confirmCancelEdit = () => {
     setShowCancelConfirm(false);
     controller.discardEdits();
+    setContractBody(savedContractBody || '');
+  };
+
+  const discardAndProceedNavigation = () => {
+    controller.discardEdits();
+    setContractBody(savedContractBody || '');
+    blocker.proceed();
+  };
+
+  const handleCancelClientEdit = () => {
+    setForm((current) => ({
+      ...current,
+      client_first_name: quote?.client_first_name || '',
+      client_last_name: quote?.client_last_name || '',
+      client_email: quote?.client_email || '',
+      client_phone: quote?.client_phone || '',
+      client_address: quote?.client_address || '',
+    }));
+    setClientEditing(false);
+  };
+
+  const handleCancelVenueEdit = () => {
+    setForm((current) => ({
+      ...current,
+      venue_name: quote?.venue_name || '',
+      venue_email: quote?.venue_email || '',
+      venue_phone: quote?.venue_phone || '',
+      venue_address: quote?.venue_address || '',
+      venue_contact: quote?.venue_contact || '',
+      venue_notes: quote?.venue_notes || '',
+    }));
+    setVenueEditing(false);
   };
 
   const handleSendClick = () => setShowSendModal(true);
@@ -315,6 +339,12 @@ export default function QuoteDetailPage() {
     } catch (e) {
       toast.error(e.message);
     }
+  };
+
+  const applyContractTemplate = (template) => {
+    if (!template) return;
+    setContractBody(template.body_html || '');
+    setPendingContractTemplate(null);
   };
 
   useEffect(() => {
@@ -362,6 +392,36 @@ export default function QuoteDetailPage() {
     } catch (e) {
       toast.error(e.message);
     }
+  };
+
+  const handleSaveLogisticsRename = async (newLabel) => {
+    if (!renameLogistics) return;
+    try {
+      await api.updateQuoteItem(id, renameLogistics.qitem_id, { label: newLabel });
+      toast.success('Logistics line updated');
+      setRenameLogistics(null);
+      load();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleQuoteMsgAttach = async (e) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('files', files[i]);
+    }
+    try {
+      const d = await api.uploadFiles(formData);
+      const list = d.files || [];
+      setMsgAttachments((prev) => [...prev, ...list.map((f) => ({ file_id: f.id, name: f.original_name }))]);
+      toast.success(`Uploaded ${list.length} file(s)`);
+    } catch (err) {
+      toast.error(err.message);
+    }
+    e.target.value = '';
   };
 
   const handleVenueSave = async (e) => {
@@ -516,7 +576,73 @@ export default function QuoteDetailPage() {
     }
   };
 
-  if (loading) return <div className="empty-state"><div className="spinner" /></div>;
+  if (loading) return (
+    <div className={styles.page} aria-busy="true" aria-label="Loading project">
+      {/* Top bar skeleton */}
+      <div className={styles.topDiv}>
+        <div className={styles.topDivLeft}>
+          <div className="skeleton" style={{ height: 30, width: 90, borderRadius: 6 }} aria-hidden="true" />
+          <div style={{ display: 'flex', gap: 6 }} aria-hidden="true">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="skeleton" style={{ height: 30, width: 68, borderRadius: 999 }} />
+            ))}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }} aria-hidden="true">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="skeleton" style={{ height: 30, width: 80, borderRadius: 6 }} />
+          ))}
+        </div>
+      </div>
+      {/* Quote header skeleton */}
+      <div className="card" style={{ padding: 20 }} aria-hidden="true">
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+          <div className="skeleton" style={{ height: 22, width: 220, borderRadius: 5 }} />
+          <div className="skeleton" style={{ height: 22, width: 80, borderRadius: 999 }} />
+        </div>
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i}>
+              <div className="skeleton" style={{ height: 11, width: 60, borderRadius: 3, marginBottom: 6 }} />
+              <div className="skeleton" style={{ height: 15, width: 90, borderRadius: 4 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Main columns skeleton */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 20 }} aria-hidden="true">
+        <div className="card" style={{ padding: 20 }}>
+          <div className="skeleton" style={{ height: 16, width: '40%', borderRadius: 5, marginBottom: 16 }} />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
+              <div className="skeleton" style={{ height: 44, width: 44, borderRadius: 6, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div className="skeleton" style={{ height: 13, width: `${50 + (i % 3) * 15}%`, borderRadius: 4, marginBottom: 6 }} />
+                <div className="skeleton" style={{ height: 11, width: '30%', borderRadius: 3 }} />
+              </div>
+              <div className="skeleton" style={{ height: 13, width: 50, borderRadius: 4, flexShrink: 0 }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card" style={{ padding: 20 }}>
+            <div className="skeleton" style={{ height: 13, width: '60%', borderRadius: 4, marginBottom: 12 }} />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div className="skeleton" style={{ height: 13, width: '45%', borderRadius: 4 }} />
+                <div className="skeleton" style={{ height: 13, width: '25%', borderRadius: 4 }} />
+              </div>
+            ))}
+            <div className="skeleton" style={{ height: 20, width: '50%', borderRadius: 4, marginTop: 8 }} />
+          </div>
+          <div className="card" style={{ padding: 20 }}>
+            <div className="skeleton" style={{ height: 13, width: '50%', borderRadius: 4, marginBottom: 10 }} />
+            <div className="skeleton" style={{ height: 32, borderRadius: 6 }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   if (!quote) return null;
 
   const taxRate = quote.tax_rate != null ? quote.tax_rate : settings.tax_rate;
@@ -533,12 +659,12 @@ export default function QuoteDetailPage() {
     <div className={styles.page}>
       {editing ? (
         <div className={styles.topBar}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/quotes')}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/quotes')}>
             ← Projects
           </button>
           <div className={styles.topActions}>
-            <button className="btn btn-ghost btn-sm" onClick={handleCancelEdit}>
-              Cancel Edit{isDirty ? ' ●' : ''}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={handleCancelEdit}>
+              Cancel Edit{hasUnsavedChanges ? ' ●' : ''}
             </button>
           </div>
         </div>
@@ -546,44 +672,46 @@ export default function QuoteDetailPage() {
         <div className={styles.topDiv}>
           <div className={styles.topDivLeft}>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/quotes')}>
-              ← Projects
+              <span aria-hidden="true">←</span> Projects
             </button>
-            <div className={styles.tabs}>
-              <button type="button" className={`${styles.tab} ${detailTab === 'quote' ? styles.tabActive : ''}`} onClick={() => setDetailTab('quote')}>Project</button>
-              <button type="button" className={`${styles.tab} ${detailTab === 'billing' ? styles.tabActive : ''}`} onClick={() => setDetailTab('billing')}>Billing</button>
-              <button type="button" className={`${styles.tab} ${detailTab === 'files' ? styles.tabActive : ''}`} onClick={() => setDetailTab('files')}>Files {quoteFiles.length > 0 ? `(${quoteFiles.length})` : ''}</button>
-              <button type="button" className={`${styles.tab} ${detailTab === 'logs' ? styles.tabActive : ''}`} onClick={() => setDetailTab('logs')}>Logs</button>
+            <div className={styles.tabsWrap}>
+              <div className={styles.tabs}>
+                <button type="button" className={`${styles.tab} ${detailTab === 'quote' ? styles.tabActive : ''}`} onClick={() => setDetailTab('quote')}>Project</button>
+                <button type="button" className={`${styles.tab} ${detailTab === 'billing' ? styles.tabActive : ''}`} onClick={() => setDetailTab('billing')}>Billing</button>
+                <button type="button" className={`${styles.tab} ${detailTab === 'files' ? styles.tabActive : ''}`} onClick={() => setDetailTab('files')}>Files {quoteFiles.length > 0 ? `(${quoteFiles.length})` : ''}</button>
+                <button type="button" className={`${styles.tab} ${detailTab === 'logs' ? styles.tabActive : ''}`} onClick={() => setDetailTab('logs')}>Logs</button>
+              </div>
             </div>
           </div>
           <div className={styles.topDivActions}>
             {(quote.status || 'draft') === 'sent' && (
               <button type="button" className="btn btn-primary btn-sm" disabled={transitioning} onClick={handleApprove}>
-                {transitioning ? '…' : 'Mark Approved'}
+                {transitioning ? 'Approving…' : 'Mark Approved'}
               </button>
             )}
             {(quote.status || 'draft') === 'approved' && (
               <button type="button" className="btn btn-primary btn-sm" disabled={transitioning} onClick={handleConfirm}>
-                {transitioning ? '…' : 'Confirm Booking'}
+                {transitioning ? 'Confirming…' : 'Confirm Booking'}
               </button>
             )}
             {(quote.status || 'draft') === 'confirmed' && (
               <button type="button" className="btn btn-primary btn-sm" disabled={transitioning} onClick={handleClose}>
-                {transitioning ? '…' : 'Close Quote'}
+                {transitioning ? 'Closing…' : 'Close Quote'}
               </button>
             )}
             {['sent', 'approved', 'confirmed'].includes(quote.status || 'draft') && (
               <button type="button" className="btn btn-ghost btn-sm" disabled={transitioning} onClick={handleRevert}>
-                {transitioning ? '…' : 'Revert to Draft'}
+                {transitioning ? 'Reverting…' : 'Revert to Draft'}
               </button>
             )}
             <button type="button" className="btn btn-primary btn-sm" onClick={handleSendClick} title="Email quote link to client">
               Send to Client
             </button>
-            <button type="button" className="btn btn-primary btn-sm" onClick={handleViewQuote} title="Open client-viewable quote in new tab">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={handleViewQuote} title="Open client-viewable quote in new tab">
               View Quote
             </button>
             {quote.public_token && (
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => {
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
                 const url = `${window.location.origin}/quote/public/${quote.public_token}`;
                 navigator.clipboard.writeText(url);
                 toast.success('Client link copied to clipboard');
@@ -591,17 +719,17 @@ export default function QuoteDetailPage() {
                 Copy Client Link
               </button>
             )}
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowAI(true)}>
-              ✨ AI Suggest
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowAI(true)}>
+              <span aria-hidden="true">✨</span> AI Suggest
             </button>
             <button
               type="button"
-              className="btn btn-primary btn-sm"
+              className="btn btn-ghost btn-sm"
               disabled={duplicating}
               onClick={handleDuplicateQuote}
               title="Duplicate this quote (same details and line items)"
             >
-              {duplicating ? '…' : 'Duplicate'}
+              {duplicating ? 'Duplicating…' : 'Duplicate'}
             </button>
             <button
               type="button"
@@ -637,94 +765,101 @@ export default function QuoteDetailPage() {
           <form onSubmit={handleSaveEdit} className={styles.form}>
             <div className={styles.formRow}>
               <div className="form-group" style={{ flex: 2 }}>
-                <label>Event name *</label>
-                <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                <label htmlFor="qdp-name">Event name *</label>
+                <input id="qdp-name" required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
               </div>
               <div className="form-group">
-                <label>Guest count</label>
-                <input type="number" min="0" value={form.guest_count}
+                <label htmlFor="qdp-guests">Guest count</label>
+                <input id="qdp-guests" type="number" min="0" value={form.guest_count}
                   onChange={e => setForm(f => ({ ...f, guest_count: e.target.value }))} />
               </div>
               <div className="form-group">
-                <label>Event date</label>
-                <input type="date" value={form.event_date}
+                <label htmlFor="qdp-event-date">Event date</label>
+                <input id="qdp-event-date" type="date" value={form.event_date}
                   onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="qdp-event-type">Event type</label>
+                <select id="qdp-event-type" value={form.event_type || ''} onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}>
+                  <option value="">— None —</option>
+                  {eventTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
               </div>
             </div>
             <div className={styles.formSection}>
               <h4 className={styles.formSectionTitle}>Rental period</h4>
               <div className={styles.formRow}>
                 <div className="form-group">
-                  <label>Delivery date</label>
-                  <input type="date" value={form.delivery_date || ''} onChange={e => setForm(f => ({ ...f, delivery_date: e.target.value }))} />
+                  <label htmlFor="qdp-delivery">Delivery date</label>
+                  <input id="qdp-delivery" type="date" value={form.delivery_date || ''} onChange={e => setForm(f => ({ ...f, delivery_date: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label>Rental start</label>
-                  <input type="date" value={form.rental_start || ''} onChange={e => setForm(f => ({ ...f, rental_start: e.target.value }))} />
+                  <label htmlFor="qdp-rental-start">Rental start</label>
+                  <input id="qdp-rental-start" type="date" value={form.rental_start || ''} onChange={e => setForm(f => ({ ...f, rental_start: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label>Rental end</label>
-                  <input type="date" value={form.rental_end || ''} onChange={e => setForm(f => ({ ...f, rental_end: e.target.value }))} />
+                  <label htmlFor="qdp-rental-end">Rental end</label>
+                  <input id="qdp-rental-end" type="date" value={form.rental_end || ''} onChange={e => setForm(f => ({ ...f, rental_end: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label>Pickup date</label>
-                  <input type="date" value={form.pickup_date || ''} onChange={e => setForm(f => ({ ...f, pickup_date: e.target.value }))} />
+                  <label htmlFor="qdp-pickup">Pickup date</label>
+                  <input id="qdp-pickup" type="date" value={form.pickup_date || ''} onChange={e => setForm(f => ({ ...f, pickup_date: e.target.value }))} />
                 </div>
               </div>
             </div>
             <div className="form-group">
-              <label>Quote notes</label>
-              <textarea rows={2} value={form.quote_notes || ''} onChange={e => setForm(f => ({ ...f, quote_notes: e.target.value }))} placeholder="Internal or client-facing notes for this quote" />
+              <label htmlFor="qdp-notes">Quote notes</label>
+              <textarea id="qdp-notes" rows={2} value={form.quote_notes || ''} onChange={e => setForm(f => ({ ...f, quote_notes: e.target.value }))} placeholder="Internal or client-facing notes for this quote" />
             </div>
             <div className={styles.formSection}>
               <h4 className={styles.formSectionTitle}>Quote Expiration</h4>
               <div className={styles.formRow}>
                 <div className="form-group">
-                  <label>Expires at</label>
-                  <input type="date" value={form.expires_at || ''} onChange={e => setForm(f => ({ ...f, expires_at: e.target.value }))} />
+                  <label htmlFor="qdp-expires">Expires at</label>
+                  <input id="qdp-expires" type="date" value={form.expires_at || ''} onChange={e => setForm(f => ({ ...f, expires_at: e.target.value }))} />
                 </div>
               </div>
               <div className="form-group">
-                <label>Expiration message (shown to client)</label>
-                <textarea rows={2} value={form.expiration_message || ''} onChange={e => setForm(f => ({ ...f, expiration_message: e.target.value }))} placeholder="This quote has expired. Please reach out to renew." />
+                <label htmlFor="qdp-exp-msg">Expiration message (shown to client)</label>
+                <textarea id="qdp-exp-msg" rows={2} value={form.expiration_message || ''} onChange={e => setForm(f => ({ ...f, expiration_message: e.target.value }))} placeholder="This quote has expired. Please reach out to renew." />
               </div>
             </div>
             <div className={styles.formSection}>
               <h4 className={styles.formSectionTitle}>Client information</h4>
               <div className={styles.formRow}>
-                <div className="form-group"><label>First name</label><input value={form.client_first_name || ''} onChange={e => setForm(f => ({ ...f, client_first_name: e.target.value }))} /></div>
-                <div className="form-group"><label>Last name</label><input value={form.client_last_name || ''} onChange={e => setForm(f => ({ ...f, client_last_name: e.target.value }))} /></div>
+                <div className="form-group"><label htmlFor="qdp-first">First name</label><input id="qdp-first" value={form.client_first_name || ''} onChange={e => setForm(f => ({ ...f, client_first_name: e.target.value }))} /></div>
+                <div className="form-group"><label htmlFor="qdp-last">Last name</label><input id="qdp-last" value={form.client_last_name || ''} onChange={e => setForm(f => ({ ...f, client_last_name: e.target.value }))} /></div>
               </div>
               <div className={styles.formRow}>
-                <div className="form-group"><label>Email</label><input type="email" value={form.client_email || ''} onChange={e => setForm(f => ({ ...f, client_email: e.target.value }))} /></div>
-                <div className="form-group"><label>Phone</label><input value={form.client_phone || ''} onChange={e => setForm(f => ({ ...f, client_phone: e.target.value }))} /></div>
+                <div className="form-group"><label htmlFor="qdp-client-email">Email</label><input id="qdp-client-email" type="email" value={form.client_email || ''} onChange={e => setForm(f => ({ ...f, client_email: e.target.value }))} /></div>
+                <div className="form-group"><label htmlFor="qdp-client-phone">Phone</label><input id="qdp-client-phone" value={form.client_phone || ''} onChange={e => setForm(f => ({ ...f, client_phone: e.target.value }))} /></div>
               </div>
-              <div className="form-group"><label>Address</label><input value={form.client_address || ''} onChange={e => setForm(f => ({ ...f, client_address: e.target.value }))} /></div>
+              <div className="form-group"><label htmlFor="qdp-client-addr">Address</label><input id="qdp-client-addr" value={form.client_address || ''} onChange={e => setForm(f => ({ ...f, client_address: e.target.value }))} /></div>
             </div>
             <div className={styles.formSection}>
               <h4 className={styles.formSectionTitle}>Venue information</h4>
               <div className={styles.formRow}>
-                <div className="form-group"><label>Name</label><input value={form.venue_name || ''} onChange={e => setForm(f => ({ ...f, venue_name: e.target.value }))} /></div>
-                <div className="form-group"><label>Email</label><input type="email" value={form.venue_email || ''} onChange={e => setForm(f => ({ ...f, venue_email: e.target.value }))} /></div>
-                <div className="form-group"><label>Phone</label><input value={form.venue_phone || ''} onChange={e => setForm(f => ({ ...f, venue_phone: e.target.value }))} /></div>
+                <div className="form-group"><label htmlFor="qdp-venue-name">Name</label><input id="qdp-venue-name" value={form.venue_name || ''} onChange={e => setForm(f => ({ ...f, venue_name: e.target.value }))} /></div>
+                <div className="form-group"><label htmlFor="qdp-venue-email">Email</label><input id="qdp-venue-email" type="email" value={form.venue_email || ''} onChange={e => setForm(f => ({ ...f, venue_email: e.target.value }))} /></div>
+                <div className="form-group"><label htmlFor="qdp-venue-phone">Phone</label><input id="qdp-venue-phone" value={form.venue_phone || ''} onChange={e => setForm(f => ({ ...f, venue_phone: e.target.value }))} /></div>
               </div>
-              <div className="form-group"><label>Address</label><input value={form.venue_address || ''} onChange={e => setForm(f => ({ ...f, venue_address: e.target.value }))} /></div>
+              <div className="form-group"><label htmlFor="qdp-venue-addr">Address</label><input id="qdp-venue-addr" value={form.venue_address || ''} onChange={e => setForm(f => ({ ...f, venue_address: e.target.value }))} /></div>
               <div className={styles.formRow}>
-                <div className="form-group"><label>Contact</label><input value={form.venue_contact || ''} onChange={e => setForm(f => ({ ...f, venue_contact: e.target.value }))} /></div>
+                <div className="form-group"><label htmlFor="qdp-venue-contact">Contact</label><input id="qdp-venue-contact" value={form.venue_contact || ''} onChange={e => setForm(f => ({ ...f, venue_contact: e.target.value }))} /></div>
               </div>
-              <div className="form-group"><label>Venue notes</label><textarea rows={2} value={form.venue_notes || ''} onChange={e => setForm(f => ({ ...f, venue_notes: e.target.value }))} /></div>
+              <div className="form-group"><label htmlFor="qdp-venue-notes">Venue notes</label><textarea id="qdp-venue-notes" rows={2} value={form.venue_notes || ''} onChange={e => setForm(f => ({ ...f, venue_notes: e.target.value }))} /></div>
             </div>
             <div className="form-group">
-              <label>Tax rate (%)</label>
-              <input type="number" min="0" step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))} placeholder="From settings if blank" />
+              <label htmlFor="qdp-tax-rate">Tax rate (%)</label>
+              <input id="qdp-tax-rate" type="number" min="0" step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))} placeholder="From settings if blank" />
             </div>
             {(paymentPolicies.length > 0 || rentalTermsList.length > 0) && (
               <div className={styles.formSection}>
                 <h4 className={styles.formSectionTitle}>Payment &amp; terms</h4>
                 {paymentPolicies.length > 0 && (
                   <div className="form-group">
-                    <label>Payment policy</label>
-                    <select value={form.payment_policy_id || ''} onChange={e => setForm(f => ({ ...f, payment_policy_id: e.target.value }))}>
+                    <label htmlFor="qdp-pay-policy">Payment policy</label>
+                    <select id="qdp-pay-policy" value={form.payment_policy_id || ''} onChange={e => setForm(f => ({ ...f, payment_policy_id: e.target.value }))}>
                       <option value="">— None —</option>
                       {paymentPolicies.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
@@ -732,8 +867,8 @@ export default function QuoteDetailPage() {
                 )}
                 {rentalTermsList.length > 0 && (
                   <div className="form-group">
-                    <label>Rental terms</label>
-                    <select value={form.rental_terms_id || ''} onChange={e => setForm(f => ({ ...f, rental_terms_id: e.target.value }))}>
+                    <label htmlFor="qdp-rental-terms">Rental terms</label>
+                    <select id="qdp-rental-terms" value={form.rental_terms_id || ''} onChange={e => setForm(f => ({ ...f, rental_terms_id: e.target.value }))}>
                       <option value="">— None —</option>
                       {rentalTermsList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
@@ -746,19 +881,20 @@ export default function QuoteDetailPage() {
               <p className={styles.notes}>Contract text shown to the client on the public quote page. Client can sign from the public link. Add templates on the Templates page, then choose one below or edit manually.</p>
               {contractTemplates.length > 0 && (
                 <div className="form-group">
-                  <label>Use template</label>
+                  <label htmlFor="qdp-contract-tmpl">Use template</label>
                   <select
+                    id="qdp-contract-tmpl"
                     value=""
                     onChange={e => {
                       const tid = e.target.value;
                       if (!tid) return;
                       const t = contractTemplates.find(ct => String(ct.id) === tid);
                       if (t) {
-                        if (contractBody && !window.confirm('Replace the current contract with this template? Unsaved edits will be lost.')) {
-                          e.target.value = '';
-                          return;
+                        if (contractBody) {
+                          setPendingContractTemplate(t);
+                        } else {
+                          applyContractTemplate(t);
                         }
-                        setContractBody(t.body_html || '');
                       }
                       e.target.value = '';
                     }}
@@ -772,8 +908,9 @@ export default function QuoteDetailPage() {
               )}
               <div className={styles.form}>
                 <div className="form-group">
-                  <label>Contract body (HTML or plain text)</label>
+                  <label htmlFor="qdp-contract-body">Contract body (HTML or plain text)</label>
                   <textarea
+                    id="qdp-contract-body"
                     rows={10}
                     value={contractBody}
                     onChange={e => setContractBody(e.target.value)}
@@ -825,19 +962,19 @@ export default function QuoteDetailPage() {
                 <form onSubmit={handleClientSave} className={styles.venueForm}>
                   <h4 className={styles.venueTitle}>Client information</h4>
                   <div className={styles.formRow}>
-                    <div className="form-group"><label>First name</label><input value={form.client_first_name || ''} onChange={e => setForm(f => ({ ...f, client_first_name: e.target.value }))} /></div>
-                    <div className="form-group"><label>Last name</label><input value={form.client_last_name || ''} onChange={e => setForm(f => ({ ...f, client_last_name: e.target.value }))} /></div>
+                    <div className="form-group"><label htmlFor="qdc-first">First name</label><input id="qdc-first" value={form.client_first_name || ''} onChange={e => setForm(f => ({ ...f, client_first_name: e.target.value }))} /></div>
+                    <div className="form-group"><label htmlFor="qdc-last">Last name</label><input id="qdc-last" value={form.client_last_name || ''} onChange={e => setForm(f => ({ ...f, client_last_name: e.target.value }))} /></div>
                   </div>
-                  <div className="form-group"><label>Email</label><input type="email" value={form.client_email || ''} onChange={e => setForm(f => ({ ...f, client_email: e.target.value }))} /></div>
-                  <div className="form-group"><label>Phone</label><input value={form.client_phone || ''} onChange={e => setForm(f => ({ ...f, client_phone: e.target.value }))} /></div>
-                  <div className="form-group"><label>Address</label><input value={form.client_address || ''} onChange={e => setForm(f => ({ ...f, client_address: e.target.value }))} /></div>
+                  <div className="form-group"><label htmlFor="qdc-email">Email</label><input id="qdc-email" type="email" value={form.client_email || ''} onChange={e => setForm(f => ({ ...f, client_email: e.target.value }))} /></div>
+                  <div className="form-group"><label htmlFor="qdc-phone">Phone</label><input id="qdc-phone" value={form.client_phone || ''} onChange={e => setForm(f => ({ ...f, client_phone: e.target.value }))} /></div>
+                  <div className="form-group"><label htmlFor="qdc-addr">Address</label><input id="qdc-addr" value={form.client_address || ''} onChange={e => setForm(f => ({ ...f, client_address: e.target.value }))} /></div>
                   <div className={styles.formActions}>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setClientEditing(false)}>Cancel</button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={handleCancelClientEdit}>Cancel</button>
                     <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
                   </div>
                 </form>
               ) : (
-                <div role="button" tabIndex={0} className={styles.venueClickable} onClick={() => setClientEditing(true)} onKeyDown={e => e.key === 'Enter' && setClientEditing(true)}>
+                <div role="button" tabIndex={0} className={styles.venueClickable} onClick={() => setClientEditing(true)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setClientEditing(true)}>
                   <h4 className={styles.venueTitle}>Client information</h4>
                   {(quote.client_first_name || quote.client_last_name || quote.client_email || quote.client_phone || quote.client_address) ? (
                     <div className={styles.venueGrid}>
@@ -864,20 +1001,20 @@ export default function QuoteDetailPage() {
                 <form onSubmit={handleVenueSave} className={styles.venueForm}>
                   <h4 className={styles.venueTitle}>Venue information</h4>
                   <div className={styles.formRow}>
-                    <div className="form-group"><label>Name</label><input value={form.venue_name || ''} onChange={e => setForm(f => ({ ...f, venue_name: e.target.value }))} /></div>
-                    <div className="form-group"><label>Email</label><input type="email" value={form.venue_email || ''} onChange={e => setForm(f => ({ ...f, venue_email: e.target.value }))} /></div>
+                    <div className="form-group"><label htmlFor="qdv-name">Name</label><input id="qdv-name" value={form.venue_name || ''} onChange={e => setForm(f => ({ ...f, venue_name: e.target.value }))} /></div>
+                    <div className="form-group"><label htmlFor="qdv-email">Email</label><input id="qdv-email" type="email" value={form.venue_email || ''} onChange={e => setForm(f => ({ ...f, venue_email: e.target.value }))} /></div>
                   </div>
-                  <div className="form-group"><label>Phone</label><input value={form.venue_phone || ''} onChange={e => setForm(f => ({ ...f, venue_phone: e.target.value }))} /></div>
-                  <div className="form-group"><label>Address</label><input value={form.venue_address || ''} onChange={e => setForm(f => ({ ...f, venue_address: e.target.value }))} /></div>
-                  <div className="form-group"><label>Contact</label><input value={form.venue_contact || ''} onChange={e => setForm(f => ({ ...f, venue_contact: e.target.value }))} /></div>
-                  <div className="form-group"><label>Notes</label><textarea rows={2} value={form.venue_notes || ''} onChange={e => setForm(f => ({ ...f, venue_notes: e.target.value }))} /></div>
+                  <div className="form-group"><label htmlFor="qdv-phone">Phone</label><input id="qdv-phone" value={form.venue_phone || ''} onChange={e => setForm(f => ({ ...f, venue_phone: e.target.value }))} /></div>
+                  <div className="form-group"><label htmlFor="qdv-addr">Address</label><input id="qdv-addr" value={form.venue_address || ''} onChange={e => setForm(f => ({ ...f, venue_address: e.target.value }))} /></div>
+                  <div className="form-group"><label htmlFor="qdv-contact">Contact</label><input id="qdv-contact" value={form.venue_contact || ''} onChange={e => setForm(f => ({ ...f, venue_contact: e.target.value }))} /></div>
+                  <div className="form-group"><label htmlFor="qdv-notes">Notes</label><textarea id="qdv-notes" rows={2} value={form.venue_notes || ''} onChange={e => setForm(f => ({ ...f, venue_notes: e.target.value }))} /></div>
                   <div className={styles.formActions}>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setVenueEditing(false)}>Cancel</button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={handleCancelVenueEdit}>Cancel</button>
                     <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
                   </div>
                 </form>
               ) : (
-                <div role="button" tabIndex={0} className={styles.venueClickable} onClick={() => setVenueEditing(true)} onKeyDown={e => e.key === 'Enter' && setVenueEditing(true)}>
+                <div role="button" tabIndex={0} className={styles.venueClickable} onClick={() => setVenueEditing(true)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setVenueEditing(true)}>
                   <h4 className={styles.venueTitle}>Venue information</h4>
                   {(quote.venue_name || quote.venue_email || quote.venue_phone || quote.venue_address || quote.venue_contact || quote.venue_notes) ? (
                     <div className={styles.venueGrid}>
@@ -908,33 +1045,36 @@ export default function QuoteDetailPage() {
           <QuoteBuilder
             quoteId={id}
             items={quote.items}
+            sections={sections}
             onItemsChange={load}
             onAddCustomItem={() => setShowCustomForm(true)}
             settings={settings}
             availability={availability}
             adjustments={adjustments}
             onAdjustmentsChange={setAdjustments}
+            onOpenDrawer={(itemId) => setDrawerItemId(itemId)}
+            onOpenLightbox={(images, index) => { setLightboxImages(images); setLightboxIndex(index); }}
           />
           {showCustomForm && (
             <form onSubmit={handleAddCustomItem} className={styles.customItemForm}>
               <div className={styles.formRow}>
                 <div className="form-group" style={{ flex: 2 }}>
-                  <label>Item name *</label>
-                  <input required placeholder="Custom item name" value={customForm.title} onChange={e => setCustomForm(f => ({ ...f, title: e.target.value }))} />
+                  <label htmlFor="ci-name">Item name *</label>
+                  <input id="ci-name" required placeholder="Custom item name" value={customForm.title} onChange={e => setCustomForm(f => ({ ...f, title: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label>Price ($)</label>
-                  <input type="number" min="0" step="0.01" placeholder="0.00" value={customForm.unit_price} onChange={e => setCustomForm(f => ({ ...f, unit_price: e.target.value }))} />
+                  <label htmlFor="ci-price">Price ($)</label>
+                  <input id="ci-price" type="number" min="0" step="0.01" placeholder="0.00" value={customForm.unit_price} onChange={e => setCustomForm(f => ({ ...f, unit_price: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label>Qty</label>
-                  <input type="number" min="1" value={customForm.quantity} onChange={e => setCustomForm(f => ({ ...f, quantity: e.target.value }))} />
+                  <label htmlFor="ci-qty">Qty</label>
+                  <input id="ci-qty" type="number" min="1" value={customForm.quantity} onChange={e => setCustomForm(f => ({ ...f, quantity: e.target.value }))} />
                 </div>
               </div>
               <div className={styles.formRow}>
                 <div className="form-group">
-                  <label>Photo URL (optional)</label>
-                  <input placeholder="https://... or pick from Files" value={customForm.photo_url} onChange={e => setCustomForm(f => ({ ...f, photo_url: e.target.value }))} />
+                  <label htmlFor="ci-photo">Photo URL (optional)</label>
+                  <input id="ci-photo" placeholder="https://... or pick from Files" value={customForm.photo_url} onChange={e => setCustomForm(f => ({ ...f, photo_url: e.target.value }))} />
                 </div>
                 <div className="form-group" style={{ justifyContent: 'flex-end', paddingTop: '24px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
@@ -964,7 +1104,7 @@ export default function QuoteDetailPage() {
                   <li key={ci.id} className={styles.customItemCompact}>
                     <span>{ci.title} ×{ci.quantity || 1}</span>
                     <span>${((ci.unit_price || 0) * (ci.quantity || 1)).toFixed(2)}</span>
-                    <button type="button" className={styles.logRemoveBtn} onClick={() => handleRemoveCustomItem(ci.id)}>✕</button>
+                    <button type="button" className={styles.logRemoveBtn} onClick={() => handleRemoveCustomItem(ci.id)} aria-label="Remove item">✕</button>
                   </li>
                 ))}
               </ul>
@@ -983,7 +1123,21 @@ export default function QuoteDetailPage() {
                   <li key={it.qitem_id} className={styles.logisticsItem}>
                     <span className={styles.logisticsItemName}>{it.label || it.title} ×{it.quantity || 1}</span>
                     {(it.unit_price_override != null ? it.unit_price_override : it.unit_price) > 0 && <span>${((it.unit_price_override != null ? it.unit_price_override : it.unit_price) * (it.quantity || 1)).toFixed(2)}</span>}
-                    <button type="button" className={styles.logRemoveBtn} onClick={() => handleRemoveLogisticsItem(it.qitem_id, it.label || it.title)}>✕</button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      title="Rename"
+                      onClick={() =>
+                        setRenameLogistics({
+                          qitem_id: it.qitem_id,
+                          title: it.title,
+                          label: it.label || null,
+                        })
+                      }
+                    >
+                      Rename
+                    </button>
+                    <button type="button" className={styles.logRemoveBtn} onClick={() => handleRemoveLogisticsItem(it.qitem_id, it.label || it.title)} aria-label={`Remove ${it.label || it.title}`}>✕</button>
                   </li>
                 ))}
               </ul>
@@ -995,6 +1149,7 @@ export default function QuoteDetailPage() {
               <div className={styles.logPicker}>
                 <input
                   className={styles.logPickerSearch}
+                  aria-label="Search logistics items"
                   placeholder="Search logistics items…"
                   value={logSearch}
                   onChange={e => setLogSearch(e.target.value)}
@@ -1030,7 +1185,9 @@ export default function QuoteDetailPage() {
               <div className={styles.msgList}>
                 {quoteMessages.map(m => (
                   <div key={m.id} className={`${styles.msgBubble} ${m.direction === 'inbound' ? styles.msgIn : styles.msgOut}`}>
-                    <div className={styles.msgBubbleBody}>{m.body_text || m.subject || ''}</div>
+                    <div className={styles.msgBubbleBody}>
+                      <MessageBody msg={m} />
+                    </div>
                     <div className={styles.msgBubbleMeta}>
                       {m.direction === 'inbound' ? (m.from_email || 'Client') : 'You'}
                       {' · '}
@@ -1044,11 +1201,27 @@ export default function QuoteDetailPage() {
             )}
             <form onSubmit={async e => {
               e.preventDefault();
-              if (!msgText.trim()) return;
+              const links = msgLinks.split(/[\s,]+/).map(s => s.trim()).filter(Boolean).filter(u => /^https?:\/\//i.test(u));
+              if (!msgText.trim() && !links.length && !msgAttachments.length && !msgRich) return;
               setMsgSending(true);
               try {
-                const d = await api.sendQuoteMessage(id, { body_text: msgText.trim() });
+                const d = await api.sendQuoteMessage(id, {
+                  body_text: msgText.trim() || undefined,
+                  links: links.length ? links : undefined,
+                  attachments: msgAttachments.length ? msgAttachments : undefined,
+                  message_type: msgRich ? 'rich' : 'text',
+                  rich_payload: msgRich ? {
+                    kind: 'product_card',
+                    title: 'Quote highlight',
+                    subtitle: quote?.name || '',
+                    quoteId: Number(id),
+                    ctaLabel: 'Add to Quote',
+                  } : undefined,
+                });
                 setMsgText('');
+                setMsgLinks('');
+                setMsgAttachments([]);
+                setMsgRich(false);
                 setQuoteMessages((d.messages || []).slice().reverse());
               } catch (err) {
                 toast.error('Failed to send message');
@@ -1056,14 +1229,41 @@ export default function QuoteDetailPage() {
                 setMsgSending(false);
               }
             }} className={styles.msgForm}>
+              <div className={styles.msgFormRow}>
+                <input type="file" ref={msgFileInputRef} className={styles.msgFileInput} multiple accept="image/*,application/pdf" onChange={handleQuoteMsgAttach} aria-hidden="true" />
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => msgFileInputRef.current?.click()}>Attach</button>
+                <label className={styles.msgRichLabel}>
+                  <input type="checkbox" checked={msgRich} onChange={ev => setMsgRich(ev.target.checked)} />
+                  Rich
+                </label>
+              </div>
+              {msgAttachments.length > 0 && (
+                <div className={styles.msgPending}>
+                  {msgAttachments.map((a, i) => (
+                    <span key={`${a.file_id}-${i}`} className={styles.msgPendingChip}>
+                      {a.name || `File ${a.file_id}`}
+                      <button type="button" className={styles.msgPendingX} onClick={() => setMsgAttachments(prev => prev.filter((_, j) => j !== i))} aria-label="Remove"><span aria-hidden="true">×</span></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input
+                className={styles.msgLinkInput}
+                type="text"
+                placeholder="https://…"
+                aria-label="Link URLs"
+                value={msgLinks}
+                onChange={e => setMsgLinks(e.target.value)}
+              />
               <textarea
                 className={styles.msgTextarea}
                 rows={2}
                 placeholder="Add a message or note…"
+                aria-label="Message or note"
                 value={msgText}
                 onChange={e => setMsgText(e.target.value)}
               />
-              <button type="submit" className={styles.msgSendBtn} disabled={msgSending || !msgText.trim()}>
+              <button type="submit" className={styles.msgSendBtn} disabled={msgSending}>
                 {msgSending ? 'Sending…' : 'Send'}
               </button>
             </form>
@@ -1144,212 +1344,37 @@ export default function QuoteDetailPage() {
 
           </>)}
           {detailTab === 'billing' && (
-            <div className={`card ${styles.editCard}`}>
-              <h3 className={styles.formSectionTitle}>Billing</h3>
-              {(() => {
-                const applied = payments.reduce((s, p) => s + (p.amount || 0), 0);
-                const balance = (totals.total || 0) - applied;
-                const overpaid = balance < 0;
-                const showBalance = quote.has_unsigned_changes || quote.status === 'approved' || quote.status === 'confirmed' || quote.status === 'closed';
-                return (
-                  <div className={styles.billingSummary}>
-                    <div className={styles.billingBlock}>
-                      <h4 className={styles.venueTitle}>Project total</h4>
-                      <div className={styles.billingTotal}>${(totals.total || 0).toFixed(2)}</div>
-                    </div>
-                    <div className={styles.billingBlock}>
-                      <h4 className={styles.venueTitle}>Applied</h4>
-                      <div className={styles.billingApplied}>
-                        ${applied.toFixed(2)}
-                      </div>
-                    </div>
-                    {showBalance && (
-                      <>
-                        <div className={styles.billingBlock}>
-                          <h4 className={styles.venueTitle}>Balance</h4>
-                          <div className={styles.billingBalance}>
-                            ${(overpaid ? 0 : balance).toFixed(2)}
-                          </div>
-                        </div>
-                        {overpaid && (
-                          <div className={styles.billingBlockOverpaid}>
-                            <h4 className={styles.venueTitle}>Overpaid</h4>
-                            <div className={styles.billingOverpaid}>
-                              ${Math.abs(balance).toFixed(2)}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
-              <div className={styles.formActions} style={{ marginBottom: 16 }}>
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => { const now = new Date(); const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16); setPaymentForm(f => ({ ...f, paid_at: local })); setShowPaymentModal(true); }}>
-                  Record offline payment
-                </button>
-              </div>
-              {payments.length > 0 ? (
-                <div className={styles.logTableWrap}><table className={styles.logTable}>
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Method</th>
-                      <th>Reference</th>
-                      <th>Amount</th>
-                      <th>Note</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payments.map(p => (
-                      <tr key={p.id}>
-                        <td>{p.paid_at ? new Date(p.paid_at).toLocaleDateString() : (p.created_at ? new Date(p.created_at).toLocaleDateString() : '—')}</td>
-                        <td>{p.method || '—'}</td>
-                        <td>{p.reference || '—'}</td>
-                        <td>${(p.amount || 0).toFixed(2)}</td>
-                        <td>{p.note || '—'}</td>
-                        <td><button type="button" className={styles.rowDeleteBtn} onClick={() => handleDeletePayment(p.id)} title="Remove payment">✕</button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table></div>
-              ) : (
-                <p className={styles.emptyHint}>No payments recorded yet.</p>
-              )}
-              {contract && contract.signed_at && (
-                <div className={styles.contractSignedBlock}>
-                  <span className={styles.contractSignedLabel}>✓ Contract signed</span>
-                  <span className={styles.contractSignedMeta}>
-                    {new Date(contract.signed_at).toLocaleString()}
-                    {contract.signer_name && ` · ${contract.signer_name}`}
-                  </span>
-                </div>
-              )}
-              {quote.status === 'closed' && (
-                <div className={styles.damageSection}>
-                  <div className={styles.damageSectionHeader}>
-                    <h4>Damage Charges</h4>
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowDamageForm(v => !v)}>
-                      {showDamageForm ? 'Cancel' : '+ Add Damage Charge'}
-                    </button>
-                  </div>
-                  {showDamageForm && (
-                    <form onSubmit={handleAddDamageCharge} className={styles.damageForm}>
-                      <div className={styles.formRow}>
-                        <div className="form-group" style={{ flex: 2 }}>
-                          <label>Description *</label>
-                          <input required value={damageForm.title}
-                            onChange={e => setDamageForm(f => ({ ...f, title: e.target.value }))}
-                            placeholder="e.g. Broken chair leg" />
-                        </div>
-                        <div className="form-group">
-                          <label>Amount ($) *</label>
-                          <input type="number" min="0.01" step="0.01" required
-                            value={damageForm.amount}
-                            onChange={e => setDamageForm(f => ({ ...f, amount: e.target.value }))} />
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label>Note (optional)</label>
-                        <input value={damageForm.note}
-                          onChange={e => setDamageForm(f => ({ ...f, note: e.target.value }))}
-                          placeholder="Internal note" />
-                      </div>
-                      <div className={styles.formActions}>
-                        <button type="submit" className="btn btn-primary btn-sm" disabled={damageSaving}>
-                          {damageSaving ? 'Saving…' : 'Add Charge'}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                  {damageCharges.length === 0 ? (
-                    <p className={styles.emptyHint}>No damage charges recorded.</p>
-                  ) : (
-                    <ul className={styles.damageList}>
-                      {damageCharges.map(c => (
-                        <li key={c.id} className={styles.damageItem}>
-                          <span className={styles.damageTitle}>{c.title}</span>
-                          <span className={styles.damageAmount}>${Number(c.amount).toFixed(2)}</span>
-                          {c.note && <span className={styles.damageNote}>{c.note}</span>}
-                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleRemoveDamageCharge(c.id)}>
-                            Remove
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {damageCharges.length > 0 && (
-                    <div className={styles.damageTotalRow}>
-                      <span>Total damage charges</span>
-                      <span className={styles.damageAmount}>
-                        ${damageCharges.reduce((s, c) => s + Number(c.amount), 0).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <QuoteBillingPanel
+              payments={payments}
+              quote={quote}
+              totals={totals}
+              contract={contract}
+              damageCharges={damageCharges}
+              showDamageForm={showDamageForm}
+              setShowDamageForm={setShowDamageForm}
+              damageForm={damageForm}
+              setDamageForm={setDamageForm}
+              damageSaving={damageSaving}
+              onOpenPaymentModal={() => {
+                const now = new Date();
+                const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                setPaymentForm(f => ({ ...f, paid_at: local }));
+                setShowPaymentModal(true);
+              }}
+              onDeletePayment={setPendingPaymentDelete}
+              onAddDamageCharge={handleAddDamageCharge}
+              onRemoveDamageCharge={handleRemoveDamageCharge}
+            />
           )}
           {detailTab === 'files' && (
-            <div className={`card ${styles.editCard}`}>
-              <h3 className={styles.formSectionTitle}>Files</h3>
-              <p className={styles.notes}>Files attached to this quote. Add from your media library.</p>
-              <div className={styles.formActions} style={{ marginBottom: 12 }}>
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowFilePicker(true)}>
-                  Add file from library
-                </button>
-              </div>
-              {quoteFiles.length > 0 ? (
-                <ul className={styles.quoteFilesList}>
-                  {quoteFiles.map(f => {
-                    const mime = f.mime_type || '';
-                    const fileIcon = mime.startsWith('image/') ? '🖼' : mime === 'application/pdf' ? '📄' : mime.startsWith('video/') ? '🎬' : '📎';
-                    const attachedAt = f.attached_at || f.created_at;
-                    return (
-                      <li key={f.attachment_id || f.file_id} className={styles.quoteFileItem}>
-                        <span className={styles.quoteFileIcon}>{fileIcon}</span>
-                        <a href={api.fileServeUrl(f.file_id)} target="_blank" rel="noopener noreferrer" className={styles.quoteFileName}>
-                          {f.original_name || 'File #' + f.file_id}
-                        </a>
-                        {f.size != null && <span className={styles.quoteFileSize}>{f.size >= 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : f.size >= 1024 ? (f.size / 1024).toFixed(1) + ' KB' : f.size + ' B'}</span>}
-                        {attachedAt && <span className={styles.quoteFileMeta}>{new Date(attachedAt).toLocaleDateString()}</span>}
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleDetachFile(f.file_id)}>Remove</button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className={styles.emptyHint}>No files attached to this quote.</p>
-              )}
-            </div>
+            <QuoteFilesPanel
+              quoteFiles={quoteFiles}
+              onDetach={handleDetachFile}
+              onOpenPicker={() => setShowFilePicker(true)}
+            />
           )}
           {detailTab === 'logs' && (
-            <div className={`card ${styles.editCard}`}>
-              <h3 className={styles.formSectionTitle}>Activity log</h3>
-              <p className={styles.notes}>All changes to this quote: items, custom items, contract, payments, and files. Includes user, time, and original vs changed values.</p>
-              {activity.length > 0 ? (
-                <ul className={styles.activityLogList}>
-                  {activity.map(entry => (
-                    <li key={entry.id} className={styles.activityLogItem}>
-                      <div className={styles.activityLogMeta}>
-                        <span className={styles.contractLogWhen}>{entry.created_at ? new Date(entry.created_at).toLocaleString() : ''}</span>
-                        <span className={styles.contractLogWho}>{entry.user_email || 'System'}</span>
-                      </div>
-                      <div className={styles.contractLogWhat}>{entry.description || entry.event_type}</div>
-                      {(entry.old_value || entry.new_value) && (
-                        <div className={styles.activityLogValues}>
-                          {entry.old_value && <div className={styles.activityLogOld}><strong>Original:</strong> {entry.old_value}</div>}
-                          {entry.new_value && <div className={styles.activityLogNew}><strong>Changed to:</strong> {entry.new_value}</div>}
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className={styles.emptyHint}>No activity yet.</p>
-              )}
-            </div>
+            <QuoteLogsPanel activity={activity} />
           )}
         </>
 
@@ -1375,18 +1400,28 @@ export default function QuoteDetailPage() {
         />
       )}
 
+      {renameLogistics && (
+        <RenameLogisticsModal
+          open
+          inventoryTitle={renameLogistics.title}
+          currentLabel={renameLogistics.label}
+          onClose={() => setRenameLogistics(null)}
+          onSave={handleSaveLogisticsRename}
+        />
+      )}
+
       {showPaymentModal && (
         <div className={styles.modalOverlay} onClick={() => setShowPaymentModal(false)} onKeyDown={e => e.key === 'Escape' && setShowPaymentModal(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3 className={styles.modalTitle}>Record offline payment</h3>
+          <div className={styles.modal} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="pay-modal-title">
+            <h3 id="pay-modal-title" className={styles.modalTitle}>Record offline payment</h3>
             <form onSubmit={handleRecordPayment} className={styles.form}>
               <div className="form-group">
-                <label>Amount ($) *</label>
-                <input type="number" step="0.01" min="0" required value={paymentForm.amount} onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))} />
+                <label htmlFor="pay-amount">Amount ($) *</label>
+                <input id="pay-amount" type="number" step="0.01" min="0" required value={paymentForm.amount} onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))} />
               </div>
               <div className="form-group">
-                <label>Method</label>
-                <select value={paymentForm.method} onChange={e => setPaymentForm(f => ({ ...f, method: e.target.value }))}>
+                <label htmlFor="pay-method">Method</label>
+                <select id="pay-method" value={paymentForm.method} onChange={e => setPaymentForm(f => ({ ...f, method: e.target.value }))}>
                   <option>Offline - Check</option>
                   <option>Cash</option>
                   <option>ACH</option>
@@ -1395,16 +1430,16 @@ export default function QuoteDetailPage() {
                 </select>
               </div>
               <div className="form-group">
-                <label>Reference (e.g. check #)</label>
-                <input value={paymentForm.reference} onChange={e => setPaymentForm(f => ({ ...f, reference: e.target.value }))} placeholder="Optional" />
+                <label htmlFor="pay-ref">Reference (e.g. check #)</label>
+                <input id="pay-ref" value={paymentForm.reference} onChange={e => setPaymentForm(f => ({ ...f, reference: e.target.value }))} placeholder="Optional" />
               </div>
               <div className="form-group">
-                <label>Date</label>
-                <input type="datetime-local" value={paymentForm.paid_at} onChange={e => setPaymentForm(f => ({ ...f, paid_at: e.target.value }))} />
+                <label htmlFor="pay-date">Date</label>
+                <input id="pay-date" type="datetime-local" value={paymentForm.paid_at} onChange={e => setPaymentForm(f => ({ ...f, paid_at: e.target.value }))} />
               </div>
               <div className="form-group">
-                <label>Note</label>
-                <input value={paymentForm.note} onChange={e => setPaymentForm(f => ({ ...f, note: e.target.value }))} placeholder="Optional" />
+                <label htmlFor="pay-note">Note</label>
+                <input id="pay-note" value={paymentForm.note} onChange={e => setPaymentForm(f => ({ ...f, note: e.target.value }))} placeholder="Optional" />
               </div>
               <div className={styles.formActions}>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowPaymentModal(false)}>Cancel</button>
@@ -1439,7 +1474,7 @@ export default function QuoteDetailPage() {
           message="You have unsaved changes that will be lost. Leave this page?"
           confirmLabel="Leave"
           confirmClass="btn-danger"
-          onConfirm={() => blocker.proceed()}
+          onConfirm={discardAndProceedNavigation}
           onCancel={() => blocker.reset()}
         />
       )}
@@ -1449,6 +1484,28 @@ export default function QuoteDetailPage() {
           message={`Delete quote "${quote?.name || 'this quote'}"? This cannot be undone.`}
           onConfirm={handleDeleteQuote}
           onCancel={() => setShowConfirmDelete(false)}
+        />
+      )}
+
+      {pendingPaymentDelete && (
+        <ConfirmDialog
+          title="Remove payment"
+          message={`Remove the ${Number(pendingPaymentDelete.amount || 0).toFixed(2)} payment record${pendingPaymentDelete.method ? ` (${pendingPaymentDelete.method})` : ''}? This only deletes the payment entry.`}
+          confirmLabel="Remove payment"
+          confirmClass="btn-danger"
+          onConfirm={() => handleDeletePayment(pendingPaymentDelete.id)}
+          onCancel={() => setPendingPaymentDelete(null)}
+        />
+      )}
+
+      {pendingContractTemplate && (
+        <ConfirmDialog
+          title="Replace contract draft"
+          message={`Replace the current contract draft with "${pendingContractTemplate.name}"? Unsaved contract edits will be lost.`}
+          confirmLabel="Replace contract"
+          confirmClass="btn-danger"
+          onConfirm={() => applyContractTemplate(pendingContractTemplate)}
+          onCancel={() => setPendingContractTemplate(null)}
         />
       )}
 
@@ -1469,6 +1526,23 @@ export default function QuoteDetailPage() {
           mapboxToken={addressModalData.mapboxToken}
           defaultMapStyle={addressModalData.defaultMapStyle || 'map'}
           onClose={() => setAddressModalData(null)}
+        />
+      )}
+
+      {drawerItemId != null && (
+        <ItemDetailDrawer
+          itemId={drawerItemId}
+          onClose={() => setDrawerItemId(null)}
+          onItemUpdated={() => load()}
+        />
+      )}
+
+      {lightboxImages.length > 0 && (
+        <ImageLightbox
+          images={lightboxImages}
+          index={lightboxIndex}
+          onClose={() => setLightboxImages([])}
+          onNavigate={setLightboxIndex}
         />
       )}
     </div>

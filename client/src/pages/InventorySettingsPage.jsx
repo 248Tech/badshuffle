@@ -52,8 +52,8 @@ export default function InventorySettingsPage() {
             <h2 className={styles.sectionTitle}>Display</h2>
 
             <div className={styles.field}>
-              <label className={styles.label}>Default view</label>
-              <select className="input" value={form.inventory_default_view} onChange={e => set('inventory_default_view', e.target.value)}>
+              <label className={styles.label} htmlFor="is-default-view">Default view</label>
+              <select id="is-default-view" className="input" value={form.inventory_default_view} onChange={e => set('inventory_default_view', e.target.value)}>
                 <option value="grid">Grid</option>
                 <option value="list">List</option>
               </select>
@@ -61,8 +61,8 @@ export default function InventorySettingsPage() {
             </div>
 
             <div className={styles.field}>
-              <label className={styles.label}>Items per page</label>
-              <select className="input" value={form.inventory_items_per_page} onChange={e => set('inventory_items_per_page', e.target.value)}>
+              <label className={styles.label} htmlFor="is-per-page">Items per page</label>
+              <select id="is-per-page" className="input" value={form.inventory_items_per_page} onChange={e => set('inventory_items_per_page', e.target.value)}>
                 <option value="24">24</option>
                 <option value="48">48</option>
                 <option value="96">96</option>

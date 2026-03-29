@@ -144,9 +144,9 @@ export default function DateRangePicker({ from, to, onChange, placeholder = 'Eve
         aria-haspopup="dialog"
         aria-label="Select event date range"
       >
-        <span className={styles.triggerIcon}>📅</span>
+        <span className={styles.triggerIcon} aria-hidden="true">📅</span>
         <span className={styles.triggerLabel}>{label}</span>
-        <span className={styles.triggerCaret} aria-hidden>{open ? '▲' : '▼'}</span>
+        <span className={styles.triggerCaret} aria-hidden="true">{open ? '▲' : '▼'}</span>
       </button>
       {open && (
         <div className={styles.dropdown} role="dialog" aria-label="Event date range calendar">

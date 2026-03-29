@@ -10,9 +10,9 @@ export default function DirectoryPage() {
       <h1 className={styles.title}>Directory</h1>
       <p className={styles.subtitle}>Manage your contacts and business relationships.</p>
       <div className={styles.grid}>
-        <button className={`card ${styles.card}`} onClick={() => navigate('/leads')}>
+        <button type="button" className={`card ${styles.card}`} onClick={() => navigate('/leads')}>
           <div className={styles.cardIcon}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="12" cy="8" r="4"/>
               <path d="M4 20c0-4 3.582-6 8-6s8 2 8 6"/>
             </svg>
@@ -21,11 +21,11 @@ export default function DirectoryPage() {
             <h2 className={styles.cardTitle}>Leads</h2>
             <p className={styles.cardDesc}>Track potential clients and event inquiries.</p>
           </div>
-          <span className={styles.cardArrow}>→</span>
+          <span className={styles.cardArrow} aria-hidden="true">→</span>
         </button>
-        <button className={`card ${styles.card}`} onClick={() => navigate('/vendors')}>
+        <button type="button" className={`card ${styles.card}`} onClick={() => navigate('/vendors')}>
           <div className={styles.cardIcon}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M2 6h20L19 17H5L2 6z"/>
               <path d="M2 6L3.5 2h17L22 6"/>
               <circle cx="7.5" cy="21" r="1.5"/>
@@ -36,7 +36,7 @@ export default function DirectoryPage() {
             <h2 className={styles.cardTitle}>Vendors</h2>
             <p className={styles.cardDesc}>Manage subrental suppliers and vendor contacts.</p>
           </div>
-          <span className={styles.cardArrow}>→</span>
+          <span className={styles.cardArrow} aria-hidden="true">→</span>
         </button>
       </div>
     </div>

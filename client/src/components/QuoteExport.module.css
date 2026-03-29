@@ -113,35 +113,48 @@
   color: #1a1a2e;
 }
 
-.exportLogistics {
-  margin-bottom: 10px;
-  padding: 8px 0;
-  border-top: 1px solid #e8eef2;
-}
-.exportLogisticsTitle {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #637080;
-  margin-bottom: 4px;
-}
-.exportLogisticsList {
+.exportSections {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 18px;
+  margin-bottom: 16px;
 }
-.exportLogisticsItem {
+
+.exportSection {
+  border: 1px solid #e5eef4;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.exportSectionHeader {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5eef4;
+  background: #f7fbfd;
+}
+
+.exportSectionTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.exportSectionDates {
+  margin-top: 4px;
   font-size: 11px;
+  color: #637080;
 }
 
 .exportGrid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 8px;
-  margin-bottom: 16px;
+  padding: 12px;
 }
 
 .exportItem {
@@ -195,6 +208,14 @@
   line-height: 1.2;
 }
 
+.exportItemDescription {
+  padding: 0 6px 4px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #637080;
+  white-space: pre-wrap;
+}
+
 .exportQty {
   font-size: 10px;
   font-weight: 700;
@@ -226,6 +247,17 @@
   font-weight: 600;
   color: #1a8fc1;
   text-align: right;
+}
+
+.exportSectionSubtotal {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px 12px;
+  border-top: 1px solid #e5eef4;
+  background: #fbfdff;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a2e;
 }
 
 .exportTotals {

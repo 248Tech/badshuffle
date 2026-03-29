@@ -16,14 +16,17 @@ export default function QuoteFilePicker({ currentFileIds = [], onSelect, onClose
   const attached = new Set(currentFileIds);
 
   return (
-    <div className={classNames.modalOverlay} onClick={onClose}>
+    <div className={classNames.modalOverlay} onClick={onClose} onKeyDown={e => e.key === 'Escape' && onClose()}>
       <div
         className={classNames.modal}
         style={{ maxWidth: 480 }}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="qfp-title"
       >
         <div className={classNames.imagePickerHeader}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Add file to quote</span>
+          <span id="qfp-title" style={{ fontSize: 13, fontWeight: 600 }}>Add file to quote</span>
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
             Close
           </button>

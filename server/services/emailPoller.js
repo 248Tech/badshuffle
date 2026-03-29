@@ -55,7 +55,9 @@ async function pollOnce(db) {
               db.prepare('INSERT INTO lead_events (lead_id, event_type, note) VALUES (?, ?, ?)')
                 .run(quote.lead_id, 'reply_received', parsed.subject || 'Reply received');
             }
-          } catch (e) {}
+          } catch (e) {
+            console.error('[emailPoller] Failed to record lead reply event:', e.message);
+          }
         }
         ingested++;
       }
@@ -72,7 +74,11 @@ let _timer = null;
 
 function startPolling(db, intervalMs) {
   if (_timer) return;
-  _timer = setInterval(function() { pollOnce(db).catch(function() {}); }, intervalMs || 5 * 60 * 1000);
+  _timer = setInterval(function() {
+    pollOnce(db).catch(function(err) {
+      console.error('[emailPoller] Poll failed:', err && err.message ? err.message : err);
+    });
+  }, intervalMs || 5 * 60 * 1000);
 }
 
 function stopPolling() {

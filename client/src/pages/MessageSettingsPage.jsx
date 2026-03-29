@@ -69,8 +69,8 @@ export default function MessageSettingsPage() {
           <div className={styles.section}>
             <h2 className={styles.sectionTitle}>Messenger Theme</h2>
             <div className={styles.field}>
-              <label className={styles.label}>Theme</label>
-              <select className="input" value={form.message_theme} onChange={e => set('message_theme', e.target.value)}>
+              <label className={styles.label} htmlFor="ms-theme">Theme</label>
+              <select id="ms-theme" className="input" value={form.message_theme} onChange={e => set('message_theme', e.target.value)}>
                 <option value="default">Default</option>
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>

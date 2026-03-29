@@ -1,253 +1,76 @@
-.page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-@media (max-width: 768px) {
-  .page { gap: 14px; }
-  .header { flex-direction: column; align-items: stretch; }
-  .title { font-size: 18px; }
-  .searchInput { min-width: 0; }
-  .filters { width: 100%; }
+.drawerBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(2px);
+  z-index: 140;
 }
 
-.title { font-size: 22px; font-weight: 700; }
-.sub { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
-
-.headerActions { display: flex; align-items: center; gap: 12px; }
-
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--color-text-muted);
-}
-
-.filters {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.searchWrap {
-  position: relative;
-  flex: 1;
-  min-width: 180px;
-  display: flex;
-  align-items: center;
-}
-
-.searchIcon {
-  position: absolute;
-  left: 11px;
-  color: var(--color-text-muted);
-  pointer-events: none;
-}
-
-.searchInput {
-  flex: 1;
-  min-width: 180px;
-  padding: 8px 12px 8px 36px;
-  border: 1.5px solid var(--color-border);
-  border-radius: 8px;
-  font-size: 14px;
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(680px, 100vw);
+  height: 100vh;
   background: var(--color-bg);
-  color: var(--color-text);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.searchInput:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-subtle);
-}
-
-.categorySelect {
-  padding: 7px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 13px;
-  background: var(--color-surface);
-  color: var(--color-text);
-}
-
-.formRow {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.formRow > * { flex: 1; min-width: 140px; }
-
-.checkboxRow {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.photoRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.photoUrlInput {
-  flex: 1;
-  min-width: 120px;
-  padding: 7px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 13px;
-  background: var(--color-bg);
-  color: var(--color-text);
-}
-.photoPreview {
-  width: 48px;
-  height: 48px;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.formCard { padding: 20px; }
-.formTitle { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
-
-.form {
+  border-left: 1px solid var(--color-border);
+  box-shadow: -16px 0 40px rgba(15, 23, 42, 0.16);
+  z-index: 141;
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
-.toggleInline {
+.drawerHeader {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  cursor: pointer;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 82%, var(--color-bg));
 }
 
-.formActions { display: flex; gap: 8px; justify-content: flex-end; }
-
-.assocSection {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-border);
+.drawerEyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
 }
 
-.accessoriesSection {
-  margin-top: 20px;
+.drawerTitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.drawerBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  overscroll-behavior: contain;
+}
+
+.drawerSection {
+  margin-top: 8px;
   padding-top: 16px;
   border-top: 1px solid var(--color-border);
 }
 
-.assocTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 4px;
-}
-
-.assocSub {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  margin: 0 0 12px;
-}
-
-.accessoryList {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 10px;
+.drawerFooter {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 82%, var(--color-bg));
 }
 
-.accessoryRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  background: var(--color-surface);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  color: var(--color-text);
-}
-
-.accessoryAdd {
-  position: relative;
-}
-
-.accessoryDropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-  margin-top: 2px;
-  max-height: 200px;
-  overflow-y: auto;
-  list-style: none;
-  padding: 4px 0;
-}
-
-.accessoryDropdownItem {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 8px 14px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--color-text);
-}
-
-.accessoryDropdownItem:hover {
-  background: var(--color-surface);
-}
-
-.categoryNav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 4px 0 8px;
-}
-
-.categoryNavBtn {
-  padding: 5px 14px;
-  font-size: 13px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-bg);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
-  white-space: nowrap;
-}
-.categoryNavBtn:hover {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border-color: var(--color-primary);
-}
-.categoryNavBtnActive {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
-}
-.categoryNavBtnActive:hover {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
-  opacity: 0.9;
+@media (max-width: 760px) {
+  .drawer {
+    width: 100vw;
+  }
 }

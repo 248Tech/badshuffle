@@ -120,11 +120,11 @@ function InventoryImport() {
             {activeTab === 'url' && (
               <form onSubmit={handlePreview} className={styles.tabContent}>
                 <div className="form-group">
-                  <label>Google Sheets URL</label>
-                  <input required type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" />
+                  <label htmlFor="imp-url">Google Sheets URL</label>
+                  <input id="imp-url" required type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" />
                 </div>
-                <div className={styles.tip}>💡 Tip: In Google Sheets, go to <strong>File → Share → Publish to web</strong>, select CSV format, then copy the spreadsheet URL.</div>
-                <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? <><span className="spinner" /> Fetching…</> : 'Preview →'}</button>
+                <div className={styles.tip}><span aria-hidden="true">💡</span> Tip: In Google Sheets, go to <strong>File → Share → Publish to web</strong>, select CSV format, then copy the spreadsheet URL.</div>
+                <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? <><span className="spinner" /> Fetching…</> : <>Preview <span aria-hidden="true">→</span></>}</button>
               </form>
             )}
             {activeTab === 'file' && (
@@ -133,7 +133,7 @@ function InventoryImport() {
                   onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
                   onDragLeave={() => setIsDragging(false)} onDrop={onDrop}>
                   {loading ? <><span className="spinner" /> Reading file…</> : (
-                    <><span className={styles.dropIcon}>📂</span>
+                    <><span className={styles.dropIcon} aria-hidden="true">📂</span>
                     <span className={styles.dropText}>Drag &amp; drop a file here, or <strong>click to browse</strong></span>
                     <span className={styles.dropSub}>Supports .csv, .xlsx, .xls, .gsheet</span></>
                   )}
@@ -153,35 +153,35 @@ function InventoryImport() {
           <form onSubmit={handleImport} className={styles.form}>
             <p className={styles.info}>Found <strong>{preview.total}</strong> rows with <strong>{preview.columns.length}</strong> columns.</p>
             <div className="form-group">
-              <label>Title column *</label>
-              <select value={titleCol} onChange={e => setTitleCol(e.target.value)} required>
+              <label htmlFor="imp-title-col">Title column *</label>
+              <select id="imp-title-col" value={titleCol} onChange={e => setTitleCol(e.target.value)} required>
                 <option value="">— select —</option>
                 {preview.columns.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label>Photo URL column (optional)</label>
-              <select value={photoCol} onChange={e => setPhotoCol(e.target.value)}>
+              <label htmlFor="imp-photo-col">Photo URL column (optional)</label>
+              <select id="imp-photo-col" value={photoCol} onChange={e => setPhotoCol(e.target.value)}>
                 <option value="">— none —</option>
                 {preview.columns.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className={styles.previewWrapper}>
               <table className={styles.previewTable}>
-                <thead><tr>{preview.columns.map(c => <th key={c} className={c === titleCol ? styles.highlightCol : ''}>{c}{c === titleCol && ' ✓ title'}{c === photoCol && ' ✓ photo'}</th>)}</tr></thead>
+                <thead><tr>{preview.columns.map(c => <th key={c} className={c === titleCol ? styles.highlightCol : ''}>{c}{c === titleCol && <><span aria-hidden="true"> ✓</span> title</>}{c === photoCol && <><span aria-hidden="true"> ✓</span> photo</>}</th>)}</tr></thead>
                 <tbody>{preview.preview.map((row, i) => <tr key={i}>{preview.columns.map(c => <td key={c} className={c === titleCol ? styles.highlightCol : ''}>{String(row[c] || '').slice(0, 60)}</td>)}</tr>)}</tbody>
               </table>
             </div>
             <div className={styles.formActions}>
-              <button type="button" className="btn btn-ghost" onClick={() => setStep(0)}>← Back</button>
-              <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? <><span className="spinner" /> Importing…</> : `Import ${preview.total} rows →`}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setStep(0)}><span aria-hidden="true">←</span> Back</button>
+              <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? <><span className="spinner" /> Importing…</> : <>Import {preview.total} rows <span aria-hidden="true">→</span></>}</button>
             </div>
           </form>
         )}
 
         {step === 2 && result && (
           <div className={styles.resultPane}>
-            <div className={styles.resultIcon}>✅</div>
+            <div className={styles.resultIcon} aria-hidden="true">✅</div>
             <h2 className={styles.resultTitle}>Import Complete</h2>
             <div className={styles.resultStats}>
               <div className={styles.stat}><span>{result.imported}</span> New items</div>
@@ -189,7 +189,7 @@ function InventoryImport() {
               <div className={styles.stat}><span>{result.skipped}</span> Skipped</div>
               <div className={styles.stat}><span>{result.total}</span> Total rows</div>
             </div>
-            <button className="btn btn-primary" onClick={reset}>Import Another</button>
+            <button type="button" className="btn btn-primary" onClick={reset}>Import Another</button>
           </div>
         )}
       </div>
@@ -249,7 +249,7 @@ function ExtensionJsonImport() {
         <div className={styles.stat}><span>{result.errors}</span> Errors</div>
         <div className={styles.stat}><span>{result.total}</span> Total</div>
       </div>
-      <button className="btn btn-primary" onClick={reset}>Import Another</button>
+      <button type="button" className="btn btn-primary" onClick={reset}>Import Another</button>
     </div>
   );
 
@@ -261,8 +261,9 @@ function ExtensionJsonImport() {
       {!parsed ? (
         <>
           <div className="form-group">
-            <label>Paste extension JSON</label>
+            <label htmlFor="imp-ext-json">Paste extension JSON</label>
             <textarea
+              id="imp-ext-json"
               rows={8}
               value={json}
               onChange={e => { setJson(e.target.value); setParseError(''); }}
@@ -271,7 +272,7 @@ function ExtensionJsonImport() {
             />
           </div>
           {parseError && <p style={{ color: 'var(--color-error, #e53)', fontSize: '13px' }}>{parseError}</p>}
-          <button className="btn btn-primary" onClick={handleParse} disabled={!json.trim()}>
+          <button type="button" className="btn btn-primary" onClick={handleParse} disabled={!json.trim()}>
             Parse JSON →
           </button>
         </>
@@ -295,9 +296,9 @@ function ExtensionJsonImport() {
             </table>
           </div>
           <div className={styles.formActions}>
-            <button type="button" className="btn btn-ghost" onClick={() => setParsed(null)}>← Back</button>
-            <button className="btn btn-primary" onClick={handleImport} disabled={importing}>
-              {importing ? <><span className="spinner" /> Importing…</> : `Import ${parsed.length} items →`}
+            <button type="button" className="btn btn-ghost" onClick={() => setParsed(null)}><span aria-hidden="true">←</span> Back</button>
+            <button type="button" className="btn btn-primary" onClick={handleImport} disabled={importing}>
+              {importing ? <><span className="spinner" /> Importing…</> : <>Import {parsed.length} items <span aria-hidden="true">→</span></>}
             </button>
           </div>
         </>
@@ -352,7 +353,7 @@ function PdfQuoteImport() {
       <div className={styles.resultPane}>
         <div className={styles.resultIcon}>✅</div>
         <h2 className={styles.resultTitle}>Quote Created</h2>
-        <button className="btn btn-primary" onClick={() => { setParsedItems(null); setDone(false); setQuoteName(''); }}>Import Another</button>
+        <button type="button" className="btn btn-primary" onClick={() => { setParsedItems(null); setDone(false); setQuoteName(''); }}>Import Another</button>
       </div>
     </div>
   );
@@ -366,7 +367,7 @@ function PdfQuoteImport() {
             onDragOver={e => e.preventDefault()}
             onDrop={e => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); }}>
             {loading ? <><span className="spinner" /> Parsing PDF…</> : (
-              <><span className={styles.dropIcon}>📄</span>
+              <><span className={styles.dropIcon} aria-hidden="true">📄</span>
               <span className={styles.dropText}>Drag &amp; drop a PDF here, or <strong>click to browse</strong></span>
               <span className={styles.dropSub}>.pdf files only</span></>
             )}
@@ -378,8 +379,8 @@ function PdfQuoteImport() {
         <form onSubmit={handleImport} className={styles.form}>
           <p className={styles.info}>Found <strong>{parsedItems.length}</strong> line items. Enter a quote name to import.</p>
           <div className="form-group">
-            <label>Quote name *</label>
-            <input required value={quoteName} onChange={e => setQuoteName(e.target.value)} placeholder="e.g. Smith Wedding" />
+            <label htmlFor="imp-quote-name">Quote name *</label>
+            <input id="imp-quote-name" required value={quoteName} onChange={e => setQuoteName(e.target.value)} placeholder="e.g. Smith Wedding" />
           </div>
           <div className={styles.previewWrapper}>
             <table className={styles.previewTable}>
@@ -396,9 +397,9 @@ function PdfQuoteImport() {
             </table>
           </div>
           <div className={styles.formActions}>
-            <button type="button" className="btn btn-ghost" onClick={() => setParsedItems(null)}>← Back</button>
+            <button type="button" className="btn btn-ghost" onClick={() => setParsedItems(null)}><span aria-hidden="true">←</span> Back</button>
             <button type="submit" className="btn btn-primary" disabled={importing}>
-              {importing ? <><span className="spinner" /> Creating…</> : 'Create Quote →'}
+              {importing ? <><span className="spinner" /> Creating…</> : <>Create Quote <span aria-hidden="true">→</span></>}
             </button>
           </div>
         </form>
@@ -573,14 +574,14 @@ function LeadsImport() {
               <div className="form-group">
                 <input type="url" placeholder="Google Sheets URL…" value={sheetUrl} onChange={e => { setSheetUrl(e.target.value); setImportError(''); }} className={styles.input} />
               </div>
-              <button type="submit" className="btn btn-primary" disabled={loading}>{importing ? <><span className="spinner" /> Fetching…</> : 'Preview →'}</button>
+              <button type="submit" className="btn btn-primary" disabled={loading}>{importing ? <><span className="spinner" /> Fetching…</> : <>Preview <span aria-hidden="true">→</span></>}</button>
             </form>
           )}
           {activeTab === 'file' && (
             <div className={styles.tabContent}>
-              <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className={styles.fileInput} onChange={handleFileSelect} style={{ display: 'none' }} />
+              <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className={styles.fileInput} onChange={handleFileSelect} style={{ display: 'none' }} aria-hidden="true" />
               <button type="button" className="btn btn-primary" onClick={() => fileInputRef.current?.click()} disabled={importing}>
-                {importing ? <><span className="spinner" /> Reading…</> : 'Choose CSV or XLSX →'}
+                {importing ? <><span className="spinner" /> Reading…</> : <>Choose CSV or XLSX <span aria-hidden="true">→</span></>}
               </button>
             </div>
           )}
@@ -601,6 +602,7 @@ function LeadsImport() {
                         value={mapping[key] ?? ''}
                         onChange={e => setMapping(prev => ({ ...prev, [key]: e.target.value || null }))}
                         className={styles.selectSmall}
+                        aria-label={label}
                       >
                         <option value="">—</option>
                         {previewData.columns.map(c => <option key={c} value={c}>{c}</option>)}
@@ -622,8 +624,8 @@ function LeadsImport() {
             </table>
           </div>
           <div className={styles.formActions}>
-            <button type="button" className="btn btn-ghost" onClick={() => { setStep(0); setPreviewData(null); }}>← Back</button>
-            <button type="submit" className="btn btn-primary" disabled={importing}>{importing ? <><span className="spinner" /> Importing…</> : `Import ${previewData.totalRows} rows →`}</button>
+            <button type="button" className="btn btn-ghost" onClick={() => { setStep(0); setPreviewData(null); }}><span aria-hidden="true">←</span> Back</button>
+            <button type="submit" className="btn btn-primary" disabled={importing}>{importing ? <><span className="spinner" /> Importing…</> : <>Import {previewData.totalRows} rows <span aria-hidden="true">→</span></>}</button>
           </div>
           {importError && <p className={styles.importError}>{importError}</p>}
         </form>
@@ -635,15 +637,15 @@ function LeadsImport() {
           <h2 className={styles.resultTitle}>Import complete</h2>
           <p className={styles.importSuccess}>Imported {importedCount} leads.</p>
           <div className={styles.formActions}>
-            <button type="button" className="btn btn-ghost" onClick={resetLeadsWizard}>← Back to import</button>
-            <Link to="/leads" className="btn btn-primary">View leads →</Link>
+            <button type="button" className="btn btn-ghost" onClick={resetLeadsWizard}><span aria-hidden="true">←</span> Back to import</button>
+            <Link to="/leads" className="btn btn-primary">View leads <span aria-hidden="true">→</span></Link>
           </div>
         </div>
       )}
 
       <div className={styles.leadsHeader}>
         <span className={styles.info}>{total} leads in database</span>
-        <Link to="/leads" className="btn btn-primary btn-sm">View all leads →</Link>
+        <Link to="/leads" className="btn btn-primary btn-sm">View all leads <span aria-hidden="true">→</span></Link>
       </div>
       {loading ? (
         <div className="empty-state"><div className="spinner" /></div>

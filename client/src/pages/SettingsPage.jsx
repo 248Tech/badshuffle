@@ -10,6 +10,7 @@ export default function SettingsPage() {
     { id: 'shadcn',   label: 'shadcn/ui',   primary: '#18181b', accent: '#52525b', sidebar: '#09090b' },
     { id: 'material', label: 'Material UI', primary: '#1976d2', accent: '#9c27b0', sidebar: '#1565c0' },
     { id: 'chakra',   label: 'Chakra UI',   primary: '#3182ce', accent: '#38b2ac', sidebar: '#2d3748' },
+    { id: 'noir',     label: 'Noir (Dark)', primary: '#60a5fa', accent: '#34d399', sidebar: '#050509' },
   ];
 
   const [form, setForm] = useState({
@@ -20,6 +21,9 @@ export default function SettingsPage() {
     mapbox_access_token: '',
     map_default_style: 'map',
     google_places_api_key: '',
+    quote_event_types: '',
+    quote_auto_append_city_title: '0',
+    allowed_file_types: '',
     tax_rate: '0',
     currency: 'USD',
     ui_theme: 'default',
@@ -51,6 +55,11 @@ export default function SettingsPage() {
     ai_pdf_import_enabled: '1', ai_pdf_import_model: 'claude',
     ai_email_draft_enabled: '0', ai_email_draft_model: 'claude',
     ai_description_enabled: '0', ai_description_model: 'claude',
+  });
+  const [quoteView, setQuoteView] = useState({
+    quote_view_default: 'standard',
+    quote_view_standard_enabled: '1',
+    quote_view_contract_enabled: '1',
   });
   const [advanced, setAdvanced] = useState({ verbose_errors: '0' });
   const [loading, setLoading] = useState(true);
@@ -86,6 +95,9 @@ export default function SettingsPage() {
           mapbox_access_token: s.mapbox_access_token || '',
           map_default_style: s.map_default_style || 'map',
           google_places_api_key: s.google_places_api_key || '',
+          quote_event_types: s.quote_event_types || '',
+          quote_auto_append_city_title: s.quote_auto_append_city_title || '0',
+          allowed_file_types: s.allowed_file_types || '',
           tax_rate: s.tax_rate || '0',
           currency: s.currency || 'USD',
           ui_theme: s.ui_theme || 'default',
@@ -141,6 +153,11 @@ export default function SettingsPage() {
           ai_description_enabled: s.ai_description_enabled || '0',
           ai_description_model: s.ai_description_model || 'claude',
         });
+        setQuoteView({
+          quote_view_default: s.quote_view_default || 'standard',
+          quote_view_standard_enabled: s.quote_view_standard_enabled !== undefined ? s.quote_view_standard_enabled : '1',
+          quote_view_contract_enabled: s.quote_view_contract_enabled !== undefined ? s.quote_view_contract_enabled : '1',
+        });
         setAdvanced({ verbose_errors: s.verbose_errors || '0' });
       })
       .catch(() => {})
@@ -155,8 +172,12 @@ export default function SettingsPage() {
       const data = await api.getUpdateReleases();
       const releases = data.releases || [];
       setUpdateReleases(releases);
-      const newer = releases.find(r => r.is_newer);
+      const newerInstallable = releases.find(r => r.is_newer && r.installable);
+      const newer = newerInstallable || releases.find(r => r.is_newer) || null;
       setSelectedTag(newer ? newer.tag : (releases[0]?.tag || ''));
+      if (updateInfo?.is_pkg && releases.length > 0 && !newerInstallable && releases.some(r => r.is_newer)) {
+        setUpdateError('A newer release exists, but it does not include packaged update assets yet.');
+      }
       // refresh cached status
       api.getUpdateStatus().then(setUpdateInfo).catch(() => {});
     } catch (e) {
@@ -214,6 +235,7 @@ export default function SettingsPage() {
         ...imap,
         imap_pass_enc: imap.imap_pass,
         ...quoteInventory,
+        ...quoteView,
         ...recaptcha,
         ai_claude_key_enc: aiKeys.ai_claude_key,
         ai_openai_key_enc: aiKeys.ai_openai_key,
@@ -282,7 +304,25 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) return <div className="empty-state"><div className="spinner" /></div>;
+  if (loading) return (
+    <div className={styles.page} aria-busy="true" aria-label="Loading settings">
+      <div className={styles.header} aria-hidden="true">
+        <div className="skeleton" style={{ height: 24, width: 120, borderRadius: 5 }} />
+        <div className="skeleton" style={{ height: 13, width: 240, borderRadius: 4, marginTop: 6 }} />
+      </div>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="card" style={{ padding: 24 }} aria-hidden="true">
+          <div className="skeleton" style={{ height: 13, width: 100, borderRadius: 4, marginBottom: 20 }} />
+          {Array.from({ length: 3 }).map((_, j) => (
+            <div key={j} style={{ marginBottom: 16 }}>
+              <div className="skeleton" style={{ height: 11, width: 80, borderRadius: 3, marginBottom: 6 }} />
+              <div className="skeleton" style={{ height: 36, borderRadius: 6 }} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className={styles.page}>
@@ -311,7 +351,7 @@ export default function SettingsPage() {
                 <span className={styles.themeName}>{t.label}</span>
                 {form.ui_theme === t.id && (
                   <span className={styles.themeCheck}>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                       <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </span>
@@ -321,12 +361,13 @@ export default function SettingsPage() {
           </div>
 
           <div style={{ marginTop: 20 }}>
-            <label style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', display: 'block', marginBottom: 8 }}>
+            <label htmlFor="s-ui-scale" style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', display: 'block', marginBottom: 8 }}>
               UI Scale: {form.ui_scale}%
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: 320 }}>
               <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>75%</span>
               <input
+                id="s-ui-scale"
                 type="range"
                 min="75"
                 max="150"
@@ -347,16 +388,18 @@ export default function SettingsPage() {
           <h3 className={styles.section}>Company</h3>
           <div className={styles.row}>
             <div className="form-group">
-              <label>Company Name</label>
+              <label htmlFor="s-company-name">Company Name</label>
               <input
+                id="s-company-name"
                 value={form.company_name}
                 onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
                 placeholder="Acme Events Co."
               />
             </div>
             <div className="form-group">
-              <label>Company Email</label>
+              <label htmlFor="s-company-email">Company Email</label>
               <input
+                id="s-company-email"
                 type="email"
                 value={form.company_email}
                 onChange={e => setForm(f => ({ ...f, company_email: e.target.value }))}
@@ -364,8 +407,9 @@ export default function SettingsPage() {
               />
             </div>
             <div className="form-group" style={{ flex: '1 1 100%' }}>
-              <label>Company Address</label>
+              <label htmlFor="s-company-address">Company Address</label>
               <input
+                id="s-company-address"
                 value={form.company_address}
                 onChange={e => setForm(f => ({ ...f, company_address: e.target.value }))}
                 placeholder="123 Main St, City, State ZIP"
@@ -373,9 +417,10 @@ export default function SettingsPage() {
               <span className={styles.hint}>Used for &quot;Directions from company&quot; when viewing an address on a quote.</span>
             </div>
             <div className="form-group" style={{ flex: '1 1 100%' }}>
-              <label>Company Logo</label>
+              <label htmlFor="s-company-logo">Company Logo</label>
               <div className={styles.logoRow}>
                 <input
+                  id="s-company-logo"
                   type="url"
                   value={/^\d+$/.test(form.company_logo) ? '' : form.company_logo}
                   onChange={e => setForm(f => ({ ...f, company_logo: e.target.value }))}
@@ -391,6 +436,7 @@ export default function SettingsPage() {
                     style={{ display: 'none' }}
                     onChange={handleLogoUpload}
                     disabled={logoUploading}
+                    aria-hidden="true"
                   />
                   {logoUploading ? <span className="spinner" /> : 'Upload image'}
                 </label>
@@ -419,8 +465,9 @@ export default function SettingsPage() {
           <h3 className={styles.section}>Pricing</h3>
           <div className={styles.row}>
             <div className="form-group">
-              <label>Tax Rate (%)</label>
+              <label htmlFor="s-tax-rate">Tax Rate (%)</label>
               <input
+                id="s-tax-rate"
                 type="number"
                 min="0"
                 max="100"
@@ -432,14 +479,31 @@ export default function SettingsPage() {
               <span className={styles.hint}>Applied to taxable items in quote totals.</span>
             </div>
             <div className="form-group">
-              <label>Currency</label>
-              <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}>
+              <label htmlFor="s-currency">Currency</label>
+              <select id="s-currency" value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}>
                 <option value="USD">USD — US Dollar</option>
                 <option value="CAD">CAD — Canadian Dollar</option>
                 <option value="EUR">EUR — Euro</option>
                 <option value="GBP">GBP — British Pound</option>
                 <option value="AUD">AUD — Australian Dollar</option>
               </select>
+            </div>
+          </div>
+
+          <h3 className={styles.section}>Allowed file types</h3>
+          <div className={styles.row}>
+            <div className="form-group" style={{ flex: '1 1 100%' }}>
+              <label htmlFor="s-allowed-file-types">Extra allowed upload types</label>
+              <textarea
+                id="s-allowed-file-types"
+                rows={3}
+                value={form.allowed_file_types}
+                onChange={e => setForm(f => ({ ...f, allowed_file_types: e.target.value }))}
+                placeholder=".docx, .xlsx, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              />
+              <span className={styles.hint}>
+                Add extra upload types as file extensions or MIME types, separated by commas or spaces. Default image and PDF types are already allowed.
+              </span>
             </div>
           </div>
         </div>
@@ -463,8 +527,9 @@ export default function SettingsPage() {
           </div>
           <div className={styles.row} style={{ marginTop: 16 }}>
             <div className="form-group" style={{ flex: '1 1 100%' }}>
-              <label>Mapbox access token</label>
+              <label htmlFor="s-mapbox-token">Mapbox access token</label>
               <input
+                id="s-mapbox-token"
                 type="password"
                 value={form.mapbox_access_token}
                 onChange={e => setForm(f => ({ ...f, mapbox_access_token: e.target.value }))}
@@ -476,8 +541,9 @@ export default function SettingsPage() {
           </div>
           <div className={styles.row} style={{ marginTop: 12 }}>
             <div className="form-group" style={{ flex: '1 1 200px' }}>
-              <label>Open map dialog as</label>
+              <label htmlFor="s-map-style">Open map dialog as</label>
               <select
+                id="s-map-style"
                 value={form.map_default_style || 'map'}
                 onChange={e => setForm(f => ({ ...f, map_default_style: e.target.value }))}
               >
@@ -502,8 +568,9 @@ export default function SettingsPage() {
           </ol>
           <div className={styles.row}>
             <div className="form-group" style={{ flex: '1 1 100%' }}>
-              <label>Google Places API key</label>
+              <label htmlFor="s-gplaces-key">Google Places API key</label>
               <input
+                id="s-gplaces-key"
                 type="password"
                 value={form.google_places_api_key}
                 onChange={e => setForm(f => ({ ...f, google_places_api_key: e.target.value }))}
@@ -511,6 +578,84 @@ export default function SettingsPage() {
                 autoComplete="off"
               />
               <span className={styles.hint}>Address autocomplete will appear in the new quote wizard once a key is saved.</span>
+            </div>
+          </div>
+        </div>
+
+        <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>
+          <h3 className={styles.section}>Sales Team</h3>
+          <div className={styles.row}>
+            <div className="form-group" style={{ flex: '1 1 100%' }}>
+              <label htmlFor="s-event-types">Event types</label>
+              <textarea
+                id="s-event-types"
+                rows={6}
+                value={form.quote_event_types}
+                onChange={e => setForm(f => ({ ...f, quote_event_types: e.target.value }))}
+                placeholder={'Wedding\nCorporate\nBirthday'}
+              />
+              <span className={styles.hint}>One event type per line. These appear in the project create and edit event details screens.</span>
+            </div>
+          </div>
+          <div className={styles.row} style={{ alignItems: 'center' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
+              <input
+                type="checkbox"
+                checked={form.quote_auto_append_city_title === '1'}
+                onChange={e => setForm(f => ({ ...f, quote_auto_append_city_title: e.target.checked ? '1' : '0' }))}
+              />
+              <span>Automatically append the project city to the title</span>
+            </label>
+          </div>
+          <p className={styles.hint}>Example: <code>Maria Antaran&apos;s Wedding - Clarkston</code>.</p>
+        </div>
+
+        <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>
+          <h3 className={styles.section}>Client quote view</h3>
+          <p className={styles.hint} style={{ marginBottom: 14 }}>
+            Control which view modes are available on the public quote link and which is shown by default.
+          </p>
+          <div className={styles.row} style={{ flexDirection: 'column', gap: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
+              <input
+                type="checkbox"
+                checked={quoteView.quote_view_standard_enabled === '1'}
+                onChange={e => setQuoteView(q => ({ ...q, quote_view_standard_enabled: e.target.checked ? '1' : '0' }))}
+              />
+              <span>Enable <strong>Standard view</strong> — card grid with large photos</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
+              <input
+                type="checkbox"
+                checked={quoteView.quote_view_contract_enabled === '1'}
+                onChange={e => setQuoteView(q => ({ ...q, quote_view_contract_enabled: e.target.checked ? '1' : '0' }))}
+              />
+              <span>Enable <strong>Contract view</strong> — formal document layout</span>
+            </label>
+          </div>
+          <div className={styles.row} style={{ marginTop: 14 }}>
+            <div className="form-group" role="group" aria-labelledby="s-quote-view-default">
+              <span id="s-quote-view-default" style={{ display: 'block', fontWeight: 500, marginBottom: 6 }}>Default view</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
+                  <input
+                    type="radio"
+                    name="quote_view_default"
+                    checked={quoteView.quote_view_default === 'standard'}
+                    onChange={() => setQuoteView(q => ({ ...q, quote_view_default: 'standard' }))}
+                  />
+                  Standard view
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
+                  <input
+                    type="radio"
+                    name="quote_view_default"
+                    checked={quoteView.quote_view_default === 'contract'}
+                    onChange={() => setQuoteView(q => ({ ...q, quote_view_default: 'contract' }))}
+                  />
+                  Contract view
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -533,16 +678,18 @@ export default function SettingsPage() {
           {(recaptcha.recaptcha_enabled === '1') && (
             <div className={styles.row} style={{ marginTop: 12 }}>
               <div className="form-group">
-                <label>reCAPTCHA site key</label>
+                <label htmlFor="s-recaptcha-site">reCAPTCHA site key</label>
                 <input
+                  id="s-recaptcha-site"
                   value={recaptcha.recaptcha_site_key}
                   onChange={e => setRecaptcha(f => ({ ...f, recaptcha_site_key: e.target.value }))}
                   placeholder="From Google reCAPTCHA admin"
                 />
               </div>
               <div className="form-group">
-                <label>reCAPTCHA secret key</label>
+                <label htmlFor="s-recaptcha-secret">reCAPTCHA secret key</label>
                 <input
+                  id="s-recaptcha-secret"
                   type="password"
                   value={recaptcha.recaptcha_secret_key}
                   onChange={e => setRecaptcha(f => ({ ...f, recaptcha_secret_key: e.target.value }))}
@@ -557,16 +704,16 @@ export default function SettingsPage() {
           <h3 className={styles.section}>Outgoing Mail (SMTP)</h3>
           <div className={styles.row}>
             <div className="form-group">
-              <label>SMTP Host</label>
-              <input value={smtp.smtp_host} onChange={e => setSmtp(f => ({ ...f, smtp_host: e.target.value }))} placeholder="smtp.gmail.com" />
+              <label htmlFor="s-smtp-host">SMTP Host</label>
+              <input id="s-smtp-host" value={smtp.smtp_host} onChange={e => setSmtp(f => ({ ...f, smtp_host: e.target.value }))} placeholder="smtp.gmail.com" />
             </div>
             <div className="form-group" style={{ maxWidth: 100 }}>
-              <label>Port</label>
-              <input type="number" value={smtp.smtp_port} onChange={e => setSmtp(f => ({ ...f, smtp_port: e.target.value }))} />
+              <label htmlFor="s-smtp-port">Port</label>
+              <input id="s-smtp-port" type="number" value={smtp.smtp_port} onChange={e => setSmtp(f => ({ ...f, smtp_port: e.target.value }))} />
             </div>
             <div className="form-group" style={{ maxWidth: 120 }}>
-              <label>Secure (TLS)</label>
-              <select value={smtp.smtp_secure} onChange={e => setSmtp(f => ({ ...f, smtp_secure: e.target.value }))}>
+              <label htmlFor="s-smtp-secure">Secure (TLS)</label>
+              <select id="s-smtp-secure" value={smtp.smtp_secure} onChange={e => setSmtp(f => ({ ...f, smtp_secure: e.target.value }))}>
                 <option value="false">STARTTLS</option>
                 <option value="true">TLS/SSL</option>
               </select>
@@ -574,16 +721,16 @@ export default function SettingsPage() {
           </div>
           <div className={styles.row}>
             <div className="form-group">
-              <label>Username</label>
-              <input value={smtp.smtp_user} onChange={e => setSmtp(f => ({ ...f, smtp_user: e.target.value }))} placeholder="user@example.com" />
+              <label htmlFor="s-smtp-user">Username</label>
+              <input id="s-smtp-user" value={smtp.smtp_user} onChange={e => setSmtp(f => ({ ...f, smtp_user: e.target.value }))} placeholder="user@example.com" />
             </div>
             <div className="form-group">
-              <label>Password</label>
-              <input type="password" value={smtp.smtp_pass} onChange={e => setSmtp(f => ({ ...f, smtp_pass: e.target.value }))} placeholder="App password" />
+              <label htmlFor="s-smtp-pass">Password</label>
+              <input id="s-smtp-pass" type="password" value={smtp.smtp_pass} onChange={e => setSmtp(f => ({ ...f, smtp_pass: e.target.value }))} placeholder="App password" />
             </div>
             <div className="form-group">
-              <label>From address</label>
-              <input value={smtp.smtp_from} onChange={e => setSmtp(f => ({ ...f, smtp_from: e.target.value }))} placeholder="Acme Events <noreply@example.com>" />
+              <label htmlFor="s-smtp-from">From address</label>
+              <input id="s-smtp-from" value={smtp.smtp_from} onChange={e => setSmtp(f => ({ ...f, smtp_from: e.target.value }))} placeholder="Acme Events <noreply@example.com>" />
             </div>
           </div>
         </div>
@@ -595,16 +742,16 @@ export default function SettingsPage() {
           </p>
           <div className={styles.row}>
             <div className="form-group">
-              <label>IMAP Host</label>
-              <input value={imap.imap_host} onChange={e => setImap(f => ({ ...f, imap_host: e.target.value }))} placeholder="imap.gmail.com" />
+              <label htmlFor="s-imap-host">IMAP Host</label>
+              <input id="s-imap-host" value={imap.imap_host} onChange={e => setImap(f => ({ ...f, imap_host: e.target.value }))} placeholder="imap.gmail.com" />
             </div>
             <div className="form-group" style={{ maxWidth: 100 }}>
-              <label>Port</label>
-              <input type="number" value={imap.imap_port} onChange={e => setImap(f => ({ ...f, imap_port: e.target.value }))} />
+              <label htmlFor="s-imap-port">Port</label>
+              <input id="s-imap-port" type="number" value={imap.imap_port} onChange={e => setImap(f => ({ ...f, imap_port: e.target.value }))} />
             </div>
             <div className="form-group" style={{ maxWidth: 120 }}>
-              <label>Secure</label>
-              <select value={imap.imap_secure} onChange={e => setImap(f => ({ ...f, imap_secure: e.target.value }))}>
+              <label htmlFor="s-imap-secure">Secure</label>
+              <select id="s-imap-secure" value={imap.imap_secure} onChange={e => setImap(f => ({ ...f, imap_secure: e.target.value }))}>
                 <option value="true">TLS/SSL</option>
                 <option value="false">STARTTLS</option>
               </select>
@@ -612,12 +759,12 @@ export default function SettingsPage() {
           </div>
           <div className={styles.row}>
             <div className="form-group">
-              <label>Username</label>
-              <input value={imap.imap_user} onChange={e => setImap(f => ({ ...f, imap_user: e.target.value }))} placeholder="user@example.com" />
+              <label htmlFor="s-imap-user">Username</label>
+              <input id="s-imap-user" value={imap.imap_user} onChange={e => setImap(f => ({ ...f, imap_user: e.target.value }))} placeholder="user@example.com" />
             </div>
             <div className="form-group">
-              <label>Password</label>
-              <input type="password" value={imap.imap_pass} onChange={e => setImap(f => ({ ...f, imap_pass: e.target.value }))} placeholder="App password" />
+              <label htmlFor="s-imap-pass">Password</label>
+              <input id="s-imap-pass" type="password" value={imap.imap_pass} onChange={e => setImap(f => ({ ...f, imap_pass: e.target.value }))} placeholder="App password" />
             </div>
           </div>
           <div className={styles.row} style={{ alignItems: 'center' }}>
@@ -646,8 +793,8 @@ export default function SettingsPage() {
             Control which category filter buttons appear above the search bar when adding items to a quote.
           </p>
           <div className={styles.row}>
-            <div className="form-group" style={{ flex: '1 1 100%' }}>
-              <label>Category filter source</label>
+            <div className="form-group" role="group" aria-labelledby="s-cat-filter-source" style={{ flex: '1 1 100%' }}>
+              <span id="s-cat-filter-source" style={{ display: 'block', fontWeight: 500, marginBottom: 6 }}>Category filter source</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
                   <input
@@ -672,8 +819,9 @@ export default function SettingsPage() {
           </div>
           <div className={styles.row}>
             <div className="form-group" style={{ maxWidth: 140 }}>
-              <label>Max categories (1–15)</label>
+              <label htmlFor="s-max-cats">Max categories (1–15)</label>
               <input
+                id="s-max-cats"
                 type="number"
                 min={1}
                 max={15}
@@ -685,12 +833,13 @@ export default function SettingsPage() {
           {quoteInventory.quote_inventory_filter_mode === 'manual' && (
             <div className={styles.row}>
               <div className="form-group" style={{ flex: '1 1 100%' }}>
-                <label>Categories to show as filter buttons</label>
+                <span style={{ display: 'block', fontWeight: 500, marginBottom: 4 }}>Categories to show as filter buttons</span>
                 <p className={styles.hint} style={{ marginBottom: 10 }}>Click tags to select or deselect. Only selected categories appear on the quote page.</p>
                 {systemCategories.length > 0 && (
                   <>
                     <input
                       type="search"
+                      aria-label="Filter categories"
                       placeholder="Filter categories…"
                       value={categoryFilter}
                       onChange={e => setCategoryFilter(e.target.value)}
@@ -889,7 +1038,7 @@ export default function SettingsPage() {
                     type="button"
                     className="btn btn-primary"
                     onClick={handleApplyUpdate}
-                    disabled={updateApplying || !selectedTag}
+                    disabled={updateApplying || !selectedTag || !updateReleases.find(r => r.tag === selectedTag)?.installable}
                     style={{ alignSelf: 'flex-end' }}
                   >
                     {updateApplying ? 'Installing…' : 'Install'}
@@ -904,12 +1053,22 @@ export default function SettingsPage() {
               {/* What's New */}
               {selectedTag && (() => {
                 const rel = updateReleases.find(r => r.tag === selectedTag);
-                return rel?.body ? (
-                  <details className={styles.whatsNew} open>
-                    <summary>What's New in {rel.name || rel.tag}</summary>
-                    <pre className={styles.whatsNewBody}>{rel.body.trim()}</pre>
-                  </details>
-                ) : null;
+                if (!rel) return null;
+                return (
+                  <>
+                    {updateInfo?.is_pkg && !rel.installable && (
+                      <p className={styles.updateError} style={{ marginTop: 8 }}>
+                        This release cannot be auto-installed because the packaged update assets are missing.
+                      </p>
+                    )}
+                    {rel.body ? (
+                      <details className={styles.whatsNew} open>
+                        <summary>What's New in {rel.name || rel.tag}</summary>
+                        <pre className={styles.whatsNewBody}>{rel.body.trim()}</pre>
+                      </details>
+                    ) : null}
+                  </>
+                );
               })()}
             </div>
           )}

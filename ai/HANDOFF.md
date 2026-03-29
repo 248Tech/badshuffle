@@ -1,5 +1,129 @@
 # HANDOFF — BadShuffle UI/UX Redesign
 
+---
+
+## 2026-03-27 — Current product/workflow handoff
+
+### What was implemented
+
+- Fixed quote-item drag reorder by moving `PUT /quotes/:id/items/reorder` ahead of `PUT /quotes/:id/items/:qitem_id` in Express route order.
+- Added quote item sections:
+  - new `quote_item_sections` table
+  - `quote_items.section_id` and `quote_custom_items.section_id`
+  - default-section backfill for existing quotes
+  - section create/update/duplicate/delete endpoints
+  - editable section title + per-section rental date range in the builder UI
+- Added settings-backed event types:
+  - new settings key `quote_event_types`
+  - Settings page editor for Sales team
+  - project create/edit forms now use event type dropdowns
+- Added project-title automation:
+  - new settings key `quote_auto_append_city_title`
+  - optional city suffix behavior for project create/edit titles
+- Public/client quote view changes:
+  - product item descriptions now show inline in the item list
+  - quote items are grouped by section title
+  - client view now shows section titles, section date ranges, inline descriptions, and per-section subtotals
+  - public quote reads the latest live quote state after approve/sign actions
+  - public contract view now allows re-signing when `has_unsigned_changes = 1`
+  - signature block is rendered from stored signature metadata
+- Export / print / signed artifact rendering changes:
+  - Quote export / print now groups line items by section
+  - export output now shows section date ranges, item descriptions, and per-section subtotals
+  - signed-contract PDF artifacts now include section-grouped quote content and totals instead of only the contract body + signature metadata
+- Signed-balance workflow changes:
+  - project list outstanding-balance filter now only includes already-signed projects
+  - unsigned-change projects show the last signed total / signed balance, not the current edited total
+  - project search boxes were merged into one search covering project, client, venue name, and venue address
+- Contract signing artifact generation:
+  - contract records now store `signer_ip` and `signed_quote_total`
+  - new `contract_signature_events` audit table
+  - new `contract_signature_items` snapshot table to preserve signed item quantities/date windows
+  - each public signature/re-signature now:
+    - records typed name, IP, timestamp, signed total
+    - records request user-agent and a quote snapshot hash on the signature event
+    - generates a fake handwritten signature SVG
+    - creates a signed-contract PDF artifact
+    - attaches that PDF to project files
+    - preserves prior signed versions as separate attached files
+    - locks signed-contract artifacts against removal from the project Files tab/API
+- Availability/conflict logic is now section-aware enough to distinguish:
+  - committed signed quantities
+  - unsigned added quantities as potential conflicts
+  - per-section date windows in availability lookups and conflict checks
+- Public quote endpoint now normalizes missing section rows for older quotes and backfills orphaned `section_id` values on read so section titles render correctly.
+- `/api/v1` public quote routes are now aligned with the legacy `/api` behavior for:
+  - section normalization / orphan section backfill
+  - quote adjustments in the public payload
+  - approval expiration/status guards
+  - sign-route audit metadata capture
+- Quote detail edit-flow hardening:
+  - unsaved-changes warnings now cover both quote-form edits and unsaved contract-body edits
+  - canceling edit mode now restores the last saved quote form state instead of only hiding the form
+  - canceling client/venue inline edits now restores the saved values instead of leaving stale unsaved input in local state
+- Destructive-action confirmation cleanup:
+  - quote payment deletion now uses the shared confirm dialog instead of `window.confirm()`
+  - replacing a quote contract draft from a template now uses an explicit overwrite confirm dialog
+  - admin database import replacement now uses the shared confirm dialog instead of a raw browser prompt
+- Inventory card accessibility:
+  - keyboard focus on an inventory card now reveals the image action tray
+  - overlay actions are grouped and labeled for assistive tech
+  - action buttons now have visible `:focus-visible` treatment instead of relying on hover only
+
+### Main files touched
+
+- Server:
+  - `server/db.js`
+  - `server/routes/quotes.js`
+  - `server/routes/availability.js`
+  - `server/routes/settings.js`
+  - `server/api/v1.js`
+  - `server/index.js`
+  - `server/services/quoteService.js`
+- Client:
+  - `client/src/api.js`
+  - `client/src/hooks/useQuoteDetail.js`
+  - `client/src/pages/QuotePage.jsx`
+  - `client/src/pages/QuoteDetailPage.jsx`
+  - `client/src/pages/PublicQuotePage.jsx`
+  - `client/src/pages/PublicQuotePage.module.css`
+  - `client/src/pages/SettingsPage.jsx`
+  - `client/src/components/QuoteBuilder.jsx`
+  - `client/src/components/QuoteBuilder.module.css`
+  - `client/src/components/QuoteHeader.jsx`
+  - `client/src/components/QuoteCard.jsx`
+  - `client/src/components/quote-builder/InventoryPickerPanel.jsx`
+  - `client/src/components/quote-builder/QuoteLineItemsPanel.jsx`
+  - `client/src/lib/quoteTitle.js`
+
+### Validation run
+
+- `node --check server/routes/quotes.js`
+- `node --check server/routes/availability.js`
+- `node --check server/api/v1.js`
+- `node --check server/services/quoteService.js`
+- `node --check server/db.js`
+- `node --check server/index.js`
+- `npm --prefix client run build`
+
+### What is still left to do
+
+- The generated signed-contract PDF is still a simple server-generated audit artifact.
+  - It now has better event metadata and version visibility, but it is not a full e-sign compliance implementation.
+  - If legal/compliance requirements matter, this still needs a proper policy/vendor decision.
+- Custom-item descriptions are only shown if present in returned data; there is no dedicated custom-item description workflow yet.
+- Section reordering is not implemented.
+  - Sections can be added/duplicated/deleted and renamed, but not drag-reordered.
+- Event type search/reporting surfaces beyond project create/edit/list are still minimal.
+- Signed contract versions are labeled in Files UI now, but there is still room for better dedicated version browsing if the product wants a more explicit contract-history surface.
+
+### Recommended next pass
+
+1. Decide whether signed-contract generation should stay internal or move to a formal e-sign provider/compliance workflow.
+2. Add section reorder support if the product needs chronological ordering independent of creation order.
+3. Add custom-item description editing and improve signed-contract version presentation in Files UI.
+4. Expand event type reporting/search surfaces if the product needs broader filtering/analytics support.
+
 **Type:** Cosmetic redesign, non-breaking
 **Produced:** 2026-03-23
 **Source:** Raw design notes → structured design system memo

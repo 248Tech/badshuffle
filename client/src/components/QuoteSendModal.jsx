@@ -78,12 +78,19 @@ export default function QuoteSendModal({ quote, onClose, onSent, onError, classN
       onClick={onClose}
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
     >
-      <div className={classNames.modal} onClick={(e) => e.stopPropagation()}>
-        <h3 className={classNames.modalTitle}>Send quote to client</h3>
+      <div
+        className={classNames.modal}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="send-modal-title"
+      >
+        <h3 className={classNames.modalTitle} id="send-modal-title">Send quote to client</h3>
         <form onSubmit={handleSend} className={classNames.sendForm}>
           <div className="form-group">
-            <label>To</label>
+            <label htmlFor="send-to">To</label>
             <input
+              id="send-to"
               type="email"
               required
               value={toEmail}
@@ -92,8 +99,9 @@ export default function QuoteSendModal({ quote, onClose, onSent, onError, classN
             />
           </div>
           <div className="form-group">
-            <label>Template</label>
+            <label htmlFor="send-template">Template</label>
             <select
+              id="send-template"
               value={selectedId}
               onChange={(e) => {
                 setSelectedId(e.target.value);
@@ -110,12 +118,13 @@ export default function QuoteSendModal({ quote, onClose, onSent, onError, classN
             </select>
           </div>
           <div className="form-group">
-            <label>Subject</label>
-            <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Quote from..." />
+            <label htmlFor="send-subject">Subject</label>
+            <input id="send-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Quote from..." />
           </div>
           <div className="form-group">
-            <label>Body</label>
+            <label htmlFor="send-body">Body</label>
             <textarea
+              id="send-body"
               rows={6}
               value={body}
               onChange={(e) => setBody(e.target.value)}
@@ -123,8 +132,8 @@ export default function QuoteSendModal({ quote, onClose, onSent, onError, classN
             />
           </div>
           {allFiles.length > 0 && (
-            <div className="form-group">
-              <label>Attachments</label>
+            <div className="form-group" role="group" aria-labelledby="qs-attach-label">
+              <label id="qs-attach-label">Attachments</label>
               <div className={classNames.attachmentGrid}>
                 {allFiles.map((f) => {
                   const isImg = f.mime_type && f.mime_type.startsWith('image/');
@@ -146,10 +155,10 @@ export default function QuoteSendModal({ quote, onClose, onSent, onError, classN
                           }}
                         />
                       ) : (
-                        <span style={{ fontSize: 24 }}>📎</span>
+                        <span style={{ fontSize: 24 }} aria-hidden="true">📎</span>
                       )}
                       <span className={classNames.attachName}>{f.original_name}</span>
-                      {selected && <span className={classNames.attachCheck}>✓</span>}
+                      {selected && <span className={classNames.attachCheck} aria-hidden="true">✓</span>}
                     </button>
                   );
                 })}

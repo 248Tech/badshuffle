@@ -1,6 +1,6 @@
 .page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 .header { display: flex; flex-direction: column; gap: 4px; }
-.title { font-size: 22px; font-weight: 700; }
+.title { font-size: clamp(18px, 2.2vw, 24px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
 .sub { font-size: 13px; color: var(--color-text-muted); }
 
 .card { padding: 24px; }
@@ -38,7 +38,7 @@
 
 .form { display: flex; flex-direction: column; }
 
-.actions { display: flex; justify-content: flex-end; }
+.actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 
 .link { color: var(--color-primary); text-decoration: none; }
 .link:hover { text-decoration: underline; }
@@ -81,13 +81,13 @@
   border-color: var(--color-primary);
 }
 .categoryTagSelected {
-  background: #188ec5;
-  border-color: #188ec5;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
 }
 .categoryTagSelected:hover {
-  background: #1579ad;
-  border-color: #1579ad;
+  background: color-mix(in srgb, var(--color-primary) 85%, #000);
+  border-color: color-mix(in srgb, var(--color-primary) 85%, #000);
   color: #fff;
 }
 

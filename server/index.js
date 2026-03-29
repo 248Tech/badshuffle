@@ -24,6 +24,7 @@ const requireOperator = require('./lib/operatorMiddleware');
 const authRouter = require('./routes/auth');
 const singleInstance = require('./services/singleInstance');
 const updateCheck = require('./services/updateCheck');
+const quoteService = require('./services/quoteService');
 const jwt = require('jsonwebtoken');
 const { verifyFileServe, getSignedFileServePath } = require('./lib/fileServeAuth');
 const { safeFilename } = require('./lib/safeFilename');
@@ -57,6 +58,14 @@ const UPLOADS_DIR = process.env.UPLOADS_DIR || (typeof process.pkg !== 'undefine
   : path.join(__dirname, '../uploads'));
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+process.on('uncaughtException', (err) => {
+  console.error('[process] Uncaught exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[process] Unhandled rejection:', reason);
+});
 
 async function start() {
   const db = await initDb();
@@ -108,11 +117,12 @@ async function start() {
 
     const authHeader = req.headers.authorization || '';
     const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
     const secret = process.env.JWT_SECRET || 'change-me';
     let allowed = false;
-    if (bearer) {
+    if (bearer || queryToken) {
       try {
-        jwt.verify(bearer, secret);
+        jwt.verify(bearer || queryToken, secret);
         allowed = true;
       } catch {}
     }
@@ -132,6 +142,8 @@ async function start() {
     const quote = db.prepare(`
       SELECT id, name, status, event_date, guest_count, expires_at, expiration_message,
              quote_notes, tax_rate,
+             rental_start, rental_end, delivery_date, pickup_date,
+             has_unsigned_changes, updated_at,
              client_first_name, client_last_name, client_email, client_phone, client_address,
              venue_name, venue_email, venue_phone, venue_address,
              payment_policy_id, rental_terms_id
@@ -140,16 +152,46 @@ async function start() {
     if (!quote) return res.status(404).json({ error: 'Not found' });
     const today = new Date().toISOString().slice(0, 10);
     const isExpired = !!(quote.expires_at && quote.expires_at < today);
+    let sections = db.prepare(
+      'SELECT * FROM quote_item_sections WHERE quote_id = ? ORDER BY sort_order ASC, id ASC'
+    ).all(quote.id);
+    if (sections.length === 0) {
+      const result = db.prepare(
+        'INSERT INTO quote_item_sections (quote_id, title, delivery_date, rental_start, rental_end, pickup_date, sort_order) VALUES (?, ?, ?, ?, ?, ?, 0)'
+      ).run(
+        quote.id,
+        'Quote Items',
+        quote.delivery_date || null,
+        quote.rental_start || null,
+        quote.rental_end || null,
+        quote.pickup_date || null
+      );
+      const sectionId = result.lastInsertRowid;
+      db.prepare('UPDATE quote_items SET section_id = ? WHERE quote_id = ? AND section_id IS NULL').run(sectionId, quote.id);
+      db.prepare('UPDATE quote_custom_items SET section_id = ? WHERE quote_id = ? AND section_id IS NULL').run(sectionId, quote.id);
+      sections = db.prepare(
+        'SELECT * FROM quote_item_sections WHERE quote_id = ? ORDER BY sort_order ASC, id ASC'
+      ).all(quote.id);
+    } else {
+      const fallbackId = sections[0].id;
+      db.prepare('UPDATE quote_items SET section_id = ? WHERE quote_id = ? AND section_id IS NULL').run(fallbackId, quote.id);
+      db.prepare('UPDATE quote_custom_items SET section_id = ? WHERE quote_id = ? AND section_id IS NULL').run(fallbackId, quote.id);
+      sections = db.prepare(
+        'SELECT * FROM quote_item_sections WHERE quote_id = ? ORDER BY sort_order ASC, id ASC'
+      ).all(quote.id);
+    }
     const allItems = db.prepare(`
-      SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote,
-             qi.unit_price_override, qi.discount_type, qi.discount_amount,
+      SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote, qi.section_id,
+             qi.unit_price_override, qi.discount_type, qi.discount_amount, qi.description as qi_description,
              i.id, i.title, i.photo_url, i.unit_price, i.taxable, i.category, i.description
       FROM quote_items qi
       JOIN items i ON i.id = qi.item_id
       WHERE qi.quote_id = ?
       ORDER BY qi.sort_order ASC, qi.id ASC
     `).all(quote.id);
-    const items = allItems.filter(r => !r.hidden_from_quote);
+    const items = allItems
+      .filter(r => !r.hidden_from_quote)
+      .map(r => ({ ...r, description: r.qi_description || r.description || null }));
     const customItems = db.prepare(
       'SELECT * FROM quote_custom_items WHERE quote_id = ? ORDER BY sort_order ASC, id ASC'
     ).all(quote.id);
@@ -194,6 +236,7 @@ async function start() {
       ...quote,
       items,
       customItems,
+      sections,
       contract,
       adjustments,
       company_name,
@@ -229,7 +272,7 @@ async function start() {
     const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
     const messages = db.prepare(
-      "SELECT id, direction, from_email, to_email, subject, body_text, sent_at FROM messages WHERE quote_id = ? ORDER BY sent_at ASC"
+      'SELECT * FROM messages WHERE quote_id = ? ORDER BY sent_at ASC'
     ).all(quote.id);
     res.json({ messages });
   });
@@ -259,25 +302,19 @@ async function start() {
 
   // Public contract sign by token (no auth)
   app.post('/api/quotes/contract/sign', (req, res) => {
-    const token = (req.body && req.body.token) || '';
-    const { signature_data, signer_name } = req.body || {};
-    if (!token) return res.status(400).json({ error: 'token required' });
-    const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(token);
-    if (!quote) return res.status(404).json({ error: 'Not found' });
-    let contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(quote.id);
-    const today = new Date().toISOString().slice(0, 10);
-    if (quote.expires_at && quote.expires_at < today) {
-      return res.status(400).json({ error: 'This quote has expired and can no longer be signed' });
+    try {
+      const result = quoteService.signPublicContract({
+        db,
+        uploadsDir: UPLOADS_DIR,
+        token: (req.body && req.body.token) || '',
+        signerName: (req.body && req.body.signer_name) || '',
+        signerIp: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '',
+        signerUserAgent: req.get('user-agent') || '',
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
-    if (!contract) {
-      db.prepare('INSERT INTO contracts (quote_id, body_html, signed_at, signature_data, signer_name) VALUES (?, ?, datetime(\'now\'), ?, ?)')
-        .run(quote.id, null, signature_data || null, signer_name || null);
-    } else if (!contract.signed_at) {
-      db.prepare('UPDATE contracts SET signed_at = datetime(\'now\'), signature_data = ?, signer_name = ?, updated_at = datetime(\'now\') WHERE quote_id = ?')
-        .run(signature_data || null, signer_name || null, quote.id);
-    }
-    contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(quote.id);
-    res.json({ contract });
   });
 
   // Protected routes

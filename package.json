@@ -1,17 +1,39 @@
 {
   "name": "badshuffle",
-  "version": "0.0.9",
+  "version": "0.0.10",
+  "description": "Self-hosted event rental software for quotes, inventory, client approvals, billing, messaging, files, and public catalog publishing.",
   "private": true,
+  "license": "MIT",
+  "homepage": "https://github.com/248Tech/badshuffle",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/248Tech/badshuffle.git"
+  },
+  "bugs": {
+    "url": "https://github.com/248Tech/badshuffle/issues"
+  },
+  "keywords": [
+    "event rental software",
+    "rental inventory management",
+    "quote management",
+    "event operations",
+    "self-hosted saas",
+    "react",
+    "express",
+    "sqlite",
+    "client portal",
+    "public catalog"
+  ],
   "scripts": {
-    "dev": "concurrently \"bun run --cwd server dev\" \"bun run --cwd client dev\"",
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "dev:docker": "docker compose -f docker-compose.dev.yml up --build",
-    "dev:host": "concurrently \"bun run --cwd server dev\" \"bun run --cwd client dev -- --host\"",
+    "dev:host": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client -- --host\"",
     "create-admin": "node server/cli.js create-admin",
     "reset-password": "node server/cli.js reset-password",
     "reset-auth": "node server/cli.js reset-auth --yes",
     "wipe-database": "node server/cli.js wipe-database --yes --backup",
-    "install:all": "bun install && bun install --cwd server && bun install --cwd client",
-    "build:client": "bun run --cwd client build",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "build:client": "npm run build --prefix client",
     "package:server": "pkg server/index.js --target node14-win-x64 --output dist/badshuffle-server.exe",
     "package:client": "pkg client/serve.js --target node14-win-x64 --output dist/badshuffle-client.exe",
     "package:updater": "pkg updater/index.js --target node14-win-x64 --output dist/badshuffle-updater.exe",
@@ -19,7 +41,10 @@
     "release": "npm run package && gh release create v%npm_package_version% dist/badshuffle-server.exe dist/badshuffle-client.exe dist/badshuffle-updater.exe dist/www.zip dist/badshuffle-extension.zip --title v%npm_package_version% --notes \"\""
   },
   "devDependencies": {
+    "autoprefixer": "^10.4.27",
     "concurrently": "^8.2.2",
-    "pkg": "^5.8.1"
+    "pkg": "^5.8.1",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^3.4.1"
   }
 }

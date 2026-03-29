@@ -136,6 +136,7 @@ export default function PublicCatalogPage() {
             <ul className={styles.catList}>
               <li>
                 <button
+                  type="button"
                   className={`${styles.catLink}${!selectedCat ? ` ${styles.catActive}` : ''}`}
                   onClick={() => setCategory('')}
                 >
@@ -146,6 +147,7 @@ export default function PublicCatalogPage() {
               {categories.map(cat => (
                 <li key={cat}>
                   <button
+                    type="button"
                     className={`${styles.catLink}${cat === selectedCat ? ` ${styles.catActive}` : ''}`}
                     onClick={() => setCategory(cat)}
                   >
@@ -178,7 +180,7 @@ export default function PublicCatalogPage() {
             <div className={styles.loading}>Loading…</div>
           ) : items.length === 0 ? (
             <div className={styles.empty}>
-              <div className={styles.emptyIcon}>📦</div>
+              <div className={styles.emptyIcon} aria-hidden="true">📦</div>
               <p>No items found.</p>
             </div>
           ) : (
@@ -246,7 +248,7 @@ function ItemCard({ item }) {
               <small> / event</small>
             </span>
           ) : <span />}
-          <Link to={`/catalog/item/${item.id}`} className={styles.cardLink}>View →</Link>
+          <Link to={`/catalog/item/${item.id}`} className={styles.cardLink}>View <span aria-hidden="true">→</span></Link>
         </div>
       </div>
     </article>

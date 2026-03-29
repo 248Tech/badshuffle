@@ -1,5 +1,35 @@
 # STATUS
 
+## In Progress / Latest Implementation Notes (2026-03-27)
+
+- Quote items now support multiple titled sections with per-section rental dates.
+- Project create/edit now supports settings-driven event types.
+- Project title can optionally auto-append the project city from settings.
+- Public quote view now shows section titles, item descriptions inline, section date ranges, and per-section subtotals.
+- Quote export / print output now groups line items by section with section dates, descriptions, and section subtotals.
+- Project list search is now unified across project/client/venue fields.
+- Outstanding balance filter only applies to already-signed projects.
+- Unsigned-change projects now display signed total / signed remaining balance instead of current edited totals.
+- Public contract signing now supports re-signing on unsigned changes and creates signed-contract PDF artifacts attached to project files.
+- Signature events now capture user-agent and a quote snapshot hash, and signed-contract artifacts are locked against removal from project files.
+- Public quote routes now normalize missing section rows for older quotes and always reload the latest live quote state after approve/sign actions.
+- `/api` and `/api/v1` public quote approval/signing flows now enforce the same expiration/state checks and section-aware public quote payload shape.
+- Availability/conflict detection now uses per-section windows and signed item snapshots so unsigned additions on signed projects show as potential conflicts instead of fully reserved quantities.
+- Quote detail unsaved-changes protection now covers both the main quote form and unsaved contract-body edits, and cancel actions restore the last saved form/contract state instead of only hiding edit mode.
+- High-risk destructive confirmations now use app dialogs instead of raw browser confirms for quote payment deletion, quote contract-template overwrite, and admin database import replacement.
+- Audit follow-up reliability fixes landed: AI suggest catch now returns its fallback response, email poller/quote aggregation failures now log instead of failing silently, process-level exception handlers are registered, `.env.example` matches the current local server port/runtime overrides, and quote conflict-load failures now preserve previous state with explicit logging.
+- The remaining audit-hit hardcoded status/action colors in client CSS modules were replaced with theme-aware semantic tokens in `theme.css`, so those modules now follow the active theme instead of baking in blue/green/red hex values.
+- Inventory card overlay actions are now keyboard-reachable: focusing the card reveals the action tray, the tray is grouped/labeled for assistive tech, and action buttons have visible focus states instead of being hover-only.
+
+### Important limitations still open
+
+- Signed-contract PDFs are internal audit artifacts with better audit metadata, but still not a formal compliance-grade e-sign implementation.
+- Section reordering is not implemented.
+- Signed-contract artifacts are now section-aware in content, but the generated PDF is still a simple text-style server artifact rather than a designed/compliance-grade document.
+- Custom-item descriptions do not yet have a first-class create/edit workflow.
+
+**Released v0.0.10** (2026-03-29): Workflow expansion + product polish release. Highlights: section-aware quote/public/export flows; stronger signed-vs-unsigned project handling; re-sign support with versioned signed-contract PDFs; right-side inventory edit drawer; route prefetching for faster page transitions; upload allowlist settings/prompting; and GitHub/release metadata refresh aligned to `0.0.10`.
+
 **Released v0.0.9** (2026-03-26): Security hardening + quote workflow refactor release. Highlights: stricter auth/file/public quote handling; extracted backend quote services (`quoteActivity`, `itemStatsService`, `quoteService`); shared quote totals utility; QuoteDetail and QuoteBuilder decomposition into focused hooks/components/panels; and release/versioning docs aligned to `0.0.9`.
 
 **Released v0.0.8** (2026-03-24): Navigation + UX polish release. Highlights: grouped collapsible sidebar with hover flyouts, unread/pending badges, and live team presence; new Directory landing page; new Inventory Settings and Message Settings pages; Admin database export/import; ErrorBoundary fallback; skeleton loaders; contextual empty-search states; lazy-loaded inventory thumbnails; toast `aria-live`; PublicQuotePage `document.title`; theme-token cleanup and layout max-width polish.
@@ -17,7 +47,7 @@
 **Released v0.0.2** (2026-03-18): Quote-page filters + date-range picker, 2-step quote creation wizard with optional Google Places autocomplete, public quote live messaging thread (`/api/quotes/public/:token/messages`), availability picker endpoint (`/api/availability/quote/:id/items`), UI theme/map settings, robust extension scraping, and item `contract_description` persistence.
 
 ## Current Task
-Release is complete. Remaining product polish items live in `TODO.md`.
+Recent workflow changes landed, but follow-up work remains around formal e-sign/compliance decisions, section ordering, quote-editor polish, and UX/accessibility polish. See `TODO.md` and `KNOWN_GAPS.md`.
 
 ## Post-v0.0.2 Enhancement Batch
 

@@ -26,6 +26,15 @@ function isNewer(current, latest) {
   return false;
 }
 
+function hasInstallAssets(release) {
+  const assetNames = new Set((release.assets || []).map((a) => a.name));
+  return (
+    assetNames.has('badshuffle-server.exe') &&
+    assetNames.has('badshuffle-client.exe') &&
+    assetNames.has('www.zip')
+  );
+}
+
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers: { 'User-Agent': 'badshuffle-server' } }, (res) => {
@@ -86,6 +95,7 @@ module.exports = function makeRouter(db) {
         body:         r.body || '',
         published_at: r.published_at,
         is_newer:     isNewer(current, r.tag_name),
+        installable:  hasInstallAssets(r),
         assets:       (r.assets || []).map(a => a.name),
       }));
       res.json({ releases: result, current });
@@ -109,6 +119,11 @@ module.exports = function makeRouter(db) {
     try {
       const release = await fetchJson(`https://api.github.com/repos/${REPO}/releases/tags/${tag}`);
       const assets  = release.assets || [];
+      if (!hasInstallAssets(release)) {
+        return res.status(400).json({
+          error: `Release ${tag} does not include the packaged update assets required for auto-install.`
+        });
+      }
 
       const wantedAssets = [
         { name: 'badshuffle-server.exe', dest: 'badshuffle-server.exe.new' },

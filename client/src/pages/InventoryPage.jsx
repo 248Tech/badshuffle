@@ -18,7 +18,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [showHidden, setShowHidden] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -26,7 +26,6 @@ const [confirmDelete, setConfirmDelete] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedType, setSelectedType] = useState(null);
-  // Permanent accessories for the item being edited
   const [accessories, setAccessories] = useState([]);
   const [accessorySearch, setAccessorySearch] = useState('');
   const [accessoryResults, setAccessoryResults] = useState([]);
@@ -55,6 +54,17 @@ const [confirmDelete, setConfirmDelete] = useState(null);
       setShowSource((s.inventory_show_source || '0') === '1');
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!editingItem) return undefined;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setEditingItem(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [editingItem]);
 
   const loadAccessories = useCallback((itemId) => {
     if (!itemId) return;
@@ -92,7 +102,6 @@ const [confirmDelete, setConfirmDelete] = useState(null);
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     setAccessories([]);
     setAccessorySearch('');
     setAccessoryResults([]);
@@ -112,8 +121,15 @@ const [confirmDelete, setConfirmDelete] = useState(null);
     setShowAdd(false);
   };
 
+  const handleCloseEdit = () => {
+    setEditingItem(null);
+    setAccessories([]);
+    setAccessorySearch('');
+    setAccessoryResults([]);
+  };
+
   const handleSave = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     setSaving(true);
     try {
       const payload = {
@@ -160,15 +176,19 @@ const [confirmDelete, setConfirmDelete] = useState(null);
     }
   };
 
+  const navBtnBase = 'px-3.5 py-1 text-[13px] border border-border rounded-full bg-bg text-text-muted cursor-pointer hover:bg-surface hover:text-text hover:border-primary transition-colors whitespace-nowrap';
+  const navBtnActive = 'px-3.5 py-1 text-[13px] border rounded-full cursor-pointer whitespace-nowrap bg-primary border-primary text-white';
+
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
+    <div className="flex flex-col gap-5 min-w-0">
+      {/* Header */}
+      <div className="flex justify-between items-start flex-wrap gap-3">
         <div>
-          <h1 className={styles.title}>Inventory</h1>
-          <p className={styles.sub}>{items.length} items</p>
+          <h1 className="text-2xl font-bold tracking-tight">Inventory</h1>
+          <p className="text-[13px] text-text-muted mt-0.5">{items.length} items</p>
         </div>
-        <div className={styles.headerActions}>
-          <label className={styles.toggle}>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-[13px] text-text-muted cursor-pointer">
             <input
               type="checkbox"
               checked={showHidden}
@@ -176,18 +196,19 @@ const [confirmDelete, setConfirmDelete] = useState(null);
             />
             Show hidden
           </label>
-          <button className="btn btn-primary" onClick={() => { setShowAdd(true); setEditingItem(null); setForm(EMPTY_FORM); }}>
+          <button type="button" className="btn btn-primary" onClick={() => { setShowAdd(true); setEditingItem(null); setForm(EMPTY_FORM); }}>
             + Add Item
           </button>
         </div>
       </div>
 
       {/* Type filter */}
-      <div className={styles.categoryNav} style={{ paddingBottom: 0 }}>
+      <div className="flex flex-wrap gap-1.5 py-1">
         {[null, 'product', 'group', 'accessory'].map(t => (
           <button
             key={t ?? 'all'}
-            className={`${styles.categoryNavBtn} ${selectedType === t ? styles.categoryNavBtnActive : ''}`}
+            type="button"
+            className={selectedType === t ? navBtnActive : navBtnBase}
             onClick={() => setSelectedType(t)}
           >
             {t === null ? 'All types' : t === 'product' ? 'Products' : t === 'group' ? 'Groups' : 'Accessories'}
@@ -197,9 +218,10 @@ const [confirmDelete, setConfirmDelete] = useState(null);
 
       {/* Category navbar */}
       {categories.length > 0 && (
-        <div className={styles.categoryNav}>
+        <div className="flex flex-wrap gap-1.5">
           <button
-            className={`${styles.categoryNavBtn} ${!selectedCategory ? styles.categoryNavBtnActive : ''}`}
+            type="button"
+            className={!selectedCategory ? navBtnActive : navBtnBase}
             onClick={() => setSelectedCategory(null)}
           >
             All
@@ -207,7 +229,8 @@ const [confirmDelete, setConfirmDelete] = useState(null);
           {categories.map(cat => (
             <button
               key={cat}
-              className={`${styles.categoryNavBtn} ${selectedCategory === cat ? styles.categoryNavBtnActive : ''}`}
+              type="button"
+              className={selectedCategory === cat ? navBtnActive : navBtnBase}
               onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
             >
               {cat}
@@ -216,15 +239,16 @@ const [confirmDelete, setConfirmDelete] = useState(null);
         </div>
       )}
 
-      {/* Filter bar */}
-      <div className={styles.filters}>
-        <div className={styles.searchWrap}>
-          <svg className={styles.searchIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {/* Search */}
+      <div className="flex gap-2.5 items-center flex-wrap">
+        <div className="relative flex flex-1 min-w-[180px] items-center">
+          <svg className="absolute left-2.5 text-text-muted pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input
-            className={styles.searchInput}
+            className="flex-1 min-w-[180px] pl-9 pr-3 py-2 border border-border rounded-lg text-[14px] bg-bg text-text focus:outline-none focus:border-primary shadow-sm transition-colors"
             placeholder="Search items…"
+            aria-label="Search items"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -232,14 +256,15 @@ const [confirmDelete, setConfirmDelete] = useState(null);
       </div>
 
       {/* Add / Edit Form */}
-      {(showAdd || editingItem) && (
-        <div ref={formRef} className={`card ${styles.formCard}`}>
-          <h3 className={styles.formTitle}>{editingItem ? 'Edit Item' : 'Add Item'}</h3>
-          <form onSubmit={handleSave} className={styles.form}>
-            <div className={styles.formRow}>
-              <div className="form-group" style={{ flex: 2 }}>
-                <label>Title *</label>
+      {showAdd && (
+        <div ref={formRef} className="card p-5">
+          <h3 className="text-[15px] font-bold mb-3.5">Add Item</h3>
+          <form onSubmit={handleSave} className="flex flex-col gap-3">
+            <div className="flex gap-3 flex-wrap [&>*]:flex-1 [&>*]:min-w-[140px]">
+              <div className="form-group">
+                <label htmlFor="inv-title">Title *</label>
                 <input
+                  id="inv-title"
                   required
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -247,8 +272,9 @@ const [confirmDelete, setConfirmDelete] = useState(null);
                 />
               </div>
               <div className="form-group">
-                <label>Category</label>
+                <label htmlFor="inv-category">Category</label>
                 <input
+                  id="inv-category"
                   value={form.category}
                   onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                   placeholder="e.g. Chairs"
@@ -260,8 +286,9 @@ const [confirmDelete, setConfirmDelete] = useState(null);
               </div>
             </div>
             <div className="form-group">
-              <label>Item type</label>
+              <label htmlFor="inv-type">Item type</label>
               <select
+                id="inv-type"
                 value={form.item_type}
                 onChange={e => setForm(f => ({ ...f, item_type: e.target.value }))}
               >
@@ -270,10 +297,11 @@ const [confirmDelete, setConfirmDelete] = useState(null);
                 <option value="accessory">Accessory — hidden sub-item / add-on</option>
               </select>
             </div>
-            <div className={styles.formRow}>
+            <div className="flex gap-3 flex-wrap [&>*]:flex-1 [&>*]:min-w-[140px]">
               <div className="form-group">
-                <label>Unit Price ($)</label>
+                <label htmlFor="inv-price">Unit Price ($)</label>
                 <input
+                  id="inv-price"
                   type="number"
                   min="0"
                   step="0.01"
@@ -283,8 +311,9 @@ const [confirmDelete, setConfirmDelete] = useState(null);
                 />
               </div>
               <div className="form-group">
-                <label>Qty in Stock</label>
+                <label htmlFor="inv-qty">Qty in Stock</label>
                 <input
+                  id="inv-qty"
                   type="number"
                   min="0"
                   step="1"
@@ -295,10 +324,11 @@ const [confirmDelete, setConfirmDelete] = useState(null);
               </div>
             </div>
             <div className="form-group">
-              <label>Photo</label>
-              <div className={styles.photoRow}>
+              <label htmlFor="inv-photo">Photo</label>
+              <div className="flex items-center gap-2 flex-wrap">
                 <input
-                  className={styles.photoUrlInput}
+                  id="inv-photo"
+                  className="flex-1 min-w-[120px] px-2.5 py-1.5 border border-border rounded-md text-[13px] bg-bg text-text"
                   value={form.photo_url}
                   onChange={e => setForm(f => ({ ...f, photo_url: e.target.value }))}
                   placeholder="https://… or upload below"
@@ -309,6 +339,7 @@ const [confirmDelete, setConfirmDelete] = useState(null);
                   accept="image/*"
                   style={{ display: 'none' }}
                   onChange={handlePhotoUpload}
+                  aria-hidden="true"
                 />
                 <button
                   type="button"
@@ -322,23 +353,24 @@ const [confirmDelete, setConfirmDelete] = useState(null);
                   <img
                     src={api.fileServeUrl(form.photo_url.trim())}
                     alt="preview"
-                    className={styles.photoPreview}
+                    className="w-12 h-12 object-cover rounded-md border border-border shrink-0"
                     onError={e => { e.target.style.display = 'none'; }}
                   />
                 )}
               </div>
             </div>
             <div className="form-group">
-              <label>Description</label>
+              <label htmlFor="inv-desc">Description</label>
               <textarea
+                id="inv-desc"
                 rows={2}
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="Optional description…"
               />
             </div>
-            <div className={styles.checkboxRow}>
-              <label className={styles.toggleInline}>
+            <div className="flex gap-5 flex-wrap">
+              <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={form.hidden}
@@ -346,7 +378,7 @@ const [confirmDelete, setConfirmDelete] = useState(null);
                 />
                 Hidden (sub-item / accessory)
               </label>
-              <label className={styles.toggleInline}>
+              <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={form.taxable}
@@ -354,7 +386,7 @@ const [confirmDelete, setConfirmDelete] = useState(null);
                 />
                 Taxable
               </label>
-              <label className={styles.toggleInline}>
+              <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={form.is_subrental}
@@ -363,7 +395,7 @@ const [confirmDelete, setConfirmDelete] = useState(null);
                 Subrental
               </label>
             </div>
-            <div className={styles.formActions}>
+            <div className="flex gap-2 justify-end">
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setShowAdd(false); setEditingItem(null); }}>
                 Cancel
               </button>
@@ -372,59 +404,6 @@ const [confirmDelete, setConfirmDelete] = useState(null);
               </button>
             </div>
           </form>
-
-          {editingItem && (
-            <div className={styles.assocSection}>
-              <AssociationList itemId={editingItem.id} />
-              <div className={styles.accessoriesSection}>
-                <h4 className={styles.assocTitle}>Permanent accessories</h4>
-                <p className={styles.assocSub}>These links are saved with the item now. Quote auto-add is planned, but not wired yet.</p>
-                {accessories.length > 0 && (
-                  <ul className={styles.accessoryList}>
-                    {accessories.map(acc => (
-                      <li key={acc.id} className={styles.accessoryRow}>
-                        <span>{acc.title}</span>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          onClick={async () => {
-                            await api.removeItemAccessory(editingItem.id, acc.id);
-                            loadAccessories(editingItem.id);
-                          }}
-                        >Remove</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className={styles.accessoryAdd}>
-                  <input
-                    className={styles.searchInput}
-                    placeholder="Search items to add as accessory…"
-                    value={accessorySearch}
-                    onChange={e => { setAccessorySearch(e.target.value); searchAccessories(e.target.value); }}
-                  />
-                  {accessoryResults.length > 0 && (
-                    <ul className={styles.accessoryDropdown}>
-                      {accessoryResults.filter(r => r.id !== editingItem.id && !accessories.find(a => a.id === r.id)).map(r => (
-                        <li key={r.id}>
-                          <button
-                            type="button"
-                            className={styles.accessoryDropdownItem}
-                            onClick={async () => {
-                              await api.addItemAccessory(editingItem.id, { accessory_id: r.id });
-                              setAccessorySearch('');
-                              setAccessoryResults([]);
-                              loadAccessories(editingItem.id);
-                            }}
-                          >{r.title}</button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -438,6 +417,230 @@ const [confirmDelete, setConfirmDelete] = useState(null);
         searchQuery={search}
         onClearSearch={() => setSearch('')}
       />
+
+      {editingItem && (
+        <>
+          <div className={styles.drawerBackdrop} onClick={handleCloseEdit} aria-hidden="true" />
+          <aside className={styles.drawer} role="dialog" aria-modal="true" aria-label={`Edit ${editingItem.title}`}>
+            <div className={styles.drawerHeader}>
+              <div>
+                <div className={styles.drawerEyebrow}>Inventory</div>
+                <h3 className={styles.drawerTitle}>Edit Item</h3>
+              </div>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={handleCloseEdit}>
+                Close
+              </button>
+            </div>
+
+            <div className={styles.drawerBody}>
+              <form onSubmit={handleSave} className="flex flex-col gap-3">
+                <div className="flex gap-3 flex-wrap [&>*]:flex-1 [&>*]:min-w-[140px]">
+                  <div className="form-group">
+                    <label htmlFor="inv-edit-title">Title *</label>
+                    <input
+                      id="inv-edit-title"
+                      required
+                      value={form.title}
+                      onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g. Chiavari Chair — Gold"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="inv-edit-category">Category</label>
+                    <input
+                      id="inv-edit-category"
+                      value={form.category}
+                      onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                      placeholder="e.g. Chairs"
+                      list="category-list"
+                    />
+                    <datalist id="category-list">
+                      {categories.map(c => <option key={c} value={c} />)}
+                    </datalist>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="inv-edit-type">Item type</label>
+                  <select
+                    id="inv-edit-type"
+                    value={form.item_type}
+                    onChange={e => setForm(f => ({ ...f, item_type: e.target.value }))}
+                  >
+                    <option value="product">Product — standard rentable item</option>
+                    <option value="group">Group — package of multiple items</option>
+                    <option value="accessory">Accessory — hidden sub-item / add-on</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-3 flex-wrap [&>*]:flex-1 [&>*]:min-w-[140px]">
+                  <div className="form-group">
+                    <label htmlFor="inv-edit-price">Unit Price ($)</label>
+                    <input
+                      id="inv-edit-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.unit_price}
+                      onChange={e => setForm(f => ({ ...f, unit_price: e.target.value }))}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="inv-edit-qty">Qty in Stock</label>
+                    <input
+                      id="inv-edit-qty"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={form.quantity_in_stock}
+                      onChange={e => setForm(f => ({ ...f, quantity_in_stock: e.target.value }))}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="inv-edit-photo">Photo</label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      id="inv-edit-photo"
+                      className="flex-1 min-w-[120px] px-2.5 py-1.5 border border-border rounded-md text-[13px] bg-bg text-text"
+                      value={form.photo_url}
+                      onChange={e => setForm(f => ({ ...f, photo_url: e.target.value }))}
+                      placeholder="https://… or upload below"
+                    />
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={handlePhotoUpload}
+                      aria-hidden="true"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      disabled={uploadingPhoto}
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      {uploadingPhoto ? 'Uploading…' : 'Upload Photo'}
+                    </button>
+                    {form.photo_url && /^\d+$/.test(form.photo_url.trim()) && (
+                      <img
+                        src={api.fileServeUrl(form.photo_url.trim())}
+                        alt="preview"
+                        className="w-12 h-12 object-cover rounded-md border border-border shrink-0"
+                        onError={e => { e.target.style.display = 'none'; }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="inv-edit-desc">Description</label>
+                  <textarea
+                    id="inv-edit-desc"
+                    rows={3}
+                    value={form.description}
+                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Optional description…"
+                  />
+                </div>
+
+                <div className="flex gap-5 flex-wrap">
+                  <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.hidden}
+                      onChange={e => setForm(f => ({ ...f, hidden: e.target.checked }))}
+                    />
+                    Hidden (sub-item / accessory)
+                  </label>
+                  <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.taxable}
+                      onChange={e => setForm(f => ({ ...f, taxable: e.target.checked }))}
+                    />
+                    Taxable
+                  </label>
+                  <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.is_subrental}
+                      onChange={e => setForm(f => ({ ...f, is_subrental: e.target.checked }))}
+                    />
+                    Subrental
+                  </label>
+                </div>
+
+                <div className={styles.drawerSection}>
+                  <AssociationList itemId={editingItem.id} />
+                </div>
+
+                <div className={styles.drawerSection}>
+                  <h4 className="text-[13px] font-semibold mb-1">Permanent accessories</h4>
+                  <p className="text-[12px] text-text-muted mb-3">These links are saved with the item now. Quote auto-add is planned, but not wired yet.</p>
+                  {accessories.length > 0 && (
+                    <ul className="list-none p-0 m-0 mb-2.5 flex flex-col gap-1">
+                      {accessories.map(acc => (
+                        <li key={acc.id} className="flex items-center justify-between px-2.5 py-1.5 bg-surface rounded text-[13px]">
+                          <span>{acc.title}</span>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={async () => {
+                              await api.removeItemAccessory(editingItem.id, acc.id);
+                              loadAccessories(editingItem.id);
+                            }}
+                          >Remove</button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="relative">
+                    <input
+                      className="w-full pl-3 pr-3 py-2 border border-border rounded-lg text-[13px] bg-bg text-text focus:outline-none focus:border-primary"
+                      placeholder="Search items to add as accessory…"
+                      aria-label="Search items to add as accessory"
+                      value={accessorySearch}
+                      onChange={e => { setAccessorySearch(e.target.value); searchAccessories(e.target.value); }}
+                    />
+                    {accessoryResults.length > 0 && (
+                      <ul className="absolute top-full left-0 right-0 z-[100] bg-bg border border-border rounded shadow-lg mt-0.5 max-h-[200px] overflow-y-auto list-none p-1">
+                        {accessoryResults.filter(r => r.id !== editingItem.id && !accessories.find(a => a.id === r.id)).map(r => (
+                          <li key={r.id}>
+                            <button
+                              type="button"
+                              className="block w-full text-left px-3.5 py-2 text-[13px] text-text hover:bg-surface cursor-pointer rounded"
+                              onClick={async () => {
+                                await api.addItemAccessory(editingItem.id, { accessory_id: r.id });
+                                setAccessorySearch('');
+                                setAccessoryResults([]);
+                                loadAccessories(editingItem.id);
+                              }}
+                            >{r.title}</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div className={styles.drawerFooter}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={handleCloseEdit}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={handleSave}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
 
       {confirmDelete && (
         <ConfirmDialog

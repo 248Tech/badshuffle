@@ -85,8 +85,8 @@
 }
 
 .error {
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
+  background: var(--color-danger-subtle);
+  border: 1px solid var(--color-danger-border);
   border-radius: var(--radius-sm);
   color: var(--color-danger);
   font-size: 13px;

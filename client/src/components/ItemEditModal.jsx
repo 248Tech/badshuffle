@@ -76,11 +76,11 @@ export default function ItemEditModal({ itemId, onClose, onSaved }) {
   if (!itemId) return null;
 
   return (
-    <div className={styles.overlay} onClick={onClose} role="dialog" aria-modal="true" aria-label="Edit product">
-      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+    <div className={styles.overlay} onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+      <div className={styles.modal} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="item-edit-title">
         <div className={styles.header}>
-          <h2 className={styles.title}>Edit product</h2>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">×</button>
+          <h2 className={styles.title} id="item-edit-title">Edit product</h2>
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close"><span aria-hidden="true">×</span></button>
         </div>
         {loading ? (
           <div className={styles.loading}><div className="spinner" /></div>
@@ -97,45 +97,45 @@ export default function ItemEditModal({ itemId, onClose, onSaved }) {
                       onError={() => setImgError(true)}
                     />
                   ) : (
-                    <img src="/placeholder.png" alt="" className={styles.img} aria-hidden />
+                    <img src="/placeholder.png" alt="" className={styles.img} aria-hidden="true" />
                   )}
                 </div>
               </div>
               <div className={styles.fields}>
                 <div className="form-group">
-                  <label>Title *</label>
-                  <input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+                  <label htmlFor="edit-title">Title *</label>
+                  <input id="edit-title" required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
                 </div>
                 <div className={styles.formRow}>
                   <div className="form-group">
-                    <label>Category</label>
-                    <input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                    <label htmlFor="edit-category">Category</label>
+                    <input id="edit-category" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                       list={`cat-list-${itemId}`} placeholder="e.g. Chairs" />
                     <datalist id={`cat-list-${itemId}`}>{categories.map(c => <option key={c} value={c} />)}</datalist>
                   </div>
                   <div className="form-group">
-                    <label>Unit Price ($)</label>
-                    <input type="number" min="0" step="0.01" value={form.unit_price}
+                    <label htmlFor="edit-price">Unit Price ($)</label>
+                    <input id="edit-price" type="number" min="0" step="0.01" value={form.unit_price}
                       onChange={e => setForm(f => ({ ...f, unit_price: e.target.value }))} placeholder="0.00" />
                   </div>
                   <div className="form-group">
-                    <label>Qty in Stock</label>
-                    <input type="number" min="0" value={form.quantity_in_stock}
+                    <label htmlFor="edit-qty">Qty in Stock</label>
+                    <input id="edit-qty" type="number" min="0" value={form.quantity_in_stock}
                       onChange={e => setForm(f => ({ ...f, quantity_in_stock: e.target.value }))} placeholder="0" />
                   </div>
                   <div className="form-group">
-                    <label>Labor hours</label>
-                    <input type="number" min="0" step="0.25" value={form.labor_hours}
+                    <label htmlFor="edit-labor">Labor hours</label>
+                    <input id="edit-labor" type="number" min="0" step="0.25" value={form.labor_hours}
                       onChange={e => setForm(f => ({ ...f, labor_hours: e.target.value }))} placeholder="0" />
                   </div>
                 </div>
                 <div className="form-group">
-                  <label>Photo URL</label>
-                  <input value={form.photo_url} onChange={e => setForm(f => ({ ...f, photo_url: e.target.value }))} placeholder="https://…" />
+                  <label htmlFor="edit-photo">Photo URL</label>
+                  <input id="edit-photo" value={form.photo_url} onChange={e => setForm(f => ({ ...f, photo_url: e.target.value }))} placeholder="https://…" />
                 </div>
                 <div className="form-group">
-                  <label>Description</label>
-                  <textarea rows={3} value={form.description}
+                  <label htmlFor="edit-desc">Description</label>
+                  <textarea id="edit-desc" rows={3} value={form.description}
                     onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
                 </div>
                 <div className={styles.checkboxRow}>
@@ -154,8 +154,8 @@ export default function ItemEditModal({ itemId, onClose, onSaved }) {
                 </div>
                 {form.is_subrental && (
                   <div className="form-group">
-                    <label>Vendor</label>
-                    <select value={form.vendor_id} onChange={e => setForm(f => ({ ...f, vendor_id: e.target.value }))}>
+                    <label htmlFor="edit-vendor">Vendor</label>
+                    <select id="edit-vendor" value={form.vendor_id} onChange={e => setForm(f => ({ ...f, vendor_id: e.target.value }))}>
                       <option value="">— No vendor —</option>
                       {vendors.map(v => (
                         <option key={v.id} value={String(v.id)}>{v.name}</option>

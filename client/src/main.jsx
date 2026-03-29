@@ -1,8 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.jsx';
+import App from './App';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './theme.css';
+import './index.css';
 
 // Apply saved UI scale before first render
 const savedScale = parseFloat(localStorage.getItem('bs_ui_scale')) || 100;

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api.js';
 import StatsBar from '../components/StatsBar.jsx';
-import styles from './StatsPage.module.css';
 
 export default function StatsPage() {
   const [stats, setStats] = useState([]);
@@ -21,15 +20,18 @@ export default function StatsPage() {
     : sortBy === 'total_guests' ? maxGuests
     : maxProb;
 
+  const sortBtnBase = 'btn btn-ghost btn-sm';
+  const sortBtnActive = 'btn btn-sm bg-primary border-primary text-white hover:bg-primary';
+
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
+    <div className="flex flex-col gap-5">
+      <div className="flex justify-between items-start flex-wrap gap-3">
         <div>
-          <h1 className={styles.title}>Usage Statistics</h1>
-          <p className={styles.sub}>How often each item appears in quotes</p>
+          <h1 className="text-2xl font-bold tracking-tight">Usage Statistics</h1>
+          <p className="text-[13px] text-text-muted mt-0.5">How often each item appears in quotes</p>
         </div>
-        <div className={styles.sortRow}>
-          <span className={styles.sortLabel}>Sort by:</span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[13px] text-text-muted">Sort by:</span>
           {[
             { value: 'times_quoted', label: 'Times in project' },
             { value: 'total_guests', label: 'Total guests' },
@@ -37,7 +39,7 @@ export default function StatsPage() {
           ].map(opt => (
             <button
               key={opt.value}
-              className={`btn btn-ghost btn-sm ${sortBy === opt.value ? styles.sortActive : ''}`}
+              className={sortBy === opt.value ? sortBtnActive : sortBtnBase}
               onClick={() => setSortBy(opt.value)}
             >
               {opt.label}
@@ -46,7 +48,26 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {loading && <div className="empty-state"><div className="spinner" /></div>}
+      {loading && (
+        <div className="card p-5" aria-busy="true" aria-label="Loading statistics">
+          <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-border" aria-hidden="true">
+            <div className="skeleton h-3 w-[180px] shrink-0" />
+            <div className="skeleton h-3 flex-1" />
+            <div className="skeleton h-3 w-9 shrink-0" />
+          </div>
+          <div aria-hidden="true">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2.5 py-1.5">
+                <div className="skeleton h-3 shrink-0 w-[180px]" style={{ maxWidth: `${55 + (i % 3) * 15}%` }} />
+                <div className="flex-1 h-2 bg-border rounded overflow-hidden">
+                  <div className="skeleton h-full" style={{ width: `${30 + ((i * 17) % 55)}%` }} />
+                </div>
+                <div className="skeleton h-3 w-9 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!loading && stats.length === 0 && (
         <div className="empty-state">
@@ -55,15 +76,15 @@ export default function StatsPage() {
       )}
 
       {!loading && stats.length > 0 && (
-        <div className={`card ${styles.statsCard}`}>
-          <div className={styles.statsHeader}>
-            <span className={styles.colItem}>Item</span>
-            <span className={styles.colBar}>Usage</span>
-            <span className={styles.colVal}>
+        <div className="card p-5">
+          <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-border text-[11px] font-bold uppercase tracking-wider text-text-muted">
+            <span className="w-[180px] shrink-0">Item</span>
+            <span className="flex-1">Usage</span>
+            <span className="min-w-[36px] text-right shrink-0">
               {sortBy === 'times_quoted' ? 'Projects' : sortBy === 'total_guests' ? 'Guests' : '%'}
             </span>
           </div>
-          <div className={styles.statsList}>
+          <div>
             {sorted.map(s => (
               <StatsBar
                 key={s.id}
@@ -82,23 +103,23 @@ export default function StatsPage() {
       )}
 
       {!loading && stats.length > 0 && (
-        <div className={styles.summaryRow}>
-          <div className={`card ${styles.summaryCard}`}>
-            <span className={styles.summaryVal}>{stats.length}</span>
-            <span className={styles.summaryLabel}>Items tracked</span>
+        <div className="grid grid-cols-3 gap-4 max-[600px]:grid-cols-1">
+          <div className="card p-4 flex flex-col gap-1">
+            <span className="text-[24px] font-bold text-primary">{stats.length}</span>
+            <span className="text-[11px] uppercase tracking-wider text-text-muted">Items tracked</span>
           </div>
-          <div className={`card ${styles.summaryCard}`}>
-            <span className={styles.summaryVal}>
+          <div className="card p-4 flex flex-col gap-1">
+            <span className="text-[24px] font-bold text-primary">
               {stats.reduce((a, s) => a + (s.times_quoted || 0), 0)}
             </span>
-            <span className={styles.summaryLabel}>Total quote appearances</span>
+            <span className="text-[11px] uppercase tracking-wider text-text-muted">Total quote appearances</span>
           </div>
-          <div className={`card ${styles.summaryCard}`}>
-            <span className={styles.summaryVal}>
+          <div className="card p-4 flex flex-col gap-1">
+            <span className="text-[24px] font-bold text-primary truncate">
               {sorted[0]?.title.slice(0, 20) || '—'}
               {(sorted[0]?.title?.length || 0) > 20 ? '…' : ''}
             </span>
-            <span className={styles.summaryLabel}>Most popular item</span>
+            <span className="text-[11px] uppercase tracking-wider text-text-muted">Most popular item</span>
           </div>
         </div>
       )}

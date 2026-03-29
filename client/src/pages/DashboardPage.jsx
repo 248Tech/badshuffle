@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
-import styles from './DashboardPage.module.css';
 
 function fmtDate(str) {
   if (!str) return '';
@@ -17,24 +16,34 @@ const STATUS_COLORS = {
   closed:    '#6b7280'
 };
 
+const STATUS_BADGE_STYLE = {
+  draft:            { background: 'color-mix(in srgb, var(--color-discount) 12%, var(--color-bg))', color: 'var(--color-discount)' },
+  sent:             { background: 'var(--color-warning-subtle)', color: 'var(--color-warning-strong)' },
+  approved:         { background: 'var(--color-success-subtle)', color: 'var(--color-success-strong)' },
+  confirmed:        { background: 'color-mix(in srgb, var(--color-discount) 12%, var(--color-bg))', color: 'var(--color-discount)' },
+  closed:           { background: 'var(--color-surface)', color: 'var(--color-text-muted)' },
+  unsigned_changes: { background: 'var(--color-danger-subtle)', color: 'var(--color-danger-strong)' },
+};
+
 function BarChart({ data, colorMap }) {
   if (!data || !data.length) return null;
   const max = Math.max(...data.map(d => d.value), 1);
   return (
-    <div className={styles.barChart}>
+    <div className="flex flex-col gap-3">
       {data.map(d => (
-        <div key={d.label} className={styles.barRow}>
-          <span className={styles.barLabel}>{d.label}</span>
-          <div className={styles.barTrack}>
+        <div key={d.label} className="flex items-center gap-2.5">
+          <span className="w-[74px] shrink-0 text-[12px] capitalize text-text-muted truncate">{d.label}</span>
+          <div className="flex-1 bg-border rounded h-[22px] overflow-hidden">
             <div
-              className={styles.barFill}
+              className="h-full rounded transition-[width] duration-[400ms]"
               style={{
                 width: `${(d.value / max) * 100}%`,
-                background: (colorMap && colorMap[d.label]) || 'var(--color-primary)'
+                background: (colorMap && colorMap[d.label]) || 'var(--color-primary)',
+                minWidth: d.value > 0 ? 4 : 0
               }}
             />
           </div>
-          <span className={styles.barValue}>{d.value}</span>
+          <span className="min-w-[24px] text-right text-[13px] font-semibold shrink-0">{d.value}</span>
         </div>
       ))}
     </div>
@@ -58,29 +67,29 @@ export default function DashboardPage() {
   }, []);
 
   if (loading) return (
-    <div className={styles.page}>
-      <div className="skeleton" style={{ height: 28, width: 160, marginBottom: 4 }} />
-      <div className={styles.statGrid}>
+    <div className="flex flex-col gap-6">
+      <div className="skeleton h-7 w-40" />
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className={`card ${styles.statCard}`}>
-            <div className="skeleton" style={{ height: 11, width: '55%' }} />
-            <div className="skeleton" style={{ height: 30, width: '40%', marginTop: 8 }} />
+          <div key={i} className="card p-4 flex flex-col gap-2">
+            <div className="skeleton h-3 w-1/2" />
+            <div className="skeleton h-8 w-2/5 mt-1" />
           </div>
         ))}
       </div>
-      <div className={styles.charts}>
+      <div className="grid grid-cols-2 gap-5 max-[800px]:grid-cols-1">
         {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className={`card ${styles.chartCard}`}>
-            <div className="skeleton" style={{ height: 11, width: '45%', marginBottom: 16 }} />
+          <div key={i} className="card p-5 flex flex-col gap-3">
+            <div className="skeleton h-3 w-2/5" />
             {Array.from({ length: 5 }).map((_, j) => (
-              <div key={j} className="skeleton" style={{ height: 22, marginBottom: 8 }} />
+              <div key={j} className="skeleton h-6" />
             ))}
           </div>
         ))}
       </div>
     </div>
   );
-  if (!summary) return <p className={styles.error}>Failed to load dashboard data.</p>;
+  if (!summary) return <p className="text-sm" style={{ color: 'var(--color-danger)' }}>Failed to load dashboard data.</p>;
 
   const { total, byStatus = {}, revenueByStatus = {}, upcoming = [], byMonth = [] } = summary;
 
@@ -100,43 +109,41 @@ export default function DashboardPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const STAT_CARDS = [
+    { label: 'Total Projects', value: total,                                           color: 'var(--color-primary)' },
+    { label: 'Signed',         value: byStatus.approved  || 0,                         color: '#34d399' },
+    { label: 'Confirmed',      value: byStatus.confirmed || 0,                         color: '#8b5cf6' },
+    { label: 'Sent to Client', value: byStatus.sent      || 0,                         color: '#f59e0b' },
+    { label: 'Signed Revenue', value: `$${(revenueByStatus.approved || 0).toFixed(0)}`, color: 'var(--color-accent)' },
+  ];
+
   return (
-    <div className={styles.page}>
-      <h1 className={styles.title}>Dashboard</h1>
+    <div className="flex flex-col gap-6">
+      <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
 
       {/* Stat cards */}
-      <div className={styles.statGrid}>
-        <div className={styles.statCard}>
-          <span className={styles.statLabel}>Total Projects</span>
-          <span className={styles.statValue}>{total}</span>
-        </div>
-        <div className={styles.statCard} style={{ borderLeftColor: '#34d399' }}>
-          <span className={styles.statLabel}>Signed</span>
-          <span className={styles.statValue} style={{ color: '#34d399' }}>{byStatus.approved || 0}</span>
-        </div>
-        <div className={styles.statCard} style={{ borderLeftColor: '#8b5cf6' }}>
-          <span className={styles.statLabel}>Confirmed</span>
-          <span className={styles.statValue} style={{ color: '#8b5cf6' }}>{byStatus.confirmed || 0}</span>
-        </div>
-        <div className={styles.statCard} style={{ borderLeftColor: '#f59e0b' }}>
-          <span className={styles.statLabel}>Sent to Client</span>
-          <span className={styles.statValue} style={{ color: '#f59e0b' }}>{byStatus.sent || 0}</span>
-        </div>
-        <div className={styles.statCard} style={{ borderLeftColor: 'var(--color-accent)' }}>
-          <span className={styles.statLabel}>Signed Revenue</span>
-          <span className={styles.statValue} style={{ color: 'var(--color-accent)' }}>${(revenueByStatus.approved || 0).toFixed(0)}</span>
-        </div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4 max-[480px]:grid-cols-2">
+        {STAT_CARDS.map(card => (
+          <div
+            key={card.label}
+            className="bg-bg border border-border rounded-md p-4 flex flex-col gap-1 shadow hover:shadow-md transition-shadow"
+            style={{ borderLeftWidth: 4, borderLeftColor: card.color }}
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{card.label}</span>
+            <span className="text-[28px] font-bold leading-tight" style={{ color: card.color }}>{card.value}</span>
+          </div>
+        ))}
       </div>
 
-      <div className={styles.charts}>
-        {/* Status breakdown */}
-        <div className={`card ${styles.chartCard}`}>
-          <h3 className={styles.chartTitle}>Projects by Status</h3>
+      {/* Charts */}
+      <div className="grid grid-cols-2 gap-5 max-[800px]:grid-cols-1">
+        <div className="card p-5">
+          <h3 className="text-[12px] font-bold uppercase tracking-wider text-text-muted mb-4">Projects by Status</h3>
           <BarChart data={statusBars} colorMap={STATUS_COLORS} />
-          <div className={styles.revenueTable}>
+          <div className="mt-4 flex flex-col">
             {statusBars.map(s => (
-              <div key={s.label} className={styles.revenueRow}>
-                <span className={styles.revenueLabel} style={{ color: STATUS_COLORS[s.label] }}>
+              <div key={s.label} className="flex justify-between text-[13px] py-1.5 border-t border-border">
+                <span className="font-semibold capitalize" style={{ color: STATUS_COLORS[s.label] }}>
                   {s.label === 'approved' ? 'signed' : s.label}
                 </span>
                 <span>${(revenueByStatus[s.label] || 0).toFixed(0)}</span>
@@ -145,28 +152,27 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Monthly trend */}
-        <div className={`card ${styles.chartCard}`}>
-          <h3 className={styles.chartTitle}>Projects Created (last 6 months)</h3>
+        <div className="card p-5">
+          <h3 className="text-[12px] font-bold uppercase tracking-wider text-text-muted mb-4">Projects Created (last 6 months)</h3>
           {byMonth.length === 0 ? (
-            <p className={styles.empty}>No data yet.</p>
+            <p className="text-[13px] text-text-muted italic">No data yet.</p>
           ) : (
             <BarChart data={monthBars} />
           )}
         </div>
       </div>
 
-      {/* Delivery date visualizer */}
-      <div className={`card ${styles.deliveryCard}`}>
-        <h3 className={styles.chartTitle}>Upcoming Events — next 90 days</h3>
+      {/* Upcoming Events */}
+      <div className="card p-5">
+        <h3 className="text-[12px] font-bold uppercase tracking-wider text-text-muted mb-4">Upcoming Events — next 90 days</h3>
         {upcoming.length === 0 ? (
-          <div className="empty-state" style={{ padding: '24px 16px' }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <div className="empty-state py-6">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
             <span>No events in the next 90 days</span>
-            <span style={{ fontSize: 12 }}>Create a project with an event date to see it here.</span>
+            <span className="text-[12px]">Create a project with an event date to see it here.</span>
           </div>
         ) : (
-          <div className={styles.eventList}>
+          <div className="flex flex-col gap-1.5">
             {upcoming.map(q => {
               const d = new Date(q.event_date + 'T00:00:00');
               const daysOut = Math.round((d - today) / 864e5);
@@ -174,25 +180,30 @@ export default function DashboardPage() {
               const showUnsigned = (status === 'approved' || status === 'confirmed') && q.has_unsigned_changes;
               const rawStatus = status === 'approved' ? 'signed' : status;
               const displayStatus = showUnsigned ? 'Unsigned Changes' : rawStatus;
-              const statusClass = showUnsigned ? styles.status_unsigned_changes : styles['status_' + status];
+              const badgeStyle = STATUS_BADGE_STYLE[showUnsigned ? 'unsigned_changes' : status] || STATUS_BADGE_STYLE.draft;
               return (
                 <div
                   key={q.id}
-                  className={styles.eventRow}
+                  className="flex items-center gap-4 px-3.5 py-2.5 rounded border border-border bg-surface cursor-pointer hover:border-primary transition-colors max-[768px]:flex-wrap max-[768px]:gap-2.5"
                   role="button"
                   tabIndex={0}
                   onClick={() => navigate(`/quotes/${q.id}`)}
-                  onKeyDown={e => e.key === 'Enter' && navigate(`/quotes/${q.id}`)}
+                  onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && navigate(`/quotes/${q.id}`)}
                 >
-                  <div className={styles.eventDateBlock}>
-                    <span className={styles.eventDay}>{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                    <span className={styles.eventDaysOut}>{daysOut === 0 ? 'Today' : `${daysOut}d`}</span>
+                  <div className="flex flex-col items-center min-w-[58px]">
+                    <span className="text-[13px] font-bold">{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    <span className="text-[11px] text-text-muted">{daysOut === 0 ? 'Today' : `${daysOut}d`}</span>
                   </div>
-                  <div className={styles.eventName}>{q.name}</div>
+                  <div className="flex-1 text-[14px] font-medium min-w-0 truncate">{q.name}</div>
                   {q.guest_count > 0 && (
-                    <span className={styles.eventGuests}>👥 {q.guest_count}</span>
+                    <span className="text-[12px] text-text-muted whitespace-nowrap" aria-label={`${q.guest_count} guests`}>
+                      <span aria-hidden="true">👥</span> {q.guest_count}
+                    </span>
                   )}
-                  <span className={`${styles.eventStatus} ${statusClass}`}>
+                  <span
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap capitalize"
+                    style={badgeStyle}
+                  >
                     {displayStatus}
                   </span>
                 </div>
@@ -203,39 +214,39 @@ export default function DashboardPage() {
       </div>
 
       {/* Inventory Conflicts */}
-      <div className={`card ${styles.conflictsCard}`}>
-        <h3 className={styles.chartTitle}>Inventory Conflicts</h3>
+      <div className="card p-5">
+        <h3 className="text-[12px] font-bold uppercase tracking-wider text-text-muted mb-4">Inventory Conflicts</h3>
         {conflicts.length === 0 ? (
-          <div className="empty-state" style={{ padding: '24px 16px' }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <div className="empty-state py-6">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             <span>No conflicts detected</span>
-            <span style={{ fontSize: 12 }}>All your inventory looks good.</span>
+            <span className="text-[12px]">All your inventory looks good.</span>
           </div>
         ) : (
-          <div className={styles.conflictList}>
+          <div className="flex flex-col gap-2">
             {conflicts.map(q => (
               <div
                 key={q.quote_id}
-                className={styles.conflictRow}
+                className="flex items-start gap-4 flex-wrap px-3.5 py-2.5 rounded border border-border bg-surface cursor-pointer hover:border-danger transition-colors"
                 role="button"
                 tabIndex={0}
                 onClick={() => navigate(`/quotes/${q.quote_id}`)}
-                onKeyDown={e => e.key === 'Enter' && navigate(`/quotes/${q.quote_id}`)}
+                onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && navigate(`/quotes/${q.quote_id}`)}
               >
-                <div className={styles.conflictQuoteInfo}>
-                  <span className={styles.conflictQuoteName}>{q.quote_name}</span>
+                <div className="flex flex-col gap-0.5 min-w-[140px]">
+                  <span className="text-[14px] font-semibold">{q.quote_name}</span>
                   {q.event_date && (
-                    <span className={styles.conflictDate}>{fmtDate(q.event_date)}</span>
+                    <span className="text-[12px] text-text-muted">{fmtDate(q.event_date)}</span>
                   )}
                 </div>
-                <div className={styles.conflictItems}>
+                <div className="flex flex-wrap gap-1.5 flex-1 items-center">
                   {(q.items || []).map(item => (
                     <span
                       key={item.item_id}
-                      className={item.status === 'reserved' ? styles.conflictBadgeRed : styles.conflictBadgeYellow}
+                      className={`text-[12px] px-2 py-0.5 rounded-full whitespace-nowrap ${item.status === 'reserved' ? 'bg-danger-subtle text-danger-strong' : 'bg-warning-subtle text-warning-strong'}`}
                       title={item.status === 'reserved' ? 'Confirmed oversold' : 'Potential oversold'}
                     >
-                      {item.status === 'reserved' ? '✕' : '!'} {item.title} ({item.quantity_needed}/{item.stock})
+                      <span aria-hidden="true">{item.status === 'reserved' ? '✕' : '!'}</span> {item.title} ({item.quantity_needed}/{item.stock})
                     </span>
                   ))}
                 </div>
@@ -246,33 +257,33 @@ export default function DashboardPage() {
       </div>
 
       {/* Subrentals */}
-      <div className={`card ${styles.subrentalsCard}`}>
-        <h3 className={styles.chartTitle}>Subrentals — next 90 days</h3>
+      <div className="card p-5">
+        <h3 className="text-[12px] font-bold uppercase tracking-wider text-text-muted mb-4">Subrentals — next 90 days</h3>
         {subrentals.length === 0 ? (
-          <p className={styles.empty}>No subrental items on upcoming quotes.</p>
+          <p className="text-[13px] text-text-muted italic">No subrental items on upcoming quotes.</p>
         ) : (
-          <div className={styles.subrentalList}>
-            <div className={styles.subrentalHeader}>
+          <div className="flex flex-col">
+            <div className="grid grid-cols-[2fr_1.5fr_60px_100px_2fr] max-[700px]:grid-cols-2 gap-3 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-text-muted border-b border-border">
               <span>Item</span>
               <span>Vendor</span>
-              <span>Qty</span>
-              <span>Event Date</span>
-              <span>Project</span>
+              <span className="max-[700px]:hidden">Qty</span>
+              <span className="max-[700px]:hidden">Event Date</span>
+              <span className="max-[700px]:hidden">Project</span>
             </div>
             {subrentals.map((s, i) => (
               <div
                 key={i}
-                className={styles.subrentalRow}
+                className="grid grid-cols-[2fr_1.5fr_60px_100px_2fr] max-[700px]:grid-cols-2 gap-3 px-2.5 py-2 border-b border-border text-[13px] cursor-pointer hover:bg-hover transition-colors items-center"
                 role="button"
                 tabIndex={0}
                 onClick={() => navigate(`/quotes/${s.quote_id}`)}
-                onKeyDown={e => e.key === 'Enter' && navigate(`/quotes/${s.quote_id}`)}
+                onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && navigate(`/quotes/${s.quote_id}`)}
               >
-                <span className={styles.subrentalItem}>{s.title}</span>
-                <span className={styles.subrentalVendor}>{s.vendor_name || <em className={styles.noVendor}>No vendor</em>}</span>
-                <span className={styles.subrentalQty}>{s.quantity}</span>
-                <span className={styles.subrentalDate}>{fmtDate(s.event_date)}</span>
-                <span className={styles.subrentalQuote}>{s.quote_name}</span>
+                <span className="font-medium">{s.title}</span>
+                <span className="text-text-muted">{s.vendor_name || <em className="text-text-muted not-italic opacity-60">No vendor</em>}</span>
+                <span className="font-semibold max-[700px]:hidden">{s.quantity}</span>
+                <span className="text-text-muted max-[700px]:hidden">{fmtDate(s.event_date)}</span>
+                <span className="text-primary max-[700px]:hidden">{s.quote_name}</span>
               </div>
             ))}
           </div>

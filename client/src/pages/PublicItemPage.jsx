@@ -68,7 +68,7 @@ export default function PublicItemPage() {
     return (
       <div className={styles.page}>
         <div className={styles.notFound}>
-          <div className={styles.notFoundIcon}>📦</div>
+          <div className={styles.notFoundIcon} aria-hidden="true">📦</div>
           <h1>Item not found</h1>
           <Link to="/catalog" className={styles.btnPrimary}>Back to Catalog</Link>
         </div>
@@ -138,7 +138,7 @@ export default function PublicItemPage() {
             <h1 className={styles.title} itemProp="name">{item.title}</h1>
 
             {isAvailable && (
-              <div className={styles.badge}>✓ Available for rent</div>
+              <div className={styles.badge}><span aria-hidden="true">✓</span> Available for rent</div>
             )}
 
             {priceStr && (
@@ -183,7 +183,7 @@ export default function PublicItemPage() {
             <div className={styles.cta}>
               <a href={ctaHref} className={styles.btnPrimary}>Request a Quote</a>
               <Link to={backHref} className={styles.btnBack}>
-                ← Back to {item.category || 'Catalog'}
+                <span aria-hidden="true">←</span> Back to {item.category || 'Catalog'}
               </Link>
             </div>
           </div>

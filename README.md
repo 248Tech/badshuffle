@@ -1,36 +1,38 @@
-# BadShuffle v0.0.9
+# BadShuffle v0.0.10
 
-![Release](https://img.shields.io/badge/release-0.0.9-0a7ea4)
+![Release](https://img.shields.io/badge/release-0.0.10-0a7ea4)
 ![Status](https://img.shields.io/badge/status-pre--release-c79200)
+![Product](https://img.shields.io/badge/product-self--hosted%20event%20rental%20software-1f6feb)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
 ![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Windows%20EXE-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-111111)
 
-BadShuffle is a self-hosted event rental software platform for project-centric quoting, inventory management, client approvals, billing, files, messaging, and public catalog publishing. It combines internal operator workflows with SEO-friendly public surfaces, optional AI assistance, and local-first deployment choices instead of recurring SaaS lock-in.
+BadShuffle is a self-hosted event rental software platform for inventory management, project quoting, contract approvals, billing, messaging, files, and SEO-friendly public catalog publishing. It targets event rental operators who want ownership of their stack, local-first deployment options, and a client-facing workflow without SaaS lock-in.
 
-**Keywords:** event rental software, rental inventory management, project quote workflow, client portal, self-hosted CRM, Goodshuffle sync, public product catalog, event operations software.
+**SEO keywords:** self-hosted event rental software, rental inventory management software, quote management system, client portal for rentals, public product catalog, event operations platform, React Express SQLite app.
 
-*Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history.*
+*Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history and [RELEASE_NOTES_0.0.10.md](RELEASE_NOTES_0.0.10.md) for the current release summary.*
 
 ---
 
-## Why This Repo Is Worth Reviewing
+## Why This Repo Stands Out
 
-- **Real product scope** — Inventory, quotes, approvals, messages, templates, files, SEO catalog pages, and operational tooling live in one codebase.
-- **Full-stack ownership** — React/Vite frontend, Express API, SQLite/sql.js persistence, Chrome extension, Docker deployment, and Windows packaging all ship together.
-- **Domain complexity** — Availability conflicts, per-line pricing overrides, reusable rental/payment policies, and public quote signing target actual event-rental workflows.
-- **Deployment pragmatism** — Run it locally, on a LAN, in Docker, or as packaged Windows executables.
+- **Real product, not a toy clone** — BadShuffle covers inventory, projects, pricing, approvals, signatures, files, messages, public catalog pages, and operations/admin tooling in one coherent workflow.
+- **Full-stack product ownership** — The repo includes a React/Vite frontend, Express API, SQLite/sql.js persistence, a Chrome extension, Docker deployment, Windows packaging, and an in-app update path.
+- **Complex operational domain** — Signed-vs-unsigned quote changes, inventory conflicts, rental sections, contract artifacts, quote-linked messaging, and public catalog SEO all target real event-rental problems.
+- **Portfolio-grade engineering signals** — Safe startup migrations, route-level code splitting, shared totals logic, audit-oriented signing artifacts, structured release notes, and handoff docs show maintainability discipline, not just feature velocity.
 
-## What’s New In v0.0.9
+## What’s New In v0.0.10
 
-`v0.0.9` is the security hardening and quote-workflow refactor release. It tightens public/auth/file handling on the backend, breaks the largest quote surfaces into smaller maintainable modules, and standardizes shared pricing logic so the operator and public quote experiences stay in sync as the product grows.
+`v0.0.10` is the workflow-expansion and product-polish release. It pushes BadShuffle closer to a complete rental operations product by improving client quote presentation, section-aware quoting, audit-tracked contract flows, inventory editing UX, page-transition speed, and upload governance.
 
-- **Security hardening pass** — JWT and extension-token handling is narrowed, file-serving auth is stricter, public quote payloads are least-privilege, upload MIME detection is content-based, and quote email attachments are scoped to the active project.
-- **Backend quote-service extraction** — Quote send, duplicate, activity logging, status transitions, and item stats bookkeeping now live in dedicated service/lib modules instead of a single oversized route file.
-- **Quote detail decomposition** — QuoteDetailPage now relies on extracted helpers/components and a shared controller hook so editing, files, sending, and totals logic are easier to evolve independently.
-- **Quote builder decomposition** — QuoteBuilder has been split into focused line-items, adjustments, and inventory-picker panels, reducing rerender pressure and making future UI changes less risky.
-- **Shared totals utility** — Quote total/adjustment logic now comes from one shared utility instead of drifting between QuoteDetail and PublicQuote.
-- **Release documentation refresh** — README, changelog, status notes, package versions, and release notes have all been aligned to `0.0.9`.
+- **Section-aware quote workflows** — Quote item areas now support editable titles, per-section rental periods, duplication/deletion, section subtotals, and better client-facing rendering in public quote views and exports.
+- **Signed vs unsigned project clarity** — Projects now distinguish signed balances from unsigned changes, allow re-signature when contracts change, and preserve signed-contract PDF versions as audit files.
+- **Inventory-aware availability improvements** — Signed projects and unsigned changes are handled more accurately for conflict checking, reducing false certainty in inventory planning.
+- **Sharper operator UX** — Inventory item editing can now stay in-context via a right-side slideout, destructive actions are safer, and unsaved-change handling is more consistent.
+- **Faster route transitions** — Core app routes now prefetch on hover/focus and warm during idle time after auth, improving first-hit page transitions.
+- **Upload governance** — Settings now support extra allowed file types, and uploads can prompt operators to extend the allowlist when a new file type is encountered.
+- **GitHub/readability refresh** — README, package metadata, changelog, and release notes are aligned to make the repo easier to evaluate by employers, collaborators, and search traffic.
 
 ## Core Features
 
@@ -43,21 +45,22 @@ BadShuffle is a self-hosted event rental software platform for project-centric q
 - **Import and sync** — Google Sheets import plus a Chrome extension for syncing items from Goodshuffle Pro, with manual JSON fallback import.
 - **Optional AI** — Per-feature provider settings for OpenAI, Anthropic, and Gemini without making AI a hard dependency.
 
-## What This Demonstrates
+## Why An Employer Should Care
 
 - Shipping a product with both internal tools and customer-facing flows.
 - Evolving a live schema with safe startup migrations.
 - Balancing delivery speed with deployment portability.
 - Writing software that can be evaluated as both a business tool and an engineering portfolio piece.
+- Demonstrating product judgment, not just coding throughput: many recent changes improve auditability, safety, discoverability, and operator clarity.
 
 ## Near-Term Roadmap
 
-- **Frontend refactor completion** — Finish landing the QuoteDetail/QuoteBuilder extraction work and smoke-test the refactored flows across desktop and mobile.
-- **Cross-theme QA + responsive pass** — Close the remaining theme/mobile gaps across quote editing, messages, and modal-heavy views.
-- **Workflow safety** — Extend unsaved-change protection and better destructive-action confirmation patterns to other high-risk forms.
-- **Operations depth** — Send preview, pull sheets, richer warehouse workflows, and migration/versioning cleanup for the database bootstrap.
+- **Section-aware export/print depth** — Keep polishing section rendering and contract-history presentation.
+- **Accessibility and responsiveness** — Finish the cross-theme QA, mobile pass, and keyboard/focus improvements still tracked in the AI docs.
+- **Workflow automation** — Expand accessories automation, richer warehouse flows, and stronger import/template preview ergonomics.
+- **Compliance hardening** — Continue improving the contract-signing audit trail while separating technical evidence capture from formal legal compliance claims.
 
-More context lives in [AI/TODO.md](/mnt/ssd/badshuffle/AI/TODO.md) and the coordination docs under [AI/](/mnt/ssd/badshuffle/AI).
+More context lives in [AI/TODO.md](AI/TODO.md), [AI/HANDOFF.md](AI/HANDOFF.md), and the coordination docs under [AI/].
 
 ---
 

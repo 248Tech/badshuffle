@@ -51,10 +51,10 @@
   transition: color 0.15s, background 0.15s;
 }
 .titleButton:hover {
-  color: #188ec5;
+  color: var(--color-primary);
 }
 .titleButton:focus-visible {
-  outline: 2px solid #188ec5;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -71,33 +71,33 @@
 }
 
 .badge_draft {
-  background: #e0e7ff;
-  color: #3730a3;
+  background: color-mix(in srgb, var(--color-discount) 12%, var(--color-bg));
+  color: var(--color-discount);
 }
 
 .badge_sent {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-subtle);
+  color: var(--color-warning);
 }
 
 .badge_approved {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--color-success-subtle);
+  color: var(--color-success-strong);
 }
 
 .badge_unsigned_changes {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--color-danger-subtle);
+  color: var(--color-danger-strong);
 }
 
 .badge_confirmed {
-  background: #ede9fe;
-  color: #5b21b6;
+  background: color-mix(in srgb, var(--color-discount) 12%, var(--color-bg));
+  color: var(--color-discount);
 }
 
 .badge_closed {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
 }
 
 .actions {
@@ -108,23 +108,23 @@
 }
 
 .actionsTint .btn-primary {
-  background: #188ec5;
-  border-color: #188ec5;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
 }
 .actionsTint .btn-primary:hover {
-  background: #1579ad;
-  border-color: #1579ad;
+  background: color-mix(in srgb, var(--color-primary) 85%, #000);
+  border-color: color-mix(in srgb, var(--color-primary) 85%, #000);
   color: #fff;
 }
 .actionsTint .btn-ghost {
-  color: #188ec5;
-  border-color: #188ec5;
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 .actionsTint .btn-ghost:hover {
-  background: rgba(24, 142, 197, 0.1);
-  color: #188ec5;
-  border-color: #188ec5;
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .btnDanger {
@@ -132,7 +132,7 @@
 }
 
 .btnDanger:hover {
-  background: rgba(229, 62, 62, 0.08) !important;
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent) !important;
 }
 
 .meta {
@@ -162,15 +162,15 @@
 }
 
 .metaTagExpired {
-  background: #fee2e2;
-  border-color: #fca5a5;
-  color: #991b1b;
+  background: var(--color-danger-subtle);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-strong);
 }
 
 .metaTagExpiringSoon {
-  background: #fff7ed;
-  border-color: #fed7aa;
-  color: #92400e;
+  background: var(--color-warning-subtle);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning-strong);
 }
 
 .notes {
@@ -186,12 +186,12 @@
   gap: 10px;
   flex-wrap: wrap;
   padding: 12px 16px;
-  background: #fee2e2;
-  border: 1px solid #fca5a5;
-  border-radius: 8px;
+  background: var(--color-danger-subtle);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-md);
   margin-top: 4px;
 }
-.expiredText { flex: 1; font-size: 13px; color: #991b1b; min-width: 200px; }
+.expiredText { flex: 1; font-size: 13px; color: var(--color-danger-strong); min-width: 200px; }
 
 .unsignedBanner {
   display: flex;
@@ -199,13 +199,13 @@
   gap: 10px;
   flex-wrap: wrap;
   padding: 12px 16px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  border-radius: 8px;
+  background: var(--color-warning-subtle);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
   margin-top: 4px;
 }
 .unsignedIcon { font-size: 16px; flex-shrink: 0; }
-.unsignedText { flex: 1; font-size: 13px; color: #92400e; min-width: 200px; }
+.unsignedText { flex: 1; font-size: 13px; color: var(--color-warning-strong); min-width: 200px; }
 .unsignedActions { display: flex; gap: 8px; flex-shrink: 0; }
 
 @media (max-width: 768px) {

@@ -17,6 +17,12 @@ const ALLOWED_KEYS = [
   'message_email_signature', 'message_theme', 'message_auto_attach_pdf',
   'inventory_default_view', 'inventory_items_per_page',
   'verbose_errors',
+  'quote_event_types',
+  'quote_auto_append_city_title',
+  'quote_view_default',
+  'quote_view_standard_enabled',
+  'quote_view_contract_enabled',
+  'allowed_file_types',
 ];
 
 module.exports = function makeRouter(db) {

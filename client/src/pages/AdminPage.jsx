@@ -1,26 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, getToken } from '../api';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import styles from './AdminPage.module.css';
 
-function ConfirmDialog({ title, text, onConfirm, onCancel }) {
-  return (
-    <div className={styles.overlay}>
-      <div className={styles.dialog}>
-        <div className={styles.dialogTitle}>{title}</div>
-        <div className={styles.dialogText}>{text}</div>
-        <div className={styles.dialogActions}>
-          <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
-          <button className="btn btn-danger" onClick={onConfirm}>Delete</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Toggle({ checked, onChange, disabled }) {
+function Toggle({ checked, onChange, disabled, ariaLabel }) {
   return (
     <label className={`${styles.toggle} ${disabled ? styles.toggleDisabled : ''}`}>
-      <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} />
+      <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} aria-label={ariaLabel} />
       <span className={styles.toggleTrack}>
         <span className={styles.toggleThumb} />
       </span>
@@ -112,13 +98,15 @@ function UsersTab({ currentUserId }) {
       {confirmDelete && (
         <ConfirmDialog
           title="Delete user"
-          text={`Delete ${confirmDelete.email}? This cannot be undone.`}
+          message={`Delete ${confirmDelete.email}? This cannot be undone.`}
+          confirmLabel="Delete user"
+          confirmClass="btn-danger"
           onConfirm={() => handleDelete(confirmDelete.id)}
           onCancel={() => setConfirmDelete(null)}
         />
       )}
 
-      {error && <div style={{ color: 'var(--color-danger)', fontSize: 13 }}>{error}</div>}
+      {error && <div role="alert" style={{ color: 'var(--color-danger)', fontSize: 13 }}>{error}</div>}
 
       <div className="card" style={{ padding: '20px 24px' }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Create user</div>
@@ -135,15 +123,15 @@ function UsersTab({ currentUserId }) {
             {creating ? 'Creating…' : 'Create'}
           </button>
         </form>
-        {createError && <div style={{ color: 'var(--color-danger)', fontSize: 12, marginTop: 8 }}>{createError}</div>}
+        {createError && <div role="alert" style={{ color: 'var(--color-danger)', fontSize: 12, marginTop: 8 }}>{createError}</div>}
       </div>
 
       <div>
         <div className={styles.tabs}>
-          <button className={`${styles.tab} ${filterTab === 'all' ? styles.tabActive : ''}`} onClick={() => setFilterTab('all')}>
+          <button type="button" className={`${styles.tab} ${filterTab === 'all' ? styles.tabActive : ''}`} onClick={() => setFilterTab('all')}>
             All Users
           </button>
-          <button className={`${styles.tab} ${filterTab === 'pending' ? styles.tabActive : ''}`} onClick={() => setFilterTab('pending')}>
+          <button type="button" className={`${styles.tab} ${filterTab === 'pending' ? styles.tabActive : ''}`} onClick={() => setFilterTab('pending')}>
             Pending{pendingCount > 0 ? ` (${pendingCount})` : ''}
           </button>
         </div>
@@ -173,6 +161,7 @@ function UsersTab({ currentUserId }) {
                         value={u.role}
                         disabled={roleChanging === u.id}
                         onChange={e => handleRoleChange(u.id, e.target.value)}
+                        aria-label={`Role for ${u.email}`}
                       >
                         <option value="admin">Admin</option>
                         <option value="operator">Operator</option>
@@ -190,11 +179,12 @@ function UsersTab({ currentUserId }) {
                       <div className={styles.actions}>
                         {!u.approved && (
                           <>
-                            <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleApprove(u.id)}>Approve</button>
-                            <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleReject(u.id)}>Reject</button>
+                            <button type="button" className="btn btn-primary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleApprove(u.id)}>Approve</button>
+                            <button type="button" className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleReject(u.id)}>Reject</button>
                           </>
                         )}
                         <button
+                          type="button"
                           className="btn btn-danger"
                           style={{ padding: '4px 10px', fontSize: 12 }}
                           disabled={u.id === currentUserId}
@@ -250,7 +240,21 @@ function SystemTab() {
     }
   }
 
-  if (!settings) return <div className="empty-state"><div className="spinner" /></div>;
+  if (!settings) return (
+    <div className={styles.systemPane} aria-busy="true" aria-label="Loading system info">
+      {Array.from({ length: 2 }).map((_, i) => (
+        <div key={i} className="card" style={{ padding: '20px 24px', marginBottom: 16 }} aria-hidden="true">
+          <div className="skeleton" style={{ height: 12, width: 130, borderRadius: 4, marginBottom: 16 }} />
+          {Array.from({ length: 4 }).map((_, j) => (
+            <div key={j} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div className="skeleton" style={{ height: 13, width: 120, borderRadius: 4 }} />
+              <div className="skeleton" style={{ height: 13, width: 80, borderRadius: 4 }} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 
   const updateAvailable = settings.update_available === '1';
   const lastCheck = settings.update_check_last
@@ -259,7 +263,7 @@ function SystemTab() {
 
   return (
     <div className={styles.systemPane}>
-      {error && <div style={{ color: 'var(--color-danger)', fontSize: 13 }}>{error}</div>}
+      {error && <div role="alert" style={{ color: 'var(--color-danger)', fontSize: 13 }}>{error}</div>}
 
       {/* Version status */}
       <div className="card" style={{ padding: '20px 24px' }}>
@@ -303,6 +307,7 @@ function SystemTab() {
             checked={settings.update_check_enabled !== '0'}
             onChange={e => handleToggle('update_check_enabled', e.target.checked)}
             disabled={saving}
+            aria-label="Check for updates on startup"
           />
         </div>
         <div className={styles.divider} />
@@ -318,9 +323,10 @@ function SystemTab() {
             checked={settings.autokill_enabled !== '0'}
             onChange={e => handleToggle('autokill_enabled', e.target.checked)}
             disabled={saving}
+            aria-label="Auto-kill previous instance on startup"
           />
         </div>
-        {success && <div style={{ color: 'var(--color-primary)', fontSize: 12, marginTop: 10 }}>{success}</div>}
+        {success && <div role="status" style={{ color: 'var(--color-primary)', fontSize: 12, marginTop: 10 }}>{success}</div>}
       </div>
     </div>
   );
@@ -334,6 +340,7 @@ function DatabaseTab() {
   const [importFile, setImportFile] = useState(null);
   const [importError, setImportError] = useState('');
   const [importSuccess, setImportSuccess] = useState('');
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
   const fileInputRef = React.useRef(null);
 
   async function handleExport() {
@@ -355,7 +362,7 @@ function DatabaseTab() {
 
   async function handleImport() {
     if (!importFile) return;
-    if (!window.confirm('Replace the current database with the uploaded file? This cannot be undone. The page will reload after import.')) return;
+    setShowImportConfirm(false);
     setImporting(true);
     setImportError('');
     setImportSuccess('');
@@ -372,12 +379,22 @@ function DatabaseTab() {
 
   return (
     <div className={styles.systemPane}>
+      {showImportConfirm && (
+        <ConfirmDialog
+          title="Import database backup"
+          message={`Replace the current database with "${importFile?.name || 'the selected backup'}"? This will overwrite all current data and reload the app.`}
+          confirmLabel="Import backup"
+          confirmClass="btn-danger"
+          onConfirm={handleImport}
+          onCancel={() => setShowImportConfirm(false)}
+        />
+      )}
       <div className="card" style={{ padding: '20px 24px' }}>
         <div className={styles.systemSection}>Export Database</div>
         <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
           Download a binary backup of the current SQLite database. Use this to back up your data or migrate to another machine.
         </p>
-        <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
+        <button type="button" className="btn btn-primary" onClick={handleExport} disabled={exporting}>
           {exporting ? 'Exporting…' : 'Download backup (.db)'}
         </button>
       </div>
@@ -395,17 +412,17 @@ function DatabaseTab() {
             style={{ display: 'none' }}
             onChange={e => { setImportFile(e.target.files[0] || null); setImportError(''); setImportSuccess(''); }}
           />
-          <button className="btn btn-secondary" onClick={() => fileInputRef.current.click()}>
+          <button type="button" className="btn btn-secondary" onClick={() => fileInputRef.current.click()}>
             {importFile ? importFile.name : 'Choose .db file…'}
           </button>
           {importFile && (
-            <button className="btn btn-danger" onClick={handleImport} disabled={importing}>
+            <button type="button" className="btn btn-danger" onClick={() => setShowImportConfirm(true)} disabled={importing}>
               {importing ? 'Importing…' : 'Import & replace database'}
             </button>
           )}
         </div>
-        {importError && <p style={{ color: 'var(--color-danger)', fontSize: 13, marginTop: 10 }}>{importError}</p>}
-        {importSuccess && <p style={{ color: 'var(--color-primary)', fontSize: 13, marginTop: 10 }}>{importSuccess}</p>}
+        {importError && <p role="alert" style={{ color: 'var(--color-danger)', fontSize: 13, marginTop: 10 }}>{importError}</p>}
+        {importSuccess && <p role="status" style={{ color: 'var(--color-primary)', fontSize: 13, marginTop: 10 }}>{importSuccess}</p>}
       </div>
     </div>
   );
@@ -455,6 +472,7 @@ export default function AdminPage() {
         {TABS.map(t => (
           <button
             key={t.key}
+            type="button"
             className={`${styles.tab} ${tab === t.key ? styles.tabActive : ''}`}
             onClick={() => setTab(t.key)}
           >

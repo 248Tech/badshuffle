@@ -55,7 +55,7 @@ export default function AssociationList({ itemId }) {
         {associations.map(a => (
           <div key={a.id} className={styles.assocItem}>
             <span>{a.title}</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => remove(a.id)}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(a.id)}>
               Remove
             </button>
           </div>
@@ -66,13 +66,14 @@ export default function AssociationList({ itemId }) {
         <input
           type="search"
           placeholder="Find item to associate…"
+          aria-label="Find item to associate"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className={styles.searchInput}
         />
         <div className={styles.suggestions}>
           {suggestions.map(i => (
-            <div key={i.id} className={styles.suggestion} onClick={() => add(i.id)}>
+            <div key={i.id} className={styles.suggestion} role="button" tabIndex={0} onClick={() => add(i.id)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && add(i.id)}>
               {i.title}
               <span className={styles.addHint}>+ Link</span>
             </div>

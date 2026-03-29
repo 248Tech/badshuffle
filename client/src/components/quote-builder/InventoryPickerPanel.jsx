@@ -52,6 +52,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 75, 100, 250, 500];
 export default function InventoryPickerPanel({
   quoteId,
   items = [],
+  sectionId = null,
   onItemsChange,
   onAddCustomItem,
   settings = {},
@@ -186,7 +187,7 @@ export default function InventoryPickerPanel({
     try {
       setOptimisticInQuote((prev) => new Set(prev).add(item.id));
       const quantity = Math.max(1, parseInt(qty, 10) || 1);
-      await api.addQuoteItem(quoteId, { item_id: item.id, quantity });
+      await api.addQuoteItem(quoteId, { item_id: item.id, quantity, section_id: sectionId });
       setPickerQty((prev) => {
         const next = { ...prev };
         delete next[item.id];
@@ -232,17 +233,17 @@ export default function InventoryPickerPanel({
       .map((s) => parseInt(s, 10))
       .filter((n) => !isNaN(n));
     api
-      .getQuoteAvailabilityItems(quoteId, ids)
+      .getQuoteAvailabilityItems(quoteId, ids, sectionId)
       .then((data) => setPickerAvailability(data || {}))
       .catch(() => setPickerAvailability({}));
-  }, [quoteId, pickerItemIdsKey]);
+  }, [quoteId, pickerItemIdsKey, sectionId]);
 
   return (
     <div className={styles.section}>
       <h3 className={styles.sectionTitle}>Add from Inventory</h3>
 
       {categoryList.length > 0 && (
-        <div className={styles.categoryRow}>
+        <div className={styles.categoryRowWrap}><div className={styles.categoryRow}>
           <button
             type="button"
             className={`${styles.categoryBtn} ${!selectedCategory ? styles.categoryBtnActive : ''}`}
@@ -260,7 +261,7 @@ export default function InventoryPickerPanel({
               {cat}
             </button>
           ))}
-        </div>
+        </div></div>
       )}
 
       <div className={styles.pickerToolbar}>
@@ -324,12 +325,60 @@ export default function InventoryPickerPanel({
           const pickerAvail = pickerAvailability[item.id];
           const showPickerStock = pickerAvail && pickerAvail.stock != null;
           const hasConflict = pickerAvail && (pickerAvail.reserved_qty > 0 || pickerAvail.potential_qty > 0);
-          const currentPickerQty = pickerQty[item.id] || 1;
+          const rawQty = pickerQty[item.id];
+          const displayQty = rawQty === '' ? '' : rawQty ?? 1;
+          const qtyForAdd =
+            rawQty === '' || rawQty === undefined
+              ? 1
+              : Math.max(1, parseInt(String(rawQty), 10) || 1);
+          const qtyInputProps = {
+            type: 'number',
+            min: 1,
+            step: 1,
+            value: displayQty,
+            'aria-label': 'Quantity',
+            onClick: (e) => e.stopPropagation(),
+            onFocus: () => {
+              const v = pickerQty[item.id];
+              if (v === undefined || v === 1) {
+                setPickerQty((prev) => ({ ...prev, [item.id]: '' }));
+              }
+            },
+            onBlur: () => {
+              setPickerQty((prev) => {
+                const v = prev[item.id];
+                if (v === '' || v === undefined) {
+                  const next = { ...prev };
+                  delete next[item.id];
+                  return next;
+                }
+                return prev;
+              });
+            },
+            onChange: (e) => {
+              const val = e.target.value;
+              if (val === '') {
+                setPickerQty((prev) => ({ ...prev, [item.id]: '' }));
+                return;
+              }
+              const n = parseInt(val, 10);
+              if (!Number.isNaN(n)) {
+                setPickerQty((prev) => ({ ...prev, [item.id]: Math.max(1, n) }));
+              }
+            },
+            onKeyDown: (e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                addItem(item, qtyForAdd);
+              }
+            },
+          };
           return (
             <div
               key={item.id}
               className={pickerView === 'tile' ? styles.pickerTile : styles.pickerItem}
-              onClick={() => addItem(item, currentPickerQty)}
+              onClick={() => addItem(item, qtyForAdd)}
             >
               {pickerView === 'tile' ? (
                 <>
@@ -344,7 +393,7 @@ export default function InventoryPickerPanel({
                         }}
                       />
                     ) : (
-                      <img src="/placeholder.png" alt="" className={styles.tileThumb} aria-hidden />
+                      <img src="/placeholder.png" alt="" className={styles.tileThumb} aria-hidden="true" />
                     )}
                     {showPickerStock && (
                       <span
@@ -361,19 +410,7 @@ export default function InventoryPickerPanel({
                     <span className={styles.tileAddHint}>+</span>
                   </div>
                   <span className={styles.tileTitle}>{item.title}</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={currentPickerQty}
-                    className={styles.pickerQtyInput}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => {
-                      const v = Math.max(1, parseInt(e.target.value, 10) || 1);
-                      setPickerQty((prev) => ({ ...prev, [item.id]: v }));
-                    }}
-                    aria-label="Quantity"
-                  />
+                  <input {...qtyInputProps} className={styles.pickerQtyInput} />
                 </>
               ) : (
                 <>
@@ -387,22 +424,10 @@ export default function InventoryPickerPanel({
                       }}
                     />
                   ) : (
-                    <img src="/placeholder.png" alt="" className={styles.thumb} aria-hidden />
+                    <img src="/placeholder.png" alt="" className={styles.thumb} aria-hidden="true" />
                   )}
                   <span className={styles.itemTitle}>{item.title}</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={currentPickerQty}
-                    className={styles.pickerQtyInputList}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => {
-                      const v = Math.max(1, parseInt(e.target.value, 10) || 1);
-                      setPickerQty((prev) => ({ ...prev, [item.id]: v }));
-                    }}
-                    aria-label="Quantity"
-                  />
+                  <input {...qtyInputProps} className={styles.pickerQtyInputList} />
                   {showPickerStock && (
                     <span className={hasConflict ? styles.pickerStockBadgeList : styles.pickerStockBadgeListOk}>
                       {hasConflict
@@ -464,7 +489,7 @@ export default function InventoryPickerPanel({
                 }
                 return pages.map((p, i) =>
                   p === '…' ? (
-                    <span key={`ellipsis-${i}`} className={styles.pageEllipsis} aria-hidden>
+                    <span key={`ellipsis-${i}`} className={styles.pageEllipsis} aria-hidden="true">
                       …
                     </span>
                   ) : (
@@ -521,4 +546,3 @@ export default function InventoryPickerPanel({
     </div>
   );
 }
-

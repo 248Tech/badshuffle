@@ -3,6 +3,90 @@ const BASE = (import.meta.env.VITE_API_BASE || '') + '/api';
 function getToken() { return localStorage.getItem('bs_token'); }
 function setToken(t) { localStorage.setItem('bs_token', t); }
 function clearToken() { localStorage.removeItem('bs_token'); }
+function isNumericId(value) { return /^\d+$/.test(String(value || '').trim()); }
+let cachedSettings = null;
+const DEFAULT_ALLOWED_FILE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+  '.pdf',
+]);
+
+function normalizeAllowedFileType(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (raw.includes('/')) return raw;
+  if (raw.startsWith('.')) return raw;
+  return `.${raw}`;
+}
+
+function parseAllowedFileTypes(value) {
+  return String(value || '')
+    .split(/[\s,]+/)
+    .map(normalizeAllowedFileType)
+    .filter(Boolean);
+}
+
+function getUploadFileTokens(file) {
+  const tokens = [];
+  const mime = normalizeAllowedFileType(file?.type);
+  const extMatch = String(file?.name || '').toLowerCase().match(/(\.[a-z0-9]+)$/);
+  const ext = normalizeAllowedFileType(extMatch ? extMatch[1] : '');
+  if (ext) tokens.push(ext);
+  if (mime && mime !== 'application/octet-stream') tokens.push(mime);
+  return tokens;
+}
+
+async function getSettingsCached(force = false) {
+  if (!force && cachedSettings) return cachedSettings;
+  cachedSettings = await request('/settings');
+  return cachedSettings;
+}
+
+async function ensureAllowedUploadTypes(formData) {
+  const files = formData.getAll('files').filter((file) => file && typeof file.name === 'string');
+  if (files.length === 0) return;
+
+  const settings = await getSettingsCached();
+  const configuredTypes = new Set(parseAllowedFileTypes(settings.allowed_file_types));
+  const allowedTypes = new Set([...DEFAULT_ALLOWED_FILE_TYPES, ...configuredTypes]);
+  const missingTypes = new Set();
+  const rejectedFiles = [];
+
+  for (const file of files) {
+    const tokens = getUploadFileTokens(file);
+    const isAllowed = tokens.some((token) => allowedTypes.has(token));
+    if (!isAllowed) {
+      rejectedFiles.push(file.name);
+      tokens.forEach((token) => {
+        if (!DEFAULT_ALLOWED_FILE_TYPES.has(token) && !configuredTypes.has(token)) missingTypes.add(token);
+      });
+    }
+  }
+
+  if (rejectedFiles.length === 0) return;
+
+  const tokenList = Array.from(missingTypes);
+  const prompt = `These file type(s) are not currently allowed: ${rejectedFiles.join(', ')}.${tokenList.length ? ` Add ${tokenList.join(', ')} to allowed file types?` : ' Add them to allowed file types?'}`;
+  if (!window.confirm(prompt)) {
+    throw new Error('Upload canceled. File type is not currently allowed.');
+  }
+
+  const nextTypes = Array.from(new Set([...configuredTypes, ...tokenList])).join(', ');
+  cachedSettings = await request('/settings', { method: 'PUT', body: { allowed_file_types: nextTypes } });
+}
+
+function fileServeUrlForId(id) {
+  const t = getToken();
+  return `/api/files/${id}/serve${t ? `?token=${encodeURIComponent(t)}` : ''}`;
+}
 
 async function request(path, options = {}) {
   const token = getToken();
@@ -168,10 +252,22 @@ export const api = {
   updateQuoteItem: (quoteId, qitemId, body) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'PUT', body }),
   removeQuoteItem: (quoteId, qitemId) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'DELETE' }),
   reorderQuoteItems: (quoteId, order) => request(`/quotes/${quoteId}/items/reorder`, { method: 'PUT', body: { order } }),
+  addQuoteSection: (quoteId, body) => request(`/quotes/${quoteId}/sections`, { method: 'POST', body: body || {} }),
+  updateQuoteSection: (quoteId, sectionId, body) => request(`/quotes/${quoteId}/sections/${sectionId}`, { method: 'PUT', body }),
+  duplicateQuoteSection: (quoteId, sectionId) => request(`/quotes/${quoteId}/sections/${sectionId}/duplicate`, { method: 'POST' }),
+  removeQuoteSection: (quoteId, sectionId) => request(`/quotes/${quoteId}/sections/${sectionId}`, { method: 'DELETE' }),
 
   // Settings
-  getSettings: () => request('/settings'),
-  updateSettings: (body) => request('/settings', { method: 'PUT', body }),
+  getSettings: async () => {
+    const settings = await request('/settings');
+    cachedSettings = settings;
+    return settings;
+  },
+  updateSettings: async (body) => {
+    const settings = await request('/settings', { method: 'PUT', body });
+    cachedSettings = settings;
+    return settings;
+  },
 
   // Email templates (admin/operator)
   getTemplates: () => request('/templates'),
@@ -222,11 +318,17 @@ export const api = {
   aiSuggest: (body) => request('/ai/suggest', { method: 'POST', body }),
 
   // Image proxy
-  proxyImageUrl: (url) => `/api/proxy-image?url=${encodeURIComponent(url)}`,
+  proxyImageUrl: (url) => {
+    if (!url) return '';
+    if (isNumericId(url)) return fileServeUrlForId(String(url).trim());
+    if (String(url).startsWith('/api/')) return String(url);
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  },
 
   // Files (media library)
   getFiles: () => request('/files'),
-  uploadFiles: (formData) => {
+  uploadFiles: async (formData) => {
+    await ensureAllowedUploadTypes(formData);
     const token = getToken();
     return fetch(`${BASE}/files/upload`, {
       method: 'POST',
@@ -240,7 +342,7 @@ export const api = {
   },
   deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
   getFileQuotes: (id) => request(`/files/${id}/quotes`),
-  fileServeUrl: (id) => { const t = getToken(); return `/api/files/${id}/serve${t ? `?token=${encodeURIComponent(t)}` : ''}`; },
+  fileServeUrl: (id) => fileServeUrlForId(id),
 
   // Quote adjustments (discounts / surcharges)
   getAdjustments:    (qid)           => request(`/quotes/${qid}/adjustments`),
@@ -271,10 +373,13 @@ export const api = {
 
   // Availability
   getQuoteAvailability:     (quoteId) => request(`/availability/quote/${quoteId}`),
-  getQuoteAvailabilityItems: (quoteId, itemIds) => {
+  getQuoteAvailabilityItems: (quoteId, itemIds, sectionId = null) => {
     if (!itemIds?.length) return Promise.resolve({});
     const ids = Array.isArray(itemIds) ? itemIds.join(',') : String(itemIds);
-    return request(`/availability/quote/${quoteId}/items?ids=${encodeURIComponent(ids)}`);
+    const qs = new URLSearchParams();
+    qs.set('ids', ids);
+    if (sectionId != null && sectionId !== '') qs.set('section_id', String(sectionId));
+    return request(`/availability/quote/${quoteId}/items?${qs.toString()}`);
   },
   getConflicts:         ()        => request('/availability/conflicts'),
   getSubrentals:        ()        => request('/availability/subrentals'),

@@ -1339,3 +1339,678 @@ function QuoteSendModal(props) {
 **Priority:** Low
 
 ---
+
+## Design Division
+
+### [Hardcoded success colors bypass theme system]
+
+**File:** `/client/src/pages/QuoteDetailPage.module.css`
+
+```css
+.contractSignedBlock { background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 6px; }
+.contractSignedLabel { color: #065f46; }
+```
+
+**Problem:**
+Colors `#d1fae5`, `#6ee7b7`, and `#065f46` are hardcoded. These are not defined as CSS variables in theme.css, so they do not adapt when the user switches themes. The theme system already defines `--color-success` variants for this purpose.
+
+**Fix:**
+
+```css
+.contractSignedBlock {
+  background: var(--color-success-subtle);
+  border: 1px solid var(--color-success-light);
+  border-radius: var(--radius-sm);
+}
+.contractSignedLabel { color: var(--color-success-dark); }
+```
+
+**Priority:** High
+
+---
+
+### [Hardcoded danger color duplicated across modules]
+
+**File:** `/client/src/pages/QuoteDetailPage.module.css`
+
+```css
+.damageItem { border-left: 3px solid #ef4444; }
+.damageAmount { color: #ef4444; }
+```
+
+**Problem:**
+`#ef4444` is hardcoded instead of `var(--color-danger)` which is already defined in theme.css and varies per theme. The same raw hex appears in at least two rules in the same file.
+
+**Fix:**
+
+```css
+.damageItem { border-left: 3px solid var(--color-danger); }
+.damageAmount { color: var(--color-danger); }
+```
+
+**Priority:** High
+
+---
+
+### [MessagesPage uses hardcoded message direction colors]
+
+**File:** `/client/src/pages/MessagesPage.module.css`
+
+```css
+.msg_inbound  { border-left: 3px solid #3b82f6; }
+.msg_outbound { border-left: 3px solid #10b981; }
+.dir_inbound  { background: #dbeafe; color: #1d4ed8; }
+.dir_outbound { background: #d1fae5; color: #065f46; }
+```
+
+**Problem:**
+Six hardcoded color values for message direction indicators. `QuoteDetailPage.module.css` implements the same pattern correctly using `var(--color-primary)` and `var(--color-accent)`. These are inconsistent and break alternate themes.
+
+**Fix:**
+
+```css
+.msg_inbound  { border-left: 3px solid var(--color-primary); }
+.msg_outbound { border-left: 3px solid var(--color-accent); }
+.dir_inbound  { background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg)); color: var(--color-primary); }
+.dir_outbound { background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg)); color: var(--color-accent); }
+```
+
+**Priority:** High
+
+---
+
+### [Unread dot uses color with no theme variable]
+
+**File:** `/client/src/pages/MessagesPage.module.css`
+
+```css
+.unreadDot { background: #f97316; }
+```
+
+**Problem:**
+`#f97316` (orange) is not defined as any CSS variable in theme.css and does not adapt to themes. No `--color-warning` variable exists in the system to map to.
+
+**Fix:**
+Add to `theme.css` under all theme blocks:
+```css
+--color-warning: #f97316;
+```
+Then:
+```css
+.unreadDot { background: var(--color-warning); }
+```
+
+**Priority:** Medium
+
+---
+
+### [QuoteBuilder subrental badge uses hardcoded blue tints]
+
+**File:** `/client/src/components/QuoteBuilder.module.css`
+
+```css
+.subrentalBadge { color: #1d4ed8; background: #dbeafe; border-radius: 3px; }
+```
+
+**Problem:**
+Two hardcoded blue values and a raw `3px` border-radius instead of using `var(--color-primary)`, a computed tint, and `var(--radius-sm)`.
+
+**Fix:**
+
+```css
+.subrentalBadge {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
+  border-radius: var(--radius-sm);
+}
+```
+
+**Priority:** High
+
+---
+
+### [Delete button hover states duplicated with inconsistent colors]
+
+**Files:** `/client/src/components/QuoteBuilder.module.css`, `/client/src/pages/QuoteDetailPage.module.css`
+
+```css
+/* QuoteBuilder */
+.removeBtn:hover { color: var(--color-danger); background: #fee; }
+
+/* QuoteDetailPage */
+.logRemoveBtn:hover { background: #fee2e2; color: #dc2626; }
+.rowDeleteBtn:hover  { background: #fee2e2; color: #dc2626; }
+```
+
+**Problem:**
+Three near-identical delete hover rules use different hardcoded values (`#fee` vs `#fee2e2`, and `var(--color-danger)` vs `#dc2626`). The QuoteBuilder variant also hardcodes the background but uses a variable for text color, making it inconsistent even within itself.
+
+**Fix:**
+
+```css
+/* In each module, use the same pattern */
+.removeBtn:hover,
+.logRemoveBtn:hover,
+.rowDeleteBtn:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-bg));
+}
+```
+
+**Priority:** Medium
+
+---
+
+### [index.css badge classes use hardcoded palette colors]
+
+**File:** `/client/src/index.css`
+
+```css
+.badge-sheet     { background: #e6f4ea; color: #2d7a4a; }
+.badge-extension { background: #fff4e0; color: #8a5a00; }
+.badge-manual    { background: #eef2f7; color: #4a5568; }
+```
+
+**Problem:**
+Global badge utility classes are hardcoded and not theme-aware. They will look correct only in the default light theme.
+
+**Fix:**
+
+```css
+.badge-sheet     { background: color-mix(in srgb, var(--color-success)  12%, var(--color-bg)); color: var(--color-success); }
+.badge-extension { background: color-mix(in srgb, var(--color-warning)  12%, var(--color-bg)); color: var(--color-warning); }
+.badge-manual    { background: color-mix(in srgb, var(--color-primary)   8%, var(--color-bg)); color: var(--color-text-muted); }
+```
+
+**Priority:** Medium
+
+---
+
+## Layout and Responsiveness Division
+
+### [FilesPage grid minmax too wide for very small viewports]
+
+**File:** `/client/src/pages/FilesPage.module.css`
+
+```css
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+```
+
+**Problem:**
+`minmax(180px, 1fr)` forces at least one 180px column. On viewports below ~400px (small Android phones), this leaves very little room and can cause horizontal overflow. No media query narrows this for small screens.
+
+**Fix:**
+
+```css
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+}
+```
+
+**Priority:** Medium
+
+---
+
+### [FilesPage inspect panel has no mobile layout]
+
+**File:** `/client/src/pages/FilesPage.module.css`
+
+```css
+.inspectPanel {
+  width: 340px;
+  max-width: 95vw;
+  height: 100%;
+  overflow-y: auto;
+}
+```
+
+**Problem:**
+On small screens the panel is `95vw` wide (correct) but still anchored as a side-drawer via the overlay layout. There is no breakpoint that converts it to a bottom sheet or full-screen modal for mobile. The panel becomes awkward and barely readable on narrow screens.
+
+**Fix:**
+
+```css
+@media (max-width: 600px) {
+  .inspectOverlay { align-items: flex-end; justify-content: center; }
+  .inspectPanel {
+    width: 100%;
+    max-width: 100%;
+    height: 85vh;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+}
+```
+
+**Priority:** Medium
+
+---
+
+## Observability Division
+
+### [Email poller swallows all poll-cycle errors silently]
+
+**File:** `/server/services/emailPoller.js`
+
+```js
+_timer = setInterval(function() { pollOnce(db).catch(function() {}); }, intervalMs || 5 * 60 * 1000);
+```
+
+**Problem:**
+Every error thrown during a poll cycle (IMAP connection failures, DB errors, mail parse errors) is swallowed with no logging. Operators have zero visibility that email ingestion has stopped working. The server continues polling silently.
+
+**Fix:**
+
+```js
+_timer = setInterval(function() {
+  pollOnce(db).catch(function(err) {
+    console.error('[emailPoller] Poll cycle failed:', err);
+  });
+}, intervalMs || 5 * 60 * 1000);
+```
+
+**Priority:** High
+
+---
+
+### [Empty catch blocks throughout emailPoller lose lead event data]
+
+**File:** `/server/services/emailPoller.js`
+
+```js
+try {
+  db.prepare('INSERT INTO lead_events ...').run(...);
+} catch (e) {}
+```
+
+**Problem:**
+Silent catch on a critical DB write. If this insert fails, lead event tracking data is lost permanently with no log entry.
+
+**Fix:**
+
+```js
+try {
+  db.prepare('INSERT INTO lead_events ...').run(...);
+} catch (e) {
+  console.error('[emailPoller] Failed to create lead event for quote', outbound.quote_id, ':', e);
+}
+```
+
+**Priority:** High
+
+---
+
+### [Public quote endpoint has 4+ empty catch blocks]
+
+**File:** `/server/index.js`
+
+```js
+try {
+  adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ?...').all(quote.id);
+} catch (e) {}
+
+try {
+  payment_policy = db.prepare('SELECT * FROM payment_policies WHERE id = ?').get(...);
+} catch (e) {}
+```
+
+**Problem:**
+Multiple empty catches in the public quote view assume errors mean "table doesn't exist yet." But real errors (connection failure, corrupted data) are silently swallowed, causing clients to see incomplete quote data with no server-side trace.
+
+**Fix:**
+
+```js
+try {
+  adjustments = db.prepare('SELECT * FROM quote_adjustments WHERE quote_id = ?...').all(quote.id);
+} catch (e) {
+  if (!e.message?.includes('no such table')) {
+    console.error('[publicQuote] Failed to fetch adjustments for quote', quote.id, ':', e);
+  }
+}
+```
+
+**Priority:** High
+
+---
+
+### [Quotes route has widespread empty catch blocks on DB writes]
+
+**File:** `/server/routes/quotes.js`
+
+```js
+try {
+  db.prepare('INSERT INTO contract_logs ...').run(...);
+} catch (e) {}
+
+try {
+  const rows = db.prepare('SELECT quote_id, COALESCE(SUM(amount),0) AS amount_paid FROM quote_payments...').all();
+} catch (e) {}
+```
+
+**Problem:**
+Contract audit logs and payment totals both fail silently. A contract edit that fails to log leaves a gap in the audit trail. Payment calculation failures return $0 totals without any error indication. These are data-integrity issues that need at minimum an error log.
+
+**Fix:**
+
+```js
+try {
+  db.prepare('INSERT INTO contract_logs ...').run(...);
+} catch (e) {
+  console.error('[quotes] Failed to write contract log for quote', req.params.id, ':', e);
+}
+```
+
+**Priority:** High
+
+---
+
+### [File deletion swallows non-ENOENT errors]
+
+**File:** `/server/routes/files.js`
+
+```js
+try { fs.unlinkSync(filePath); } catch (e) { /* already gone */ }
+```
+
+**Problem:**
+Permission denied, disk I/O errors, and path issues are all masked by the comment "already gone." Real file system problems leave orphaned uploads consuming disk space, with no server log.
+
+**Fix:**
+
+```js
+try {
+  fs.unlinkSync(filePath);
+} catch (e) {
+  if (e.code !== 'ENOENT') {
+    console.error('[files] Failed to delete file', filePath, ':', e);
+  }
+}
+```
+
+**Priority:** Medium
+
+---
+
+### [Billing history insert in messages route fails silently]
+
+**File:** `/server/routes/messages.js`
+
+```js
+try {
+  db.prepare('INSERT INTO billing_history ...').run(...);
+} catch (e) {}
+```
+
+**Problem:**
+A payment is recorded but the billing history audit trail write fails silently. Payment and billing records are now out of sync with no log or alert.
+
+**Fix:**
+
+```js
+try {
+  db.prepare('INSERT INTO billing_history ...').run(...);
+} catch (e) {
+  console.error('[messages] Failed to record billing history for quote', req.params.id, ':', e);
+}
+```
+
+**Priority:** Medium
+
+---
+
+### [No request logging middleware]
+
+**File:** `/server/index.js`
+
+**Problem:**
+No morgan or equivalent middleware is registered. There is no record of which endpoints are hit, by whom, with what status codes, or at what latency. For an app handling contracts and payments, this is a significant audit trail and debugging gap.
+
+**Fix:**
+
+```js
+// npm install morgan
+const morgan = require('morgan');
+app.use(morgan('combined')); // or structured JSON for production
+```
+
+**Priority:** High
+
+---
+
+### [No unhandledRejection / uncaughtException handlers]
+
+**File:** `/server/index.js`
+
+**Problem:**
+If any async operation outside a route handler throws, the process crashes with no cleanup — database locks aren't released, the email poller isn't stopped, and the single-instance lock may not be freed, blocking future restarts.
+
+**Fix:**
+
+```js
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught exception:', err);
+  emailPoller.stopPolling();
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[CRITICAL] Unhandled rejection:', reason);
+});
+```
+
+**Priority:** High
+
+---
+
+## UX Quality Division
+
+### [Conflict load failure causes silent false-empty state]
+
+**File:** `/client/src/pages/QuotePage.jsx`
+
+```js
+api.getConflicts()
+  .then(d => setQuoteIdsWithConflict(new Set((d.conflicts || []).map(c => c.quote_id))))
+  .catch(() => {});
+```
+
+**Problem:**
+If the conflicts API call fails, all conflict badges disappear silently. Users see quotes as conflict-free when the check simply failed to load. This can lead to double-booking.
+
+**Fix:**
+
+```js
+api.getConflicts()
+  .then(d => setQuoteIdsWithConflict(new Set((d.conflicts || []).map(c => c.quote_id))))
+  .catch((err) => {
+    console.error('[conflicts] Failed to load:', err);
+    // Retain previous conflict data rather than clearing it
+  });
+```
+
+**Priority:** Medium
+
+---
+
+### [Messages list load failure produces silent false-empty state]
+
+**File:** `/client/src/pages/MessagesPage.jsx`
+
+```js
+api.getMessages(params)
+  .then((d) => setMessages(d.messages || []))
+  .catch(() => {})
+  .finally(() => setLoading(false));
+```
+
+**Problem:**
+On network or server error the page renders as an empty messages list. The spinner stops and the user sees "No messages" with no error indication. There is no way to distinguish "no messages" from "failed to load."
+
+**Fix:**
+
+```js
+api.getMessages(params)
+  .then((d) => setMessages(d.messages || []))
+  .catch((err) => {
+    console.error('[messages] Failed to load:', err);
+    toast.error('Failed to load messages. Please refresh.');
+  })
+  .finally(() => setLoading(false));
+```
+
+**Priority:** Medium
+
+---
+
+### [Settings load failure silently disables features]
+
+**File:** `/client/src/pages/QuotePage.jsx`
+
+```js
+api.getSettings().then(s => {
+  if (s.google_places_api_key) setGooglePlacesKey(s.google_places_api_key);
+  setEventTypes(String(s.quote_event_types || '').split('\n').map(v => v.trim()).filter(Boolean));
+}).catch(() => {});
+```
+
+**Problem:**
+If settings fail to load, Google Places autocomplete and event type dropdowns silently stop working. Users see missing dropdowns with no explanation.
+
+**Fix:**
+
+```js
+api.getSettings()
+  .then(s => {
+    if (s.google_places_api_key) setGooglePlacesKey(s.google_places_api_key);
+    setEventTypes(String(s.quote_event_types || '').split('\n').map(v => v.trim()).filter(Boolean));
+  })
+  .catch((err) => {
+    console.error('[settings] Failed to load:', err);
+    toast.error('Failed to load settings');
+  });
+```
+
+**Priority:** Medium
+
+---
+
+## Developer Experience Division
+
+### [APP_URL in .env.example points to wrong port]
+
+**File:** `/.env.example`
+
+```env
+APP_URL=http://localhost:5173
+```
+
+**Problem:**
+`5173` is the Vite dev server port. `APP_URL` is used for public catalog canonical URLs, signed file URLs, and sitemap output — all of which point to the API server on port `3001`. Developers copying this example get broken public links.
+
+**Fix:**
+
+```env
+APP_URL=http://localhost:3001
+```
+
+**Priority:** High
+
+---
+
+### [No ESLint configuration]
+
+**File:** Root, `/client`, `/server`
+
+**Problem:**
+No `.eslintrc` or `eslint.config.js` exists anywhere in the project. Code quality and style inconsistencies go undetected at development time.
+
+**Fix:**
+Create `client/eslint.config.js` with React/JSX rules and `server/.eslintrc.json` with Node.js/CommonJS rules. Add `"lint": "eslint ."` scripts to each `package.json`.
+
+**Priority:** High
+
+---
+
+### [No npm lint/format/test scripts]
+
+**File:** `/package.json`, `/client/package.json`
+
+**Problem:**
+Neither root nor client package.json defines `lint`, `format`, or `test` scripts. There is no standard entry point for code quality checks, making CI integration and developer onboarding harder.
+
+**Fix:**
+
+```json
+{
+  "scripts": {
+    "lint": "eslint . --ext .js,.jsx",
+    "format": "prettier --write \"**/*.{js,jsx,json}\"",
+    "test": "echo 'No tests configured yet'"
+  }
+}
+```
+
+**Priority:** High
+
+---
+
+### [AI route missing return on fallback, causing hanging requests]
+
+**File:** `/server/routes/ai.js`
+
+```js
+} catch (e) {
+  console.error('AI suggest error:', e.message);
+  fallbackSuggest();  // no return
+}
+```
+
+**Problem:**
+When the primary AI provider call fails and falls back to `fallbackSuggest()`, the missing `return` means execution continues past the catch block without sending a response. The request hangs until timeout.
+
+**Fix:**
+
+```js
+} catch (e) {
+  console.error('AI suggest error:', e.message);
+  return fallbackSuggest();
+}
+```
+
+**Priority:** High
+
+---
+
+### [Undocumented environment variables in .env.example]
+
+**File:** `/.env.example`
+
+**Problem:**
+`UPLOADS_DIR`, `DB_PATH`, `ANTHROPIC_API_KEY`, and `GOOGLE_GEMINI_API_KEY` are used in the codebase but absent from `.env.example`. Developers copying the example miss these, leading to confusing runtime failures.
+
+**Fix:**
+Add to `.env.example`:
+```env
+# File storage (defaults to ./uploads or exe directory when packaged)
+UPLOADS_DIR=./uploads
+
+# AI providers (optional — can also be set via Settings page)
+ANTHROPIC_API_KEY=
+GOOGLE_GEMINI_API_KEY=
+```
+
+**Priority:** Medium
+
+---

@@ -47,7 +47,7 @@ function Step1({ onDone }) {
 
   return (
     <form onSubmit={handleSubmit} className={styles.form}>
-      {error && <div className={styles.error}>{error}</div>}
+      {error && <div className={styles.error} role="alert">{error}</div>}
       <label className={styles.label}>
         Email
         <input className={styles.input} type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
@@ -110,7 +110,7 @@ function Step2({ onDone, onSkip }) {
 
   return (
     <form onSubmit={handleSave} className={styles.form}>
-      {error && <div className={styles.error}>{error}</div>}
+      {error && <div className={styles.error} role="alert">{error}</div>}
       {testMsg && <div style={{ color: 'var(--color-success, green)', fontSize: 13 }}>{testMsg}</div>}
       <label className={styles.label}>
         SMTP Host
@@ -175,7 +175,7 @@ function Step3({ onDone, onSkip }) {
 
   return (
     <form onSubmit={handleSubmit} className={styles.form}>
-      {error && <div className={styles.error}>{error}</div>}
+      {error && <div className={styles.error} role="alert">{error}</div>}
       <label className={styles.label}>
         Email
         <input className={styles.input} type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
@@ -214,7 +214,7 @@ export default function SetupPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card} style={{ maxWidth: step === 2 ? 500 : 380 }}>
-        <div className={styles.logo}>🔀</div>
+        <div className={styles.logo} aria-hidden="true">🔀</div>
         <h1 className={styles.title}>BadShuffle</h1>
         <StepIndicator step={step} />
         <p className={styles.sub}>{stepSubs[step - 1]}</p>

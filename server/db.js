@@ -247,7 +247,8 @@ async function initDb() {
   const quoteCols = [
     "ALTER TABLE quotes ADD COLUMN status TEXT DEFAULT 'draft'",
     "ALTER TABLE quotes ADD COLUMN lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL",
-    "ALTER TABLE quotes ADD COLUMN public_token TEXT"
+    "ALTER TABLE quotes ADD COLUMN public_token TEXT",
+    'ALTER TABLE quotes ADD COLUMN event_type TEXT'
   ];
   for (const sql of quoteCols) {
     try { db.exec(sql); } catch (e) {}
@@ -425,6 +426,25 @@ async function initDb() {
     `);
   } catch(e) {}
 
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS quote_item_sections (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id      INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        title         TEXT NOT NULL DEFAULT 'Quote Items',
+        delivery_date TEXT,
+        rental_start  TEXT,
+        rental_end    TEXT,
+        pickup_date   TEXT,
+        sort_order    INTEGER DEFAULT 0,
+        created_at    TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
+
+  try { db.exec('ALTER TABLE quote_items ADD COLUMN section_id INTEGER REFERENCES quote_item_sections(id) ON DELETE SET NULL'); } catch (e) {}
+  try { db.exec('ALTER TABLE quote_custom_items ADD COLUMN section_id INTEGER REFERENCES quote_item_sections(id) ON DELETE SET NULL'); } catch (e) {}
+
   // Lead timeline / activity log
   try {
     db.exec(`
@@ -448,11 +468,15 @@ async function initDb() {
         signed_at      TEXT,
         signature_data TEXT,
         signer_name    TEXT,
+        signer_ip      TEXT,
+        signed_quote_total REAL,
         created_at     TEXT DEFAULT (datetime('now')),
         updated_at     TEXT DEFAULT (datetime('now'))
       )
     `);
   } catch (e) {}
+  try { db.exec('ALTER TABLE contracts ADD COLUMN signer_ip TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE contracts ADD COLUMN signed_quote_total REAL'); } catch (e) {}
 
   // Contract change logs (who changed what and when)
   try {
@@ -468,6 +492,44 @@ async function initDb() {
       )
     `);
   } catch (e) {}
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS contract_signature_events (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id         INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        contract_id      INTEGER REFERENCES contracts(id) ON DELETE SET NULL,
+        signer_name      TEXT,
+        signer_ip        TEXT,
+        signer_user_agent TEXT,
+        signed_at        TEXT DEFAULT (datetime('now')),
+        signed_quote_total REAL,
+        quote_snapshot_hash TEXT,
+        file_id          INTEGER REFERENCES files(id) ON DELETE SET NULL
+      )
+    `);
+  } catch (e) {}
+  try { db.exec('ALTER TABLE contract_signature_events ADD COLUMN signer_user_agent TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE contract_signature_events ADD COLUMN quote_snapshot_hash TEXT'); } catch (e) {}
+
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS contract_signature_items (
+        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+        signature_event_id INTEGER NOT NULL REFERENCES contract_signature_events(id) ON DELETE CASCADE,
+        quote_id           INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+        qitem_id           INTEGER,
+        item_id            INTEGER NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
+        section_id         INTEGER REFERENCES quote_item_sections(id) ON DELETE SET NULL,
+        quantity           INTEGER NOT NULL DEFAULT 1,
+        range_start        TEXT,
+        range_end          TEXT,
+        created_at         TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (e) {}
+  try { db.exec('ALTER TABLE contract_signature_items ADD COLUMN range_start TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE contract_signature_items ADD COLUMN range_end TEXT'); } catch (e) {}
 
   // Quote-level file attachments (files attached to this quote)
   try {
@@ -555,6 +617,16 @@ async function initDb() {
     `);
   } catch(e) {}
 
+  for (const col of [
+    'ALTER TABLE messages ADD COLUMN reply_to_id INTEGER',
+    'ALTER TABLE messages ADD COLUMN attachments_json TEXT',
+    'ALTER TABLE messages ADD COLUMN links_json TEXT',
+    "ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'",
+    'ALTER TABLE messages ADD COLUMN rich_payload_json TEXT',
+  ]) {
+    try { db.exec(col); } catch (e) {}
+  }
+
   // Seed IMAP settings
   const imapDefaults = {
     imap_host: '', imap_port: '993', imap_secure: 'true',
@@ -615,6 +687,7 @@ async function initDb() {
 
   // Availability setting
   db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run('count_oos_oversold', '0');
+  db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run('quote_auto_append_city_title', '0');
 
   // Message settings
   const messageDefaults = { message_email_signature: '', message_theme: 'default', message_auto_attach_pdf: '0' };
