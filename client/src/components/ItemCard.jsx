@@ -55,7 +55,7 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSou
         onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && goToItem()}
       >
         <img
-          src={item.photo_url && !imgError ? api.proxyImageUrl(item.photo_url) : '/placeholder.png'}
+          src={item.photo_url && !imgError ? api.proxyImageUrl(item.photo_url, { variant: 'thumb' }) : '/placeholder.png'}
           alt={item.photo_url && !imgError ? item.title : ''}
           className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
           loading="lazy"

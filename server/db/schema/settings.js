@@ -1,0 +1,13 @@
+const SETTINGS_SCHEMA_VERSION = '1';
+
+const SETTINGS_SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+  );
+`;
+
+module.exports = {
+  SETTINGS_SCHEMA_VERSION,
+  SETTINGS_SCHEMA_SQL,
+};

@@ -1,6 +1,6 @@
 # HANDOFF
 
-Current orchestration for BadShuffle work as of 2026-03-27.
+Current orchestration for BadShuffle work as of 2026-03-31.
 
 ---
 
@@ -86,6 +86,18 @@ Preferred escalation order:
 
 Recently landed and now considered current:
 
+- first-pass role/page permission framework with `roles` + `role_permissions`
+- seeded `worker` role plus first permission-aware route/client gating pass
+- Admin Roles tab for creating custom roles and assigning `none/read/modify` module permissions
+- fulfillment framework with item check-in state, internal fulfillment notes, and a new project detail Fulfillment tab
+- availability now continues reserving fulfilled quantities until manual check-in, even after project close
+
+- self-service user profiles with first/last name, phone, email, photo, and bio
+- distinct generated `username` and `display_name` fields, with first/last name now treated as the primary user identity
+- protected `/profile` page plus full-profile `GET/PUT /api/auth/me`
+- team roster cards upgraded from email-only identity to profile-driven names/photos/usernames/details
+- Sharp-based image compression for new uploads with `thumb` / `ui` / `large` variants, optional AVIF mirrors, and settings-driven quality control
+- Team workspace with persistent presence, YTD staff sales totals, quote counts, and recent-project roster cards under `Directory`
 - quote item sections with titled multi-area quote builders
 - per-section rental date ranges
 - section-aware availability windows with signed item snapshots
@@ -97,15 +109,29 @@ Recently landed and now considered current:
 - unsigned-change balance handling using signed totals/balances
 - signed contract PDF artifacts with signature event history
 - signature audit hardening: signer user-agent, quote snapshot hash, immutable signed artifact attachments, and `/api` + `/api/v1` parity on public approval/signing rules
+- server-side pagination and batched totals on the projects list
+- lazy-loaded `QuoteDetailPage` and `PublicQuotePage` secondary panels
+- abortable/deduped client requests plus budget-aware route prefetching
+- inventory/files virtualization and quote-builder row memoization
+- sales pipeline analytics dashboard with React Query, Recharts, filter rail, hover breakdown panel, and historical/forecast KPI splits
+- Mapbox-powered `/maps` workspace with clustered quote/booked/closed pins and persisted quote geocode cache fields
+- sidebar/navigation recently reorganized around the maps rollout: `Maps` below `Projects`, `Messages` above `Inventory`, `Inventory` below `Directory`, standalone `Billing` below `Files`, and `Extension` moved under `Settings`
+- quote ownership via `quotes.created_by` for staff-aware analytics filtering
+- `ARCH-1` route/service extraction is now materially advanced across quotes, items, files, and leads
+- `ARCH-2` DB-layer split is now materially advanced across schema, migrations, defaults, metadata, shared queries, and the first repository boundary
 
 Still genuinely open:
 
 1. formal e-sign / compliance review beyond the current internal audit trail
-2. section reordering
-3. custom-item description editing workflow
-4. richer signed contract history UX beyond the current Files tab labels/locks
-6. mobile / cross-theme QA and follow-up polish
-7. unsaved-changes / confirmation UX polish
+2. permission-system migration follow-through on the remaining legacy route domains and page actions
+3. worker/read-only project-detail polish beyond the current fallback presentation
+4. section reordering
+5. custom-item description editing workflow
+6. richer signed contract history UX beyond the current Files tab labels/locks
+7. legacy image-library backfill / optional reprocessing for older pre-variant uploads
+8. remaining mobile / cross-theme QA and follow-up polish
+9. focus-trap / color-indicator accessibility follow-up
+10. deeper architecture follow-through on remaining route domains, client data/cache, and quote-editor state
 
 For the detailed product state, see:
 - `ai/HANDOFF.md`
@@ -144,7 +170,7 @@ For the detailed product state, see:
 ## Execution Discipline
 
 - Keep `ai/TODO.md` in true priority order.
-- After a meaningful workflow change lands, update `ai/STATUS.md`, `ai/HANDOFF.md`, and `ai/DATA_MODELS.md` if schema changed.
+- After a meaningful workflow or architecture change lands, update `ai/STATUS.md`, `ai/HANDOFF.md`, and `ai/DATA_MODELS.md` if schema changed.
 - Remove stale notes instead of stacking contradictory history on top of them.
 - Treat Codex as the default engine unless there is a clear reason not to.
 

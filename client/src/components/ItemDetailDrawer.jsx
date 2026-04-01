@@ -49,6 +49,18 @@ export default function ItemDetailDrawer({ itemId, onClose, onItemUpdated }) {
   }, [itemId]);
 
   useEffect(() => {
+    const p = data?.photo_url;
+    if (!p || !/^\d+$/.test(String(p).trim())) return;
+    api.prefetchFileServeUrls([String(p).trim()]).catch(() => {});
+  }, [data?.photo_url]);
+
+  useEffect(() => {
+    const p = data?.photo_url;
+    if (!p || !/^\d+$/.test(String(p).trim())) return;
+    api.prefetchFileServeUrls([String(p).trim()]).catch(() => {});
+  }, [data?.photo_url]);
+
+  useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape' && !editOpen) onClose(); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
@@ -169,7 +181,7 @@ export default function ItemDetailDrawer({ itemId, onClose, onItemUpdated }) {
             <>
               {data.photo_url ? (
                 <img
-                  src={api.proxyImageUrl(data.photo_url)}
+                  src={api.proxyImageUrl(data.photo_url, { variant: 'large' })}
                   alt={data.title}
                   className={styles.photo}
                   onError={(e) => { e.target.style.display = 'none'; }}

@@ -3,6 +3,12 @@
   display: inline-block;
 }
 
+@media (max-width: 640px) {
+  .wrap { display: block; }
+  .trigger { width: 100%; box-sizing: border-box; min-width: unset; }
+  .dropdown { left: 0; right: auto; min-width: unset; width: max-content; max-width: calc(100vw - 32px); }
+}
+
 .trigger {
   display: inline-flex;
   align-items: center;

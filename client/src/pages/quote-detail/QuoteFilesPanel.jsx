@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../../api.js';
 import styles from '../QuoteDetailPage.module.css';
 
@@ -14,16 +14,25 @@ function formatSignedContractLabel(file) {
   return `Signed Contract v${file.signature_version_number || 1}`;
 }
 
-export default function QuoteFilesPanel({ quoteFiles, onDetach, onOpenPicker }) {
+export default function QuoteFilesPanel({ quoteFiles, onDetach, onOpenPicker, canModify = true }) {
+  const [, setServeEpoch] = useState(0);
+  useEffect(() => {
+    const ids = quoteFiles.map((f) => f.file_id).filter((x) => x != null && /^\d+$/.test(String(x)));
+    if (!ids.length) return;
+    api.prefetchFileServeUrls(ids).then(() => setServeEpoch((e) => e + 1)).catch(() => {});
+  }, [quoteFiles]);
+
   return (
     <div className={`card ${styles.editCard}`}>
       <h3 className={styles.formSectionTitle}>Files</h3>
-      <p className={styles.notes}>Files attached to this quote. Add from your media library.</p>
-      <div className={styles.formActions} style={{ marginBottom: 12 }}>
-        <button type="button" className="btn btn-primary btn-sm" onClick={onOpenPicker}>
-          Add file from library
-        </button>
-      </div>
+      <p className={styles.notes}>Files attached to this quote.{canModify ? ' Add from your media library.' : ''}</p>
+      {canModify && (
+        <div className={styles.formActions} style={{ marginBottom: 12 }}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={onOpenPicker}>
+            Add file from library
+          </button>
+        </div>
+      )}
       {quoteFiles.length > 0 ? (
         <ul className={styles.quoteFilesList}>
           {quoteFiles.map(f => {
@@ -51,10 +60,10 @@ export default function QuoteFilesPanel({ quoteFiles, onDetach, onOpenPicker }) 
                     {f.signature_signed_quote_total != null && <span className={styles.quoteFileMeta}>Total ${Number(f.signature_signed_quote_total).toFixed(2)}</span>}
                   </div>
                 </div>
-                {canRemove ? (
+                {canRemove && canModify ? (
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => onDetach(f.file_id)}>Remove</button>
                 ) : (
-                  <span className={styles.quoteFileLocked}>Locked audit file</span>
+                  <span className={styles.quoteFileLocked}>{canRemove ? 'View only' : 'Locked audit file'}</span>
                 )}
               </li>
             );

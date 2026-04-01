@@ -39,12 +39,11 @@ module.exports = function createV1Router(db, opts) {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing' });
 
     const authHeader = req.headers.authorization || '';
-    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
     let allowed = false;
-    if (bearer || queryToken) {
+    if (bearer) {
       try {
-        jwt.verify(bearer || queryToken, jwtSecret());
+        jwt.verify(bearer, jwtSecret());
         allowed = true;
       } catch {}
     }

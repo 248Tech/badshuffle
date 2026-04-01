@@ -21,13 +21,18 @@ const initDb = require('./db');
 const requireAuth = require('./lib/authMiddleware');
 const requireAdmin = require('./lib/adminMiddleware');
 const requireOperator = require('./lib/operatorMiddleware');
+const { requireModulePermission } = require('./lib/permissionMiddleware');
+const { ACCESS_READ } = require('./lib/permissions');
 const authRouter = require('./routes/auth');
 const singleInstance = require('./services/singleInstance');
 const updateCheck = require('./services/updateCheck');
 const quoteService = require('./services/quoteService');
+const fileService = require('./services/fileService');
 const jwt = require('jsonwebtoken');
 const { verifyFileServe, getSignedFileServePath } = require('./lib/fileServeAuth');
 const { safeFilename } = require('./lib/safeFilename');
+const { getSettingValue } = require('./db/queries/settings');
+const { initDiagnostics } = require('./services/diagnosticsService');
 let emailPoller;
 try {
   emailPoller = require('./services/emailPoller');
@@ -40,6 +45,46 @@ try {
 
 const PREFERRED_PORT = Number(process.env.PORT) || 3001;
 const PORT_CONFIGURED = !!process.env.PORT;
+
+// Very small in-memory rate limiter for no-auth endpoints.
+// Note: for multi-instance deployments, replace with a shared store (e.g. Redis).
+const _rl = new Map(); // key -> { count, resetAt }
+function rateLimit(key, { windowMs, max }) {
+  const now = Date.now();
+  const row = _rl.get(key);
+  if (!row || now >= row.resetAt) {
+    _rl.set(key, { count: 1, resetAt: now + windowMs });
+    return { ok: true, retryAfterSec: 0 };
+  }
+  row.count += 1;
+  if (row.count <= max) return { ok: true, retryAfterSec: 0 };
+  const retryAfterSec = Math.max(1, Math.ceil((row.resetAt - now) / 1000));
+  return { ok: false, retryAfterSec };
+}
+
+function getClientIp(req) {
+  const xff = req.headers['x-forwarded-for'];
+  if (typeof xff === 'string' && xff.trim()) return xff.split(',')[0].trim();
+  return req.ip || 'unknown';
+}
+
+// API-wide limits (in-memory; use Redis or similar if running multiple server instances).
+const API_GLOBAL_WINDOW_MS = Number(process.env.API_RATE_LIMIT_WINDOW_MS) || 60_000;
+const API_GLOBAL_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 600;
+const AUTH_SENSITIVE_WINDOW_MS = Number(process.env.API_AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60_000;
+const AUTH_SENSITIVE_MAX = Number(process.env.API_AUTH_RATE_LIMIT_MAX) || 60;
+const SENSITIVE_AUTH_POST_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/forgot',
+  '/api/auth/reset',
+  '/api/auth/setup',
+  '/api/auth/dev-login',
+  '/api/v1/auth/login',
+  '/api/v1/auth/forgot',
+  '/api/v1/auth/reset',
+  '/api/v1/auth/setup',
+  '/api/v1/auth/dev-login',
+]);
 
 function findOpenPort(port) {
   return new Promise((resolve, reject) => {
@@ -59,21 +104,15 @@ const UPLOADS_DIR = process.env.UPLOADS_DIR || (typeof process.pkg !== 'undefine
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-process.on('uncaughtException', (err) => {
-  console.error('[process] Uncaught exception:', err);
-});
-
-process.on('unhandledRejection', (reason) => {
-  console.error('[process] Unhandled rejection:', reason);
-});
-
 async function start() {
   const db = await initDb();
   console.log('Database initialized');
 
+  // Diagnostics / health logging (crash dumps, pre-crash context, periodic health writes)
+  const diagnostics = initDiagnostics(db, express());
+
   // Single-instance guard — kill any prior Badshuffle server if autokill is enabled
-  const autokillRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('autokill_enabled');
-  const autokillEnabled = (autokillRow ? autokillRow.value : '1') !== '0';
+  const autokillEnabled = getSettingValue(db, 'autokill_enabled', '1') !== '0';
   await singleInstance.acquire(autokillEnabled);
 
   // Ensure lock is released on exit
@@ -101,6 +140,35 @@ async function start() {
 
   app.use(express.json({ limit: '20mb' }));
 
+  // Stricter caps on auth mutations (complements per-IP login_attempts throttling in auth.js).
+  app.use('/api', (req, res, next) => {
+    if (req.method === 'OPTIONS') return next();
+    const pathOnly = (req.originalUrl || req.url || '').split('?')[0];
+    if (req.method === 'POST' && SENSITIVE_AUTH_POST_PATHS.has(pathOnly)) {
+      const ip = getClientIp(req);
+      const rl = rateLimit(`api:auth:${pathOnly}:${ip}`, { windowMs: AUTH_SENSITIVE_WINDOW_MS, max: AUTH_SENSITIVE_MAX });
+      if (!rl.ok) {
+        res.setHeader('Retry-After', String(rl.retryAfterSec));
+        return res.status(429).json({ error: 'Too many requests', retryAfter: rl.retryAfterSec });
+      }
+    }
+    next();
+  });
+
+  // Default API throttle per IP (excludes lightweight health checks).
+  app.use('/api', (req, res, next) => {
+    if (req.method === 'OPTIONS') return next();
+    const pathOnly = (req.originalUrl || req.url || '').split('?')[0];
+    if (req.method === 'GET' && (pathOnly === '/api/health' || pathOnly === '/api/v1/health')) return next();
+    const ip = getClientIp(req);
+    const rl = rateLimit(`api:global:${ip}`, { windowMs: API_GLOBAL_WINDOW_MS, max: API_GLOBAL_MAX });
+    if (!rl.ok) {
+      res.setHeader('Retry-After', String(rl.retryAfterSec));
+      return res.status(429).json({ error: 'Too many requests', retryAfter: rl.retryAfterSec });
+    }
+    next();
+  });
+
   // Public routes — no auth
   app.use('/api/auth', authRouter(db));
   app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -109,20 +177,19 @@ async function start() {
 
   // File serve — allowed with Bearer auth OR valid signed URL (for public quote images)
   app.get('/api/files/:id/serve', (req, res) => {
-    const fileId = req.params.id;
-    const file = db.prepare('SELECT * FROM files WHERE id = ?').get(fileId);
-    if (!file) return res.status(404).json({ error: 'Not found' });
-    const filePath = path.join(UPLOADS_DIR, file.stored_name);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing' });
+    // Light abuse guard: high-cardinality endpoint, but only allow bursts.
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+    const rl = rateLimit(`fileserve:${ip}`, { windowMs: 60_000, max: 240 });
+    if (!rl.ok) return res.status(429).json({ error: 'Too many requests', retryAfter: rl.retryAfterSec });
 
+    const fileId = req.params.id;
     const authHeader = req.headers.authorization || '';
-    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
     const secret = process.env.JWT_SECRET || 'change-me';
     let allowed = false;
-    if (bearer || queryToken) {
+    if (bearer) {
       try {
-        jwt.verify(bearer || queryToken, secret);
+        jwt.verify(bearer, secret);
         allowed = true;
       } catch {}
     }
@@ -131,14 +198,32 @@ async function start() {
     }
     if (!allowed) return res.status(401).json({ error: 'Unauthorized' });
 
-    const filename = safeFilename(file.original_name);
+    let asset;
+    try {
+      asset = fileService.resolveServeAsset(db, fileId, null, {
+        variant: String(req.query.variant || '').trim(),
+        acceptHeader: req.headers.accept || '',
+      });
+    } catch (err) {
+      return res.status(err.statusCode || 500).json({ error: err.message });
+    }
+
+    const filePath = path.join(UPLOADS_DIR, asset.storedName);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing' });
+
+    const filename = safeFilename(asset.file.original_name);
     res.setHeader('Content-Disposition', 'inline; filename="' + filename + '"');
-    res.setHeader('Content-Type', file.mime_type || 'application/octet-stream');
+    res.setHeader('Content-Type', asset.mimeType || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     fs.createReadStream(filePath).pipe(res);
   });
 
   // Public quote view (no auth) — add signed file URLs for images so public page can load them
   app.get('/api/quotes/public/:token', (req, res) => {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+    const rl = rateLimit(`publicquote:${req.params.token}:${ip}`, { windowMs: 60_000, max: 60 });
+    if (!rl.ok) return res.status(429).json({ error: 'Too many requests', retryAfter: rl.retryAfterSec });
+
     const quote = db.prepare(`
       SELECT id, name, status, event_date, guest_count, expires_at, expiration_message,
              quote_notes, tax_rate,
@@ -251,7 +336,11 @@ async function start() {
 
   // Public quote approve by token (no auth)
   app.post('/api/quotes/approve-by-token', (req, res) => {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
     const token = (req.body && req.body.token) || '';
+    const rl = rateLimit(`approve:${token}:${ip}`, { windowMs: 5 * 60_000, max: 10 });
+    if (!rl.ok) return res.status(429).json({ error: 'Too many requests', retryAfter: rl.retryAfterSec });
+
     if (!token) return res.status(400).json({ error: 'token required' });
     const quote = db.prepare('SELECT id, status, expires_at FROM quotes WHERE public_token = ?').get(token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
@@ -269,6 +358,10 @@ async function start() {
 
   // Public: get messages for a quote by token (client-facing thread)
   app.get('/api/quotes/public/:token/messages', (req, res) => {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+    const rl = rateLimit(`publicmsg:get:${req.params.token}:${ip}`, { windowMs: 60_000, max: 60 });
+    if (!rl.ok) return res.status(429).json({ error: 'Too many requests', retryAfter: rl.retryAfterSec });
+
     const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
     const messages = db.prepare(
@@ -279,6 +372,10 @@ async function start() {
 
   // Public: client sends a message via quote token (no auth)
   app.post('/api/quotes/public/:token/messages', (req, res) => {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+    const rl = rateLimit(`publicmsg:post:${req.params.token}:${ip}`, { windowMs: 15 * 60_000, max: 20 });
+    if (!rl.ok) return res.status(429).json({ error: 'Too many requests', retryAfter: rl.retryAfterSec });
+
     const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(req.params.token);
     if (!quote) return res.status(404).json({ error: 'Not found' });
     const { body_text, from_name, from_email } = req.body || {};
@@ -302,11 +399,16 @@ async function start() {
 
   // Public contract sign by token (no auth)
   app.post('/api/quotes/contract/sign', (req, res) => {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+    const token = (req.body && req.body.token) || '';
+    const rl = rateLimit(`contractsign:${token}:${ip}`, { windowMs: 15 * 60_000, max: 10 });
+    if (!rl.ok) return res.status(429).json({ error: 'Too many requests', retryAfter: rl.retryAfterSec });
+
     try {
       const result = quoteService.signPublicContract({
         db,
         uploadsDir: UPLOADS_DIR,
-        token: (req.body && req.body.token) || '',
+        token,
         signerName: (req.body && req.body.signer_name) || '',
         signerIp: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '',
         signerUserAgent: req.get('user-agent') || '',
@@ -321,6 +423,16 @@ async function start() {
   const auth = requireAuth(db);
   const requireOperatorDb = requireOperator(db);
   const requireAdminDb = requireAdmin(db);
+  const requireAdminRead = requireModulePermission(db, 'admin', ACCESS_READ);
+  const requireDashboardRead = requireModulePermission(db, 'dashboard', ACCESS_READ);
+  const requireProjectsRead = requireModulePermission(db, 'projects', ACCESS_READ);
+  const requireFilesRead = requireModulePermission(db, 'files', ACCESS_READ);
+  const requireMessagesRead = requireModulePermission(db, 'messages', ACCESS_READ);
+  const requireBillingRead = requireModulePermission(db, 'billing', ACCESS_READ);
+  const requireInventoryRead = requireModulePermission(db, 'inventory', ACCESS_READ);
+  const requireDirectoryRead = requireModulePermission(db, 'directory', ACCESS_READ);
+  const requireMapsRead = requireModulePermission(db, 'maps', ACCESS_READ);
+  const requireSettingsRead = requireModulePermission(db, 'settings', ACCESS_READ);
 
   // API v1 — versioned, envelope responses at /api/v1
   const createV1Router = require('./api/v1');
@@ -331,22 +443,25 @@ async function start() {
     UPLOADS_DIR,
   }));
 
-  app.use('/api/files',     auth, require('./routes/files')(db, UPLOADS_DIR));
-  app.use('/api/items',       requireAuth(db, { allowExtension: true }), require('./routes/items')(db));
+  app.use('/api/files',       auth, requireFilesRead, require('./routes/files')(db, UPLOADS_DIR));
+  app.use('/api/items',       requireAuth(db, { allowExtension: true }), requireInventoryRead, require('./routes/items')(db));
   app.use('/api/sheets',      requireAuth(db, { allowExtension: true }), require('./routes/sheets')(db));
-  app.use('/api/quotes',      auth, require('./routes/quotes')(db, UPLOADS_DIR));
-  app.use('/api/stats',       auth, require('./routes/stats')(db));
+  app.use('/api/quotes',      auth, requireProjectsRead, require('./routes/quotes')(db, UPLOADS_DIR));
+  app.use('/api/maps',        auth, requireMapsRead, require('./routes/maps')(db));
+  app.use('/api/sales',       auth, requireDashboardRead, require('./routes/sales')(db));
+  app.use('/api/stats',       auth, requireDashboardRead, require('./routes/stats')(db));
   app.use('/api/ai',          auth, require('./routes/ai')(db));
-  app.use('/api/settings',    auth, requireOperatorDb, require('./routes/settings')(db));
+  app.use('/api/settings',    auth, requireSettingsRead, require('./routes/settings')(db));
   app.use('/api/templates',   auth, requireOperatorDb, require('./routes/templates')(db));
-  app.use('/api/leads',       auth, require('./routes/leads')(db));
-  app.use('/api/messages',    auth, require('./routes/messages')(db));
-  app.use('/api/admin',       requireAdminDb, require('./routes/admin')(db));
-  app.use('/api/billing',       auth, requireOperatorDb, require('./routes/billing')(db));
-  app.use('/api/presence',      auth, require('./routes/presence')());
-  app.use('/api/vendors',       auth, require('./routes/vendors')(db));
+  app.use('/api/leads',       auth, requireDirectoryRead, require('./routes/leads')(db));
+  app.use('/api/messages',    auth, requireMessagesRead, require('./routes/messages')(db));
+  app.use('/api/admin',       auth, requireAdminRead, require('./routes/admin')(db));
+  app.use('/api/billing',     auth, requireBillingRead, require('./routes/billing')(db));
+  app.use('/api/presence',      auth, require('./routes/presence')(db));
+  app.use('/api/team',          auth, requireDirectoryRead, require('./routes/team')(db));
+  app.use('/api/vendors',       auth, requireOperatorDb, require('./routes/vendors')(db));
   app.use('/api/availability',  auth, require('./routes/availability')(db));
-  app.use('/api/updates',       auth, require('./routes/updates')(db));
+  app.use('/api/updates',       auth, requireOperatorDb, require('./routes/updates')(db));
 
   // Public catalog — no auth (JSON API + server-rendered HTML + sitemap + robots)
   app.use(require('./routes/publicCatalog')(db));
@@ -360,8 +475,15 @@ async function start() {
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     console.error('[unhandled error]', err);
-    const verboseRow = db.prepare("SELECT value FROM settings WHERE key = 'verbose_errors'").get();
-    const verbose = verboseRow && verboseRow.value === '1';
+    if (diagnostics && diagnostics.enabled) {
+      diagnostics.recordPreCrashContext('route-error', {
+        message: err && err.message,
+        stack: err && err.stack,
+        path: req && (req.originalUrl || req.url),
+        method: req && req.method,
+      });
+    }
+    const verbose = getSettingValue(db, 'verbose_errors', '0') === '1';
     res.status(500).json({ error: verbose ? err.message : 'Internal server error' });
   });
 
@@ -382,6 +504,22 @@ async function start() {
     console.log(`BadShuffle server running on http://localhost:${PORT}`);
     updateCheck.run(db).catch(function() {});
     emailPoller.startPolling(db, 5 * 60 * 1000);
+  });
+
+  // Process-level crash handlers — write crash dumps with recent context when enabled.
+  process.on('uncaughtException', (err) => {
+    console.error('[process] Uncaught exception:', err);
+    if (diagnostics && diagnostics.enabled) {
+      diagnostics.writeCrashDump('uncaughtException', err);
+    }
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('[process] Unhandled rejection:', reason);
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    if (diagnostics && diagnostics.enabled) {
+      diagnostics.writeCrashDump('unhandledRejection', err);
+    }
   });
 }
 

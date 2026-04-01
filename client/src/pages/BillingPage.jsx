@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, isAbortError } from '../api.js';
 
 const EVENT_LABELS = {
   payment_received: 'Payment received',
@@ -38,28 +38,40 @@ export default function BillingPage() {
   const [sortKey, setSortKey] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
   const [outstanding, setOutstanding] = useState([]);
+  const [historyPage, setHistoryPage] = useState(1);
 
-  const load = useCallback(() => {
+  const load = useCallback((signal) => {
     setLoading(true);
-    api.getQuotes()
+    api.getQuotes({}, { signal, dedupeKey: 'billing:quotes', cancelPrevious: true })
       .then(d => {
         const all = d.quotes || [];
         setQuotes(all.filter(q => q.overpaid));
         setOutstanding(all.filter(q => !q.overpaid && q.remaining_balance > 0 && ['approved','confirmed'].includes(q.status)));
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!isAbortError(err)) console.error('[BillingPage] Failed to load quotes:', err?.message || err);
+      })
+      .finally(() => { if (!signal?.aborted) setLoading(false); });
   }, []);
 
-  const loadHistory = useCallback(() => {
+  const loadHistory = useCallback((signal) => {
     setHistoryLoading(true);
-    api.getBillingHistory()
+    api.getBillingHistory({ signal, dedupeKey: 'billing:history', cancelPrevious: true })
       .then(d => setHistory(d.history || []))
-      .catch(() => setHistory([]))
-      .finally(() => setHistoryLoading(false));
+      .catch((err) => { if (!isAbortError(err)) setHistory([]); })
+      .finally(() => { if (!signal?.aborted) setHistoryLoading(false); });
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadHistory(); }, [loadHistory]);
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+  useEffect(() => {
+    const controller = new AbortController();
+    loadHistory(controller.signal);
+    return () => controller.abort();
+  }, [loadHistory]);
 
   function handleSort(key) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -88,6 +100,17 @@ export default function BillingPage() {
       if (av > bv) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
+  const historyPageSize = 50;
+  const historyTotalPages = Math.max(1, Math.ceil(filteredHistory.length / historyPageSize));
+  const pagedHistory = filteredHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [search, sortKey, sortDir]);
+
+  useEffect(() => {
+    if (historyPage > historyTotalPages) setHistoryPage(historyTotalPages);
+  }, [historyPage, historyTotalPages]);
 
   const thClass = 'px-4 py-3 text-left font-bold text-text-muted text-[11px] uppercase tracking-wider bg-bg border-b border-border sticky top-0 z-[1]';
   const sortThClass = `${thClass} cursor-pointer select-none whitespace-nowrap hover:text-primary transition-colors`;
@@ -229,6 +252,11 @@ export default function BillingPage() {
           <div>
             <h2 className="text-[16px] font-bold mb-1">Billing history</h2>
             <p className="text-[13px] text-text-muted">Payments received, removed, and refunded across all projects.</p>
+            {!historyLoading && filteredHistory.length > 0 && (
+              <p className="text-[12px] text-text-muted mt-1">
+                Showing {((historyPage - 1) * historyPageSize) + 1}-{Math.min(historyPage * historyPageSize, filteredHistory.length)} of {filteredHistory.length} events
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="relative flex items-center">
@@ -315,7 +343,7 @@ export default function BillingPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredHistory.map(row => (
+                {pagedHistory.map(row => (
                   <tr key={row.id} className="hover:bg-surface transition-colors">
                     <td className={tdClass}>{row.created_at ? new Date(row.created_at).toLocaleString() : '—'}</td>
                     <td className={tdClass}>
@@ -341,6 +369,18 @@ export default function BillingPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {!historyLoading && filteredHistory.length > historyPageSize && (
+          <div className="flex items-center justify-between gap-3 flex-wrap mt-4">
+            <span className="text-[12px] text-text-muted">Page {historyPage} of {historyTotalPages}</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setHistoryPage(1)} disabled={historyPage === 1}>First</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setHistoryPage((p) => Math.max(1, p - 1))} disabled={historyPage === 1}>Prev</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))} disabled={historyPage === historyTotalPages}>Next</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setHistoryPage(historyTotalPages)} disabled={historyPage === historyTotalPages}>Last</button>
+            </div>
           </div>
         )}
       </div>

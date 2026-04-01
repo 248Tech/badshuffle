@@ -1,6 +1,6 @@
 {
   "name": "badshuffle-server",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "BadShuffle Express API for self-hosted event rental software, quote workflows, inventory, messaging, files, and public catalog publishing.",
   "private": true,
   "homepage": "https://github.com/248Tech/badshuffle",
@@ -36,6 +36,7 @@
     "openai": "^4.47.1",
     "papaparse": "^5.4.1",
     "pdf-parse": "^2.4.5",
+    "sharp": "^0.34.5",
     "sql.js": "^1.4.0",
     "xlsx": "0.18.5"
   },

@@ -17,6 +17,7 @@ export default function ItemDetailPage() {
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [imgError, setImgError] = useState(false);
+  const [, setImgServeEpoch] = useState(0);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -44,6 +45,12 @@ export default function ItemDetailPage() {
   useEffect(() => {
     api.getCategories().then(d => setCategories(d.categories || [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const p = item?.photo_url;
+    if (!p || !/^\d+$/.test(String(p).trim())) return;
+    api.prefetchFileServeUrls([String(p).trim()]).then(() => setImgServeEpoch((e) => e + 1)).catch(() => {});
+  }, [item?.photo_url]);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -253,6 +260,7 @@ export default function ItemDetailPage() {
       {(item.quote_history || []).length > 0 && (
         <div className={`card ${styles.historyCard}`}>
           <h3 className={styles.sectionTitle}>Project History</h3>
+          <div className="overflow-x-auto">
           <table className={styles.historyTable}>
             <thead>
               <tr><th>Project</th><th>Event Date</th><th>Qty</th></tr>
@@ -267,6 +275,7 @@ export default function ItemDetailPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

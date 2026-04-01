@@ -1,5 +1,7 @@
 const express = require('express');
 const { encrypt, decrypt } = require('../lib/crypto');
+const { getAllSettings, upsertSettings } = require('../db/queries/settings');
+const { buildPreviewBuffer, sanitizeQuality, flagEnabled } = require('../services/imageCompressionService');
 
 const ALLOWED_KEYS = [
   'tax_rate', 'currency', 'company_name', 'company_email', 'company_logo',
@@ -23,31 +25,40 @@ const ALLOWED_KEYS = [
   'quote_view_standard_enabled',
   'quote_view_contract_enabled',
   'allowed_file_types',
+  'image_webp_quality',
+  'image_avif_enabled',
+  // Diagnostics / health logging
+  'diagnostics_enabled',
+  'diagnostics_log_path',
+  'diagnostics_health_interval_sec',
 ];
 
 module.exports = function makeRouter(db) {
   const router = express.Router();
 
-  // GET /api/settings
-  router.get('/', (req, res) => {
-    const rows = db.prepare('SELECT key, value FROM settings').all();
+  function buildSettingsPayload(rows) {
     const settings = {};
     for (const row of rows) {
       if (row.key === 'smtp_pass_enc') {
-        settings['smtp_pass'] = decrypt(row.value);
+        settings.smtp_pass = decrypt(row.value);
       } else if (row.key === 'imap_pass_enc') {
-        settings['imap_pass'] = decrypt(row.value);
+        settings.imap_pass = decrypt(row.value);
       } else if (row.key === 'ai_claude_key_enc') {
-        settings['ai_claude_key'] = decrypt(row.value);
+        settings.ai_claude_key = decrypt(row.value);
       } else if (row.key === 'ai_openai_key_enc') {
-        settings['ai_openai_key'] = decrypt(row.value);
+        settings.ai_openai_key = decrypt(row.value);
       } else if (row.key === 'ai_gemini_key_enc') {
-        settings['ai_gemini_key'] = decrypt(row.value);
+        settings.ai_gemini_key = decrypt(row.value);
       } else {
         settings[row.key] = row.value;
       }
     }
-    res.json(settings);
+    return settings;
+  }
+
+  // GET /api/settings
+  router.get('/', (req, res) => {
+    res.json(buildSettingsPayload(getAllSettings(db)));
   });
 
   // PUT /api/settings
@@ -64,31 +75,31 @@ module.exports = function makeRouter(db) {
     const keys = Object.keys(body).filter(k => ALLOWED_KEYS.includes(k));
     if (keys.length === 0) return res.status(400).json({ error: 'No valid keys provided' });
 
-    const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+    const entries = [];
     for (const k of keys) {
       let val = String(body[k] !== null && body[k] !== undefined ? body[k] : '');
       if (k === 'smtp_pass_enc' || k === 'imap_pass_enc' || k === 'ai_claude_key_enc' || k === 'ai_openai_key_enc' || k === 'ai_gemini_key_enc') val = encrypt(val);
-      stmt.run(k, val);
+      entries.push([k, val]);
     }
+    upsertSettings(db, entries);
 
-    const rows = db.prepare('SELECT key, value FROM settings').all();
-    const settings = {};
-    for (const row of rows) {
-      if (row.key === 'smtp_pass_enc') {
-        settings['smtp_pass'] = decrypt(row.value);
-      } else if (row.key === 'imap_pass_enc') {
-        settings['imap_pass'] = decrypt(row.value);
-      } else if (row.key === 'ai_claude_key_enc') {
-        settings['ai_claude_key'] = decrypt(row.value);
-      } else if (row.key === 'ai_openai_key_enc') {
-        settings['ai_openai_key'] = decrypt(row.value);
-      } else if (row.key === 'ai_gemini_key_enc') {
-        settings['ai_gemini_key'] = decrypt(row.value);
-      } else {
-        settings[row.key] = row.value;
-      }
+    res.json(buildSettingsPayload(getAllSettings(db)));
+  });
+
+  router.get('/image-preview', async (req, res) => {
+    try {
+      const original = String(req.query.original || '') === '1';
+      const quality = sanitizeQuality(req.query.quality, 68);
+      const format = String(req.query.format || 'webp').toLowerCase() === 'avif' && flagEnabled(req.query.avif, false)
+        ? 'avif'
+        : 'webp';
+      const preview = await buildPreviewBuffer({ quality, format, original });
+      res.setHeader('Content-Type', preview.mimeType);
+      res.setHeader('Cache-Control', 'no-store');
+      res.send(preview.buffer);
+    } catch (err) {
+      res.status(500).json({ error: err.message || 'Could not build preview' });
     }
-    res.json(settings);
   });
 
   // POST /api/settings/test-imap

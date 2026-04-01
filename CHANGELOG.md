@@ -14,8 +14,27 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.0.8** - Navigation, admin backup, UX polish, and hotfix stabilization release
 - **0.0.9** - Security hardening and quote-workflow refactor release
 - **0.0.10** - Workflow expansion, public quote polish, and release-readiness release
+- **0.0.11** - Visibility, operations surfaces, and architecture-scaling release
 
 ---
+
+## [0.0.11] - 2026-03-31
+
+### Added
+- **Maps workspace and geocode API** - Added operator-facing maps support with `server/routes/maps.js`, Mapbox-backed geocoding services, and persisted quote map cache fields.
+- **Sales analytics foundation** - Added `/api/sales/analytics` plus a dedicated client sales-dashboard feature area for pipeline-style reporting.
+- **Team, profile, and fulfillment surfaces** - Added team workspace routes/UI, profile pages, and fulfillment panels/workflows for confirmed projects.
+- **Expanded API/integration docs** - Added `AI/Api/*` documentation covering authentication, inventory, quotes, public catalog use, data models, and integration planning.
+- **Release notes for 0.0.11** - Added `RELEASE_NOTES_0.0.11.md` for release publishing and repository-facing version context.
+
+### Changed
+- **Backend persistence architecture** - `server/db.js` now works alongside dedicated `server/db/schema/*`, `server/db/migrations/*`, `server/db/defaults/*`, and `server/db/queries/*` modules instead of being the only schema/migration home.
+- **Quote backend decomposition** - More quote logic has moved out of route handlers and into focused services/repositories for list, finance, files, fulfillment, lifecycle, sections, and contract flows.
+- **Public repo presentation** - README, badges, project structure notes, quickstart, and package metadata now reflect the `0.0.11` feature set and setup expectations.
+
+### Fixed
+- **Stale architecture docs** - Project-overview and architecture notes now describe the current repo layout instead of older pre-fulfillment/pre-maps assumptions.
+- **Release metadata drift** - Package manifests, lockfiles, README release links, and changelog state now align to `0.0.11`.
 
 ## [0.0.10] - 2026-03-29
 

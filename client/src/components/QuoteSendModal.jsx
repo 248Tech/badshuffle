@@ -30,7 +30,14 @@ export default function QuoteSendModal({ quote, onClose, onSent, onError, classN
         }
       })
       .catch(() => {});
-    api.getFiles().then((d) => setAllFiles(d.files || [])).catch(() => {});
+    api
+      .getFiles()
+      .then(async (d) => {
+        const list = d.files || [];
+        setAllFiles(list);
+        await api.prefetchFileServeUrls(list.map((f) => f.id));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -148,7 +155,7 @@ export default function QuoteSendModal({ quote, onClose, onSent, onError, classN
                     >
                       {isImg ? (
                         <img
-                          src={api.fileServeUrl(f.id)}
+                          src={api.fileServeUrl(f.id, { variant: 'thumb' })}
                           alt={f.original_name}
                           onError={(e) => {
                             e.target.style.display = 'none';

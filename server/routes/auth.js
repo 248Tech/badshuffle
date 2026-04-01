@@ -5,6 +5,15 @@ const crypto = require('crypto');
 const https = require('https');
 const nodemailer = require('nodemailer');
 const { decrypt } = require('../lib/crypto');
+const {
+  buildIdentityFields,
+  ensureUserIdentityFields,
+  getUserProfileById,
+  getUserByEmail,
+  getUniqueUsername,
+  updateUserProfile,
+} = require('../db/queries/users');
+const { getEffectivePermissionsForUser } = require('../db/queries/permissions');
 
 function verifyRecaptcha(secretKey, responseToken, remoteIp) {
   return new Promise((resolve) => {
@@ -61,11 +70,40 @@ function getMailerFromDb(db) {
 }
 
 function signToken(user) {
-  return jwt.sign({ sub: user.id, email: user.email }, SECRET(), { expiresIn: '7d' });
+  return jwt.sign({ sub: user.id, email: user.email }, SECRET(), { expiresIn: '7d', algorithm: 'HS256' });
 }
 
 function sqliteNow(offsetMs = 0) {
   return new Date(Date.now() + offsetMs).toISOString().replace('T', ' ').slice(0, 19);
+}
+
+function sanitizeOptionalText(value, maxLength) {
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+  return text.slice(0, maxLength);
+}
+
+function sanitizeEmail(value) {
+  return String(value || '').trim().slice(0, 255);
+}
+
+function serializeUserProfile(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    approved: Number(row.approved || 0),
+    first_name: row.first_name || '',
+    last_name: row.last_name || '',
+    username: row.username || '',
+    display_name: row.display_name || '',
+    phone: row.phone || '',
+    photo_url: row.photo_url || '',
+    bio: row.bio || '',
+    created_at: row.created_at || null,
+    permissions: row.permissions || null,
+  };
 }
 
 function checkBruteForce(db, ip) {
@@ -115,9 +153,10 @@ module.exports = function authRouter(db) {
       let user = db.prepare('SELECT * FROM users WHERE email = ?').get(DEV_EMAIL);
       if (!user) {
         const hash = await bcrypt.hash(DEV_PASS, 10);
+        const identity = buildIdentityFields({ email: DEV_EMAIL });
         const result = db.prepare(
-          "INSERT INTO users (email, password_hash, role, approved) VALUES (?, ?, 'admin', 1)"
-        ).run(DEV_EMAIL, hash);
+          "INSERT INTO users (email, password_hash, role, approved, username, display_name) VALUES (?, ?, 'admin', 1, ?, ?)"
+        ).run(DEV_EMAIL, hash, getUniqueUsername(db, identity.usernameBase), identity.displayName);
         user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
         // Ensure extension token exists
         const hasExt = db.prepare('SELECT id FROM extension_tokens LIMIT 1').get();
@@ -143,9 +182,10 @@ module.exports = function authRouter(db) {
       if (existing.cnt > 0) return res.status(409).json({ error: 'Setup already complete' });
 
       const hash = await bcrypt.hash(password, 10);
+      const identity = buildIdentityFields({ email });
       const result = db.prepare(
-        "INSERT INTO users (email, password_hash, role, approved) VALUES (?, ?, 'admin', 1)"
-      ).run(email, hash);
+        "INSERT INTO users (email, password_hash, role, approved, username, display_name) VALUES (?, ?, 'admin', 1, ?, ?)"
+      ).run(email, hash, getUniqueUsername(db, identity.usernameBase), identity.displayName);
 
       // Generate extension token on first setup
       const extToken = crypto.randomBytes(32).toString('hex');
@@ -301,22 +341,50 @@ module.exports = function authRouter(db) {
     }
   });
 
-  // GET /api/auth/me — requires JWT auth, returns current user id, email, role
-  router.get('/me', (req, res) => {
-    const header = req.headers.authorization || '';
-    const jwtToken = header.startsWith('Bearer ') ? header.slice(7) : null;
-    if (!jwtToken) return res.status(401).json({ error: 'Unauthorized' });
-
-    let decoded;
-    try {
-      decoded = jwt.verify(jwtToken, SECRET());
-    } catch {
-      return res.status(401).json({ error: 'Token invalid or expired' });
-    }
-
-    const row = db.prepare('SELECT id, email, role FROM users WHERE id = ?').get(decoded.sub);
+  // GET /api/auth/me — requires JWT auth, returns current user profile
+  router.get('/me', requireAuth, (req, res) => {
+    const row = ensureUserIdentityFields(db, req.user && (req.user.id || req.user.sub));
     if (!row) return res.status(404).json({ error: 'User not found' });
-    res.json({ id: row.id, email: row.email, role: row.role });
+    res.json(serializeUserProfile({
+      ...row,
+      permissions: getEffectivePermissionsForUser(db, row.id),
+    }));
+  });
+
+  // PUT /api/auth/me — current user profile update
+  router.put('/me', requireAuth, (req, res) => {
+    try {
+      const userId = req.user && (req.user.id || req.user.sub);
+      const current = ensureUserIdentityFields(db, userId);
+      if (!current) return res.status(404).json({ error: 'User not found' });
+
+      const nextEmail = sanitizeEmail(req.body && req.body.email);
+      if (!nextEmail) return res.status(400).json({ error: 'Email is required' });
+      const existing = getUserByEmail(db, nextEmail);
+      if (existing && Number(existing.id) !== Number(userId)) {
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+
+      const updated = updateUserProfile(db, userId, {
+        email: nextEmail,
+        first_name: sanitizeOptionalText(req.body && req.body.first_name, 80),
+        last_name: sanitizeOptionalText(req.body && req.body.last_name, 80),
+        phone: sanitizeOptionalText(req.body && req.body.phone, 40),
+        photo_url: sanitizeOptionalText(req.body && req.body.photo_url, 255),
+        bio: sanitizeOptionalText(req.body && req.body.bio, 2000),
+      });
+      const token = signToken(updated);
+      res.json({ ...serializeUserProfile({
+        ...updated,
+        permissions: getEffectivePermissionsForUser(db, updated.id),
+      }), token });
+    } catch (e) {
+      if (e.message && e.message.includes('UNIQUE')) {
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+      console.error('[auth/me PUT]', e);
+      res.status(500).json({ error: 'Server error' });
+    }
   });
 
   // GET /api/auth/extension-token — requires admin (or operator per HANDOFF C5: admin-only)

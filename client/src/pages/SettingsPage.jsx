@@ -24,6 +24,8 @@ export default function SettingsPage() {
     quote_event_types: '',
     quote_auto_append_city_title: '0',
     allowed_file_types: '',
+    image_webp_quality: '68',
+    image_avif_enabled: '0',
     tax_rate: '0',
     currency: 'USD',
     ui_theme: 'default',
@@ -75,9 +77,12 @@ export default function SettingsPage() {
   const [updateStatus, setUpdateStatus]     = useState('');   // 'restarting' | ''
   const [updateError, setUpdateError]       = useState('');
   const [logoUploading, setLogoUploading] = useState(false);
+  const [, setLogoServeEpoch] = useState(0);
   const logoInputRef = React.useRef(null);
   const [systemCategories, setSystemCategories] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [compressionPreview, setCompressionPreview] = useState({ original: '', compressed: '' });
+  const [compressionPreviewLoading, setCompressionPreviewLoading] = useState(false);
 
   useEffect(() => {
     api.getCategories().then(d => setSystemCategories(d.categories || [])).catch(() => setSystemCategories([]));
@@ -98,6 +103,8 @@ export default function SettingsPage() {
           quote_event_types: s.quote_event_types || '',
           quote_auto_append_city_title: s.quote_auto_append_city_title || '0',
           allowed_file_types: s.allowed_file_types || '',
+          image_webp_quality: s.image_webp_quality || '68',
+          image_avif_enabled: s.image_avif_enabled || '0',
           tax_rate: s.tax_rate || '0',
           currency: s.currency || 'USD',
           ui_theme: s.ui_theme || 'default',
@@ -163,6 +170,42 @@ export default function SettingsPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const cl = form.company_logo?.trim();
+    if (!cl || !/^\d+$/.test(cl)) return;
+    api.prefetchFileServeUrls([cl]).then(() => setLogoServeEpoch((e) => e + 1)).catch(() => {});
+  }, [form.company_logo]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const quality = Number(form.image_webp_quality || 68);
+    const avifEnabled = form.image_avif_enabled === '1';
+    setCompressionPreviewLoading(true);
+    Promise.all([
+      api.getImageCompressionPreview({ original: true }),
+      api.getImageCompressionPreview({ quality, format: avifEnabled ? 'avif' : 'webp', avif: avifEnabled }),
+    ])
+      .then(([originalBlob, compressedBlob]) => {
+        if (cancelled) return;
+        const next = {
+          original: URL.createObjectURL(originalBlob),
+          compressed: URL.createObjectURL(compressedBlob),
+        };
+        setCompressionPreview((prev) => {
+          if (prev.original) URL.revokeObjectURL(prev.original);
+          if (prev.compressed) URL.revokeObjectURL(prev.compressed);
+          return next;
+        });
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setCompressionPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.image_webp_quality, form.image_avif_enabled]);
 
   const handleCheckUpdates = async () => {
     setUpdateChecking(true);
@@ -265,7 +308,9 @@ export default function SettingsPage() {
       formData.append('files', file);
       const { files } = await api.uploadFiles(formData);
       if (files && files[0]) {
-        setForm(f => ({ ...f, company_logo: String(files[0].id) }));
+        const fid = String(files[0].id);
+        setForm(f => ({ ...f, company_logo: fid }));
+        api.prefetchFileServeUrls([fid]).catch(() => {});
         toast.success('Logo uploaded. Save settings to apply.');
       }
     } catch (err) {
@@ -444,7 +489,7 @@ export default function SettingsPage() {
               {form.company_logo && (
                 <div className={styles.logoPreviewWrap}>
                   <img
-                    src={/^\d+$/.test(form.company_logo) ? `${window.location.origin}${api.fileServeUrl(form.company_logo)}` : form.company_logo}
+                    src={/^\d+$/.test(form.company_logo) ? `${window.location.origin}${api.fileServeUrl(form.company_logo, { variant: 'ui' })}` : form.company_logo}
                     alt="Company logo preview"
                     className={styles.logoPreview}
                     onError={e => { e.target.style.display = 'none'; }}
@@ -505,6 +550,75 @@ export default function SettingsPage() {
                 Add extra upload types as file extensions or MIME types, separated by commas or spaces. Default image and PDF types are already allowed.
               </span>
             </div>
+          </div>
+
+          <h3 className={styles.section}>Image compression</h3>
+          <div className={styles.row}>
+            <div className="form-group" style={{ flex: '1 1 260px' }}>
+              <label htmlFor="s-image-webp-quality">WebP quality: {form.image_webp_quality}</label>
+              <input
+                id="s-image-webp-quality"
+                type="range"
+                min="40"
+                max="90"
+                step="1"
+                value={form.image_webp_quality}
+                onChange={e => setForm(f => ({ ...f, image_webp_quality: e.target.value }))}
+              />
+              <span className={styles.hint}>New image uploads are auto-converted to WebP and compressed aggressively. Lower values reduce size further.</span>
+            </div>
+            <div className="form-group" style={{ flex: '1 1 220px', alignSelf: 'end' }}>
+              <label className={styles.checkRow}>
+                <input
+                  type="checkbox"
+                  checked={form.image_avif_enabled === '1'}
+                  onChange={e => setForm(f => ({ ...f, image_avif_enabled: e.target.checked ? '1' : '0' }))}
+                />
+                <span>Also generate AVIF variants</span>
+              </label>
+              <span className={styles.hint}>When enabled, compatible browsers will receive even smaller AVIF images. WebP remains the fallback.</span>
+            </div>
+          </div>
+          <div className={styles.compressionPreviewCard}>
+            <div className={styles.compressionPreviewHeader}>
+              <div>
+                <strong>Quality preview</strong>
+                <p className={styles.hint} style={{ marginTop: 6 }}>
+                  Preview uses the same server-side compression pipeline as uploads. Originals are discarded after processing and the UI serves optimized variants.
+                </p>
+              </div>
+              <span className={styles.previewBadge}>
+                {form.image_avif_enabled === '1' ? 'AVIF + WebP' : 'WebP only'}
+              </span>
+            </div>
+            <div className={styles.compressionPreviewGrid}>
+              <div className={styles.previewPanel}>
+                <span className={styles.previewLabel}>Original sample</span>
+                <div className={styles.previewImageFrame}>
+                  {compressionPreview.original ? (
+                    <img src={compressionPreview.original} alt="Original compression sample" className={styles.previewImage} />
+                  ) : (
+                    <div className="skeleton" style={{ width: '100%', height: '100%' }} />
+                  )}
+                </div>
+              </div>
+              <div className={styles.previewPanel}>
+                <span className={styles.previewLabel}>
+                  Compressed preview
+                  {compressionPreviewLoading ? ' (updating...)' : ` (${form.image_avif_enabled === '1' ? 'AVIF preferred' : 'WebP'})`}
+                </span>
+                <div className={styles.previewImageFrame}>
+                  {compressionPreview.compressed ? (
+                    <img src={compressionPreview.compressed} alt="Compressed compression sample" className={styles.previewImage} />
+                  ) : (
+                    <div className="skeleton" style={{ width: '100%', height: '100%' }} />
+                  )}
+                </div>
+              </div>
+            </div>
+            <p className={styles.hint} style={{ marginTop: 12 }}>
+              New uploads generate <strong>thumb</strong>, <strong>ui</strong>, and <strong>large</strong> variants for fast grids, normal app views, and larger detail displays.
+            </p>
           </div>
         </div>
 

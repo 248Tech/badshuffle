@@ -1,8 +1,111 @@
 # Next Release — Detected Local Changes (vs GitHub `origin/master`)
 
-Generated: 2026-03-29  
+Generated: 2026-03-31  
 Repo: `badshuffle`  
 Comparison baseline: **`origin/master`** (fetched from GitHub; default branch **`master`**)
+
+## Draft release notes — v0.0.11 (WIP)
+
+Release date: TBD
+
+### Summary
+
+`0.0.11` is a **visibility + scalability** release: it adds an operator Maps workspace powered by Mapbox (with lazy geocoding + persisted cache fields on quotes), introduces early sales/pipeline analytics, and continues the backend refactor by splitting quote logic into focused services/repositories to reduce route-layer coupling.
+
+### Added
+
+- **Maps workspace (operator UI)**: New protected `/maps` page with a 2D Mapbox world map, clustered pins, theme-aware legend toggles, and direct links into project detail.
+- **Maps pins API**: New authenticated `GET /api/maps/quotes` endpoint that returns map-ready quote pins (with `quote|booked|closed` classification) plus `map_default_style` for client rendering.
+- **Mapbox geocoding + quote map cache**: Quotes now persist map cache fields (`map_address_source`, `map_address_text`, `map_lat`, `map_lng`, `map_geocoded_at`, `map_geocode_status`) so map rendering is fast and consistent.
+- **Lazy geocoding for older quotes**: When the maps endpoint is hit, quotes with addresses but missing/failed map cache will attempt to geocode and persist results.
+- **Sales analytics API**: New analytics surface at `GET /api/sales/analytics` for pipeline-style reporting over a date range, with optional staff + status filtering.
+- **DB query/repository layering (server)**: New `server/db/*` modules (queries + repositories) to centralize SQL and support service-layer composition.
+
+### Changed
+
+- **Quote backend architecture**: Quote orchestration continues moving out of `server/routes/quotes.js` into smaller services (`quoteCoreService`, `quoteListService`, `quoteFinanceService`, `quoteFileService`, etc.) so the route layer becomes mostly validation + wiring.
+- **Geocode lifecycle**: Quote create/update flows sync map cache so maps stay current when venue/client addresses change.
+
+### Notes / migration cues
+
+- **Settings**: Maps requires `mapbox_access_token`; `map_default_style` controls the basemap style used by the Maps UI and pin endpoint.
+- **Data**: Quotes geocode from `venue_address` first, falling back to `client_address`. Older quotes may geocode on-demand when `/api/maps/quotes` is requested; quote create/update also refreshes the cache.
+
+## File structure delta — current local tree vs GitHub
+
+Compared against `origin/master`, the local source tree has expanded in a few clear areas that should be treated as part of the `v0.0.11` documentation pass.
+
+### New documentation surfaces
+
+- `AI/Api/README.md`
+- `AI/Api/authentication.md`
+- `AI/Api/data-models.md`
+- `AI/Api/ecommerce-integration.md`
+- `AI/Api/inventory-api.md`
+- `AI/Api/public-catalog.md`
+- `AI/Api/quotes-api.md`
+- `AI/Api/webhooks-and-events.md`
+- `AI/reports/dashboard-redesign.md`
+
+### New client structure
+
+- `client/src/pages/MapsPage.jsx`
+- `client/src/pages/MapsPage.module.css`
+- `client/src/pages/ProfilePage.jsx`
+- `client/src/pages/ProfilePage.module.css`
+- `client/src/pages/TeamPage.jsx`
+- `client/src/pages/TeamPage.module.css`
+- `client/src/pages/quote-detail/QuoteFulfillmentPanel.jsx`
+- `client/src/components/public-quote/PublicQuoteContractView.jsx`
+- `client/src/components/public-quote/PublicQuoteItemDetailModal.jsx`
+- `client/src/components/virtualization/VirtualGrid.jsx`
+- `client/src/components/virtualization/VirtualList.jsx`
+- `client/src/features/sales-dashboard/*`
+- `client/src/hooks/useDebouncedValue.js`
+- `client/src/lib/permissions.js`
+- `client/src/lib/sanitizeHtml.js`
+
+### New server structure
+
+- `server/routes/maps.js`
+- `server/routes/sales.js`
+- `server/routes/team.js`
+- `server/lib/permissionMiddleware.js`
+- `server/lib/permissions.js`
+- `server/db/defaults/*`
+- `server/db/migrations/*`
+- `server/db/queries/*`
+- `server/db/repositories/quoteRepository.js`
+- `server/db/schema/*`
+- `server/services/diagnosticsService.js`
+- `server/services/fileService.js`
+- `server/services/imageCompressionService.js`
+- `server/services/itemService.js`
+- `server/services/leadService.js`
+- `server/services/mapService.js`
+- `server/services/mapboxGeocodeService.js`
+- `server/services/quoteContractService.js`
+- `server/services/quoteCoreService.js`
+- `server/services/quoteCustomItemService.js`
+- `server/services/quoteFileService.js`
+- `server/services/quoteFinanceService.js`
+- `server/services/quoteFulfillmentService.js`
+- `server/services/quoteItemService.js`
+- `server/services/quoteLifecycleService.js`
+- `server/services/quoteListService.js`
+- `server/services/quoteSectionService.js`
+- `server/services/salesAnalyticsService.js`
+- `server/services/teamService.js`
+
+### Removed from local source tree
+
+No tracked source/docs files from `origin/master` are missing locally. The only baseline-only paths are runtime artifacts excluded from the documentation pass (`backups/badshuffle-20260304-160455.db`, `uploads/dd8655d7a9fe59f9e0ba2ea912c70164.png`).
+
+### Documentation implications
+
+- `ai/ARCHITECTURE.md` needs to describe the new `server/db/*` layering instead of treating `server/db.js` as the only schema/migration home.
+- `ai/PROJECT_OVERVIEW.md` needs to reflect Maps, Team, Profile, fulfillment, and permission-aware routing as current product surfaces.
+- The new `AI/Api/*` folder should be treated as live API/integration documentation for `v0.0.11`, not an incidental local-only addition.
 
 ## Git sync (local ↔ GitHub)
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api.js';
 import { useToast } from '../components/Toast.jsx';
-import styles from './VendorsPage.module.css';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
 const EMPTY_FORM = { name: '', email: '', phone: '', address: '', notes: '' };
 
@@ -24,12 +24,7 @@ export default function VendorsPage() {
 
   useEffect(() => { load(); }, []);
 
-  const openNew = () => {
-    setEditId(null);
-    setForm(EMPTY_FORM);
-    setShowForm(true);
-  };
-
+  const openNew = () => { setEditId(null); setForm(EMPTY_FORM); setShowForm(true); };
   const openEdit = (v) => {
     setEditId(v.id);
     setForm({ name: v.name || '', email: v.email || '', phone: v.phone || '', address: v.address || '', notes: v.notes || '' });
@@ -70,26 +65,26 @@ export default function VendorsPage() {
   };
 
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
+    <div className="flex flex-col gap-5">
+      <div className="flex justify-between items-start gap-4 flex-wrap">
         <div>
-          <h1 className={styles.title}>Vendors</h1>
-          <p className={styles.sub}>Suppliers for subrental items.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Vendors</h1>
+          <p className="text-[13px] text-text-muted mt-0.5">Suppliers for subrental items.</p>
         </div>
         <button type="button" className="btn btn-primary" onClick={openNew}>+ Add Vendor</button>
       </div>
 
       {loading ? (
-        <div className={styles.list} aria-busy="true" aria-label="Loading vendors">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className={`card ${styles.row}`} aria-hidden="true">
-              <div className={styles.info}>
-                <div className="skeleton" style={{ height: 16, width: `${40 + (i % 3) * 15}%`, borderRadius: 5, marginBottom: 6 }} />
-                <div className="skeleton" style={{ height: 13, width: `${30 + (i % 2) * 20}%`, borderRadius: 4 }} />
+        <div className="flex flex-col gap-2.5" aria-busy="true" aria-label="Loading vendors">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="card p-4 flex items-start gap-4" aria-hidden="true">
+              <div className="flex-1 flex flex-col gap-1.5">
+                <div className="skeleton h-4 rounded" style={{ width: `${40 + (i % 3) * 15}%` }} />
+                <div className="skeleton h-3 rounded" style={{ width: `${30 + (i % 2) * 20}%` }} />
               </div>
-              <div className={styles.actions}>
-                <div className="skeleton" style={{ height: 30, width: 48, borderRadius: 6 }} />
-                <div className="skeleton" style={{ height: 30, width: 54, borderRadius: 6 }} />
+              <div className="flex gap-2">
+                <div className="skeleton h-[30px] w-12 rounded-md" />
+                <div className="skeleton h-[30px] w-14 rounded-md" />
               </div>
             </div>
           ))}
@@ -99,17 +94,17 @@ export default function VendorsPage() {
           <p>No vendors yet. Add one to assign subrental items to suppliers.</p>
         </div>
       ) : (
-        <div className={styles.list}>
+        <div className="flex flex-col gap-2.5">
           {vendors.map(v => (
-            <div key={v.id} className={`card ${styles.row}`}>
-              <div className={styles.info}>
-                <span className={styles.name}>{v.name}</span>
-                {v.email && <span className={styles.meta}>{v.email}</span>}
-                {v.phone && <span className={styles.meta}>{v.phone}</span>}
-                {v.address && <span className={styles.meta}>{v.address}</span>}
-                {v.notes && <span className={styles.notes}>{v.notes}</span>}
+            <div key={v.id} className="card p-4 sm:p-5 flex items-start gap-4">
+              <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+                <span className="text-[15px] font-semibold">{v.name}</span>
+                {v.email && <span className="text-[13px] text-text-muted">{v.email}</span>}
+                {v.phone && <span className="text-[13px] text-text-muted">{v.phone}</span>}
+                {v.address && <span className="text-[13px] text-text-muted">{v.address}</span>}
+                {v.notes && <span className="text-[12px] text-text-muted italic mt-1">{v.notes}</span>}
               </div>
-              <div className={styles.actions}>
+              <div className="flex gap-2 flex-wrap shrink-0">
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(v)}>Edit</button>
                 <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => setConfirmDelete(v.id)}>Delete</button>
               </div>
@@ -120,18 +115,28 @@ export default function VendorsPage() {
 
       {/* Add/Edit modal */}
       {showForm && (
-        <div className={styles.overlay} onClick={() => setShowForm(false)} onKeyDown={e => e.key === 'Escape' && setShowForm(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="vendor-modal-title">
-            <div className={styles.modalHeader}>
-              <h2 id="vendor-modal-title">{editId ? 'Edit Vendor' : 'Add Vendor'}</h2>
-              <button type="button" className={styles.closeBtn} onClick={() => setShowForm(false)} aria-label="Close"><span aria-hidden="true">×</span></button>
+        <div
+          className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4"
+          onClick={() => setShowForm(false)}
+          onKeyDown={e => e.key === 'Escape' && setShowForm(false)}
+        >
+          <div
+            className="bg-surface rounded-lg p-6 w-full max-w-md shadow-2xl"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="vendor-modal-title"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 id="vendor-modal-title" className="text-[18px] font-bold">{editId ? 'Edit Vendor' : 'Add Vendor'}</h2>
+              <button type="button" className="text-text-muted hover:text-text text-[22px] leading-none bg-transparent border-none cursor-pointer" onClick={() => setShowForm(false)} aria-label="Close">×</button>
             </div>
-            <form onSubmit={handleSave} className={styles.form}>
+            <form onSubmit={handleSave} className="flex flex-col gap-3">
               <div className="form-group">
                 <label htmlFor="vnd-name">Name *</label>
-                <input id="vnd-name" required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Vendor name" />
+                <input id="vnd-name" required autoFocus value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Vendor name" />
               </div>
-              <div className={styles.row2}>
+              <div className="grid grid-cols-2 max-[480px]:grid-cols-1 gap-3">
                 <div className="form-group">
                   <label htmlFor="vnd-email">Email</label>
                   <input id="vnd-email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="vendor@example.com" />
@@ -149,7 +154,7 @@ export default function VendorsPage() {
                 <label htmlFor="vnd-notes">Notes</label>
                 <textarea id="vnd-notes" rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Pickup hours, contact notes…" />
               </div>
-              <div className={styles.formActions}>
+              <div className="flex justify-end gap-2 pt-1">
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving || !form.name.trim()}>
                   {saving ? 'Saving…' : editId ? 'Save changes' : 'Add Vendor'}
@@ -160,23 +165,12 @@ export default function VendorsPage() {
         </div>
       )}
 
-      {/* Delete confirm */}
       {confirmDelete && (
-        <div className={styles.overlay} onClick={() => setConfirmDelete(null)} onKeyDown={e => e.key === 'Escape' && setConfirmDelete(null)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="vendor-delete-title">
-            <div className={styles.modalHeader}>
-              <h2 id="vendor-delete-title">Delete vendor?</h2>
-              <button type="button" className={styles.closeBtn} onClick={() => setConfirmDelete(null)} aria-label="Close"><span aria-hidden="true">×</span></button>
-            </div>
-            <p style={{ padding: '0 0 16px', fontSize: 14, color: 'var(--color-text-muted)' }}>
-              This will remove the vendor. Items assigned to this vendor will have their vendor cleared.
-            </p>
-            <div className={styles.formActions}>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(null)}>Cancel</button>
-              <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDelete(confirmDelete)}>Delete</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          message="Remove this vendor? Items assigned to them will have their vendor cleared."
+          onConfirm={() => handleDelete(confirmDelete)}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
     </div>
   );

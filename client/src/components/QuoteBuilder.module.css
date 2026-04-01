@@ -5,6 +5,12 @@
   min-width: 0;
 }
 
+/* Mobile tab switcher — hidden on desktop, shown on mobile via media query */
+.mobileTabs { display: none; }
+.mobileTab {}
+.mobileTabActive {}
+.mobileHidden {}
+
 @media (max-width: 768px) {
   .builder { gap: 16px; }
   .quoteItem, .pickerItem { padding: 10px; gap: 8px; }
@@ -38,6 +44,15 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.addSectionRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.pickerTargetRow {
+  margin-top: -6px;
 }
 
 .sectionNameInput {
@@ -243,6 +258,17 @@
   text-decoration: underline;
   color: var(--color-primary);
 }
+
+.itemEditBtn {}
+.itemThumbCell {}
+.itemTitleBlock {}
+.itemPriceBlock {}
+.itemLabor {}
+.itemQtyBlock {}
+.itemTotalBlock {}
+.itemStatusBadge {}
+.itemInfoBtn {}
+.itemRemoveBtn {}
 
 .laborHours {
   font-size: 12px;
@@ -633,45 +659,263 @@
   .section { gap: 8px; }
 }
 
-/* Mobile */
+/* ── Mobile (≤640px) ───────────────────────────────────── */
 @media (max-width: 640px) {
   .builder { gap: 16px; }
+  .section { gap: 8px; }
   .sectionTitle { font-size: 13px; }
-  .quoteList { gap: 2px; }
-  .quoteItem, .pickerItem {
-    padding: 6px 8px;
+
+  /* Mobile tab switcher */
+  .mobileTabs {
+    display: flex;
+    border-bottom: 2px solid var(--color-border);
+    margin-bottom: 0;
+    gap: 0;
+  }
+  .mobileTab {
+    flex: 1;
+    padding: 12px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color 0.1s;
+    text-align: center;
+  }
+  .mobileTabActive {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+  }
+  .mobileHidden { display: none !important; }
+
+  /* Section card & header */
+  .sectionCard { padding: 12px; gap: 10px; overflow: hidden; min-width: 0; }
+  .sectionNameInput { font-size: 16px; padding: 10px 12px; }
+  .sectionDatesRow { grid-template-columns: 1fr; }
+  .sectionHeaderRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .sectionHeaderActions {
+    display: flex;
     gap: 8px;
   }
-  .thumb { width: 36px; height: 36px; }
-  .itemTitle, .itemTitleLink { font-size: 12px; }
-  .unitPrice, .lineTotal, .laborHours { font-size: 11px; }
-  .qtyControl button { width: 32px; height: 32px; }
-  .qtyControl button::before { inset: -6px; }
-  .qtyInput { width: 42px; padding: 6px 4px; font-size: 12px; }
-  .removeBtn { padding: 4px 6px; font-size: 16px; }
+  .sectionHeaderActions :global(.btn),
+  .addSectionRow :global(.btn) {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .pickerTargetRow, .addSectionRow { margin-top: 0; }
+
+  /* ── Quote line item: clean 3-row card ── */
+  .quoteList { gap: 4px; }
+  .quoteItem {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    grid-template-areas:
+      "thumb  title   remove"
+      "price  price   price"
+      "qty    qty     total"
+      "badge  badge   badge";
+    gap: 8px 10px;
+    padding: 12px;
+    align-items: start;
+    overflow: hidden;
+    min-width: 0;
+  }
+  /* Hide verbose stock badge on mobile — conflict icon already signals the issue */
+  .stockBadge { display: none; }
+  /* Row 1 */
+  .dragHandle  { display: none; }
+  .itemEditBtn { display: none; }
+  .itemThumbCell { grid-area: thumb; }
+  .itemTitleBlock {
+    grid-area: title;
+    white-space: normal;
+    line-height: 1.4;
+    font-size: 14px;
+    padding-right: 4px;
+    display: block;
+    overflow: hidden;
+    min-width: 0;
+    word-break: break-word;
+  }
+  .itemRemoveBtn {
+    grid-area: remove;
+    justify-self: end;
+    align-self: start;
+    margin: -4px -4px 0 0;
+  }
+  /* Row 2: full-width price/edit area */
+  .itemPriceBlock {
+    grid-area: price;
+    margin-left: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+  }
+  /* Allow price edit controls to wrap on narrow screens */
+  .priceEditWrap { flex-wrap: wrap; flex-shrink: 1; }
+  .priceInput { max-width: 80px; min-width: 48px; }
+  .priceCol { flex-wrap: wrap; }
+  .itemLabor { display: none; }
+  /* Row 3: qty (left) + total (right) */
+  .itemQtyBlock {
+    grid-area: qty;
+    justify-self: start;
+  }
+  .itemTotalBlock {
+    grid-area: total;
+    justify-self: end;
+    align-self: end;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+  /* Row 4: status badge (only appears when item is hidden) */
+  .itemStatusBadge {
+    grid-area: badge;
+    justify-self: start;
+  }
+  .itemInfoBtn { display: none; }
+
+  /* Fix eye button: absolutely positioned overlay so it doesn't break the thumb grid cell */
+  .thumbWrap {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
+  }
+  .eyeBtn {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 15px;
+    min-width: unset;
+    min-height: unset;
+    margin: 0;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 0;
+    z-index: 1;
+  }
+  .eyeIcon { width: 10px; height: 10px; }
+
+  /* Thumb size */
+  .thumb { width: 44px; height: 44px; }
+
+  /* Price text */
+  .unitPrice { font-size: 13px; }
+  .laborHours { font-size: 12px; }
+
+  /* Bigger qty buttons */
+  .qtyControl { gap: 8px; }
+  .qtyControl button { width: 38px; height: 38px; font-size: 18px; }
+  .qtyControl button::before { inset: -4px; }
+  .qtyInput { width: 50px; padding: 8px 4px; font-size: 15px; }
+
+  .removeBtn { font-size: 16px; padding: 4px 8px; }
+
+  /* ── Picker list items: bigger, touch-friendly ── */
+  .pickerItem {
+    padding: 12px;
+    min-height: 56px;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .itemTitle {
+    font-size: 14px;
+    white-space: normal;
+    line-height: 1.3;
+    min-width: 0;
+    overflow: hidden;
+    word-break: break-word;
+  }
+  .pickerQtyInputList {
+    width: 58px;
+    flex-shrink: 0;
+    padding: 9px 4px;
+    font-size: 15px;
+  }
+  /* Shorten stock text on mobile — hide verbose badge */
+  .pickerStockBadgeList, .pickerStockBadgeListOk { display: none; }
+  /* Style "+ Add" as a pill button */
+  .addHint {
+    background: var(--color-primary);
+    color: #fff;
+    padding: 9px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* ── Picker grid: 3 cols instead of 2 ── */
   .pickerGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 8px;
-    max-height: 360px;
+    max-height: 380px;
   }
-  .pickerTile { padding: 6px; gap: 4px; }
-  .tileTitle { font-size: 11px; }
-  .pickerToolbar { gap: 6px; }
-  .searchInput { padding: 8px 10px; font-size: 16px; } /* avoid zoom on focus iOS */
-  .viewToggleBtn, .pageBtn, .pageNumBtn { min-width: 36px; height: 36px; }
-  .pageSizeSelect { padding: 6px 8px; }
-  .addCustomBtn { width: 36px; height: 36px; }
+  .pickerTile { padding: 6px; gap: 5px; }
+  .tileTitle { font-size: 11px; white-space: normal; line-height: 1.2; }
+  .pickerQtyInput { font-size: 13px; padding: 6px 4px; }
+
+  /* ── Toolbar ── */
+  .pickerToolbar { gap: 8px; }
+  .searchInput { font-size: 16px; padding: 10px 12px; } /* prevent iOS zoom */
+  .pickerToolbarActions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .viewToggleBtn, .pageBtn, .pageNumBtn { min-width: 40px; height: 40px; }
+  .pageSizeSelect { padding: 8px 10px; font-size: 13px; min-width: 64px; }
+  .addCustomBtn { min-width: 44px; height: 44px; font-size: 20px; }
+
+  /* ── Pagination ── */
   .pagination { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 10px; padding-top: 10px; }
   .paginationControls { justify-content: center; }
   .paginationSummary { text-align: center; }
+  .pageNumbers { overflow-x: auto; scrollbar-width: none; }
+  .pageNumbers::-webkit-scrollbar { display: none; }
+
+  /* ── Adjustments form: stack on mobile ── */
+  .adjForm { flex-direction: column; gap: 8px; align-items: stretch; }
+  .adjLabelInput { min-width: unset; width: 100%; box-sizing: border-box; }
+  .adjForm .adjSelect { width: 100%; box-sizing: border-box; }
+  .adjAmountInput { width: 100%; box-sizing: border-box; text-align: left; }
+  .adjSaveBtn { width: 100%; justify-content: center; }
+  .adjItem { min-width: 0; overflow: hidden; }
 }
 
-@media (max-width: 480px) {
-  .pickerGrid { max-height: 320px; }
-  /* quoteList: no max-height — let page scroll naturally on narrow screens */
-  .dragHandle { display: none; }
-  .laborHours { display: none; }
-  .lineTotal { display: none; }
+/* ── Very small phones (≤400px) ────────────────────────── */
+@media (max-width: 400px) {
+  .quoteItem {
+    grid-template-columns: 44px 1fr auto;
+    padding: 10px;
+    gap: 6px 8px;
+  }
+  .thumb { width: 40px; height: 40px; }
+  .pickerGrid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .qtyControl { gap: 6px; }
+  .qtyInput { width: 44px; }
 }
 
 .pickerTile {

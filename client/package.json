@@ -1,6 +1,6 @@
 {
   "name": "badshuffle-client",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "BadShuffle React client for self-hosted event rental quoting, inventory, messaging, and public catalog workflows.",
   "private": true,
   "homepage": "https://github.com/248Tech/badshuffle",
@@ -22,11 +22,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.95.2",
     "dompurify": "^3.3.2",
     "html2canvas": "^1.4.1",
+    "mapbox-gl": "^3.20.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.23.1"
+    "react-router-dom": "^6.23.1",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^2.2.0",

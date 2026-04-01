@@ -1,12 +1,13 @@
-import React, { useRef, useState } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import { api } from '../api';
 import { effectivePrice } from '../lib/quoteTotals.js';
 import styles from './QuoteExport.module.css';
 
-export default function QuoteExport({ quote, settings = {}, totals = null, customItems = [], visibleItems = null }) {
+const QuoteExport = forwardRef(function QuoteExport({ quote, settings = {}, totals = null, customItems = [], visibleItems = null }, fwdRef) {
   const ref = useRef(null);
   const [exporting, setExporting] = useState(false);
+  const [, setServeEpoch] = useState(0);
   const itemsForExport = visibleItems ?? quote.items ?? [];
   const sections = (quote.sections && quote.sections.length > 0) ? quote.sections : [{ id: 'default', title: 'Quote Items' }];
 
@@ -46,6 +47,25 @@ export default function QuoteExport({ quote, settings = {}, totals = null, custo
         ? api.proxyImageUrl(companyLogo)
         : companyLogo
     : null;
+
+  const exportPhotoKey =
+    (itemsForExport || []).map((i) => i.photo_url).join('|') +
+    '::' +
+    (customItems || []).map((c) => c.photo_url).join('|');
+  useEffect(() => {
+    const ids = [];
+    if (companyLogo && /^\d+$/.test(String(companyLogo))) ids.push(String(companyLogo));
+    for (const it of itemsForExport) {
+      const p = it.photo_url;
+      if (p != null && /^\d+$/.test(String(p).trim())) ids.push(String(p).trim());
+    }
+    for (const ci of customItems || []) {
+      const p = ci.photo_url;
+      if (p != null && /^\d+$/.test(String(p).trim())) ids.push(String(p).trim());
+    }
+    if (!ids.length) return;
+    api.prefetchFileServeUrls(ids).then(() => setServeEpoch((e) => e + 1)).catch(() => {});
+  }, [companyLogo, exportPhotoKey]);
   const hasClient = quote.client_first_name || quote.client_last_name || quote.client_email || quote.client_phone || quote.client_address;
   const hasVenue = quote.venue_name || quote.venue_email || quote.venue_phone || quote.venue_address || quote.venue_contact || quote.venue_notes;
   const showTotals = totals && (totals.subtotal > 0 || totals.deliveryTotal > 0 || (totals.customSubtotal || 0) > 0);
@@ -77,6 +97,8 @@ export default function QuoteExport({ quote, settings = {}, totals = null, custo
   const handlePrint = () => {
     window.print();
   };
+
+  useImperativeHandle(fwdRef, () => ({ handleExport, handlePrint }));
 
   return (
     <div className={styles.wrapper}>
@@ -274,4 +296,6 @@ export default function QuoteExport({ quote, settings = {}, totals = null, custo
       `}</style>
     </div>
   );
-}
+});
+
+export default QuoteExport;

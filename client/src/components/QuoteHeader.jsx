@@ -15,6 +15,8 @@ export default function QuoteHeader({
   onDelete,
   onDismissUnsignedChanges,
   showTopRow = true,
+  canModify = true,
+  canSeeMessages = true,
 }) {
   const navigate = useNavigate();
   const status = quote.status || 'draft';
@@ -39,13 +41,13 @@ export default function QuoteHeader({
     <header className={styles.header}>
       {showTopRow && (
         <div className={styles.topRow}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
+          <button type="button" className={`btn btn-ghost btn-sm ${styles.backButton}`} onClick={onBack}>
             <span aria-hidden="true">←</span> Projects
           </button>
           <div className={styles.actions + ' ' + styles.actionsTint}>
-            <button type="button" className="btn btn-primary btn-sm" onClick={onSend} title="Email project link to client">
+            {canModify && <button type="button" className="btn btn-primary btn-sm" onClick={onSend} title="Email project link to client">
               Send to Client
-            </button>
+            </button>}
             {typeof onViewQuote === 'function' && (
               <button type="button" className="btn btn-ghost btn-sm" onClick={onViewQuote} title="Open client-viewable project in new tab">
                 View Project
@@ -56,10 +58,10 @@ export default function QuoteHeader({
                 Copy Client Link
               </button>
             )}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={onAISuggest}>
+            {canModify && <button type="button" className="btn btn-ghost btn-sm" onClick={onAISuggest}>
               <span aria-hidden="true">✨</span> AI Suggest
-            </button>
-            <button
+            </button>}
+            {canModify && <button
               type="button"
               className="btn btn-ghost btn-sm"
               disabled={duplicating}
@@ -67,15 +69,15 @@ export default function QuoteHeader({
               title="Duplicate this project (same details and line items)"
             >
               {duplicating ? '…' : 'Duplicate'}
-            </button>
-            <button
+            </button>}
+            {canModify && <button
               type="button"
               className={`btn btn-ghost btn-sm ${styles.btnDanger}`}
               onClick={onDelete}
               title="Delete this project"
             >
               Delete
-            </button>
+            </button>}
           </div>
         </div>
       )}
@@ -85,8 +87,9 @@ export default function QuoteHeader({
           <button
             type="button"
             className={styles.titleButton}
-            onClick={onEdit}
-            title="Edit project details"
+            onClick={canModify ? onEdit : undefined}
+            title={canModify ? 'Edit project details' : quote.name}
+            disabled={!canModify}
           >
             {quote.name}
           </button>
@@ -118,7 +121,7 @@ export default function QuoteHeader({
         <span className={styles.metaTag} aria-label={`${itemCount} items`}>
           {itemCount} items
         </span>
-        <button
+        {canSeeMessages && <button
           type="button"
           className={`${styles.metaTag} ${styles.metaTagLink}`}
           onClick={() => navigate(`/messages?quote=${quote.id}`)}
@@ -126,7 +129,7 @@ export default function QuoteHeader({
           aria-label="View client messages"
         >
           <span aria-hidden="true">✉</span> Messages
-        </button>
+        </button>}
         {expiresAt && (
           <span
             className={`${styles.metaTag} ${isExpired ? styles.metaTagExpired : expiringSoon ? styles.metaTagExpiringSoon : ''}`}
@@ -146,9 +149,9 @@ export default function QuoteHeader({
             This project expired on {expiresAt}. The client can no longer view or approve it.
           </span>
           <div className={styles.unsignedActions}>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit}>
+            {canModify && <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit}>
               Update expiration
-            </button>
+            </button>}
           </div>
         </div>
       )}
@@ -160,9 +163,9 @@ export default function QuoteHeader({
             Changes were made after this project was signed. Send the updated contract to the client for re-approval.
           </span>
           <div className={styles.unsignedActions}>
-            <button type="button" className="btn btn-primary btn-sm" onClick={onSend}>
+            {canModify && <button type="button" className="btn btn-primary btn-sm" onClick={onSend}>
               Send for re-approval
-            </button>
+            </button>}
             {typeof onDismissUnsignedChanges === 'function' && (
               <button type="button" className="btn btn-ghost btn-sm" onClick={onDismissUnsignedChanges}>
                 Dismiss

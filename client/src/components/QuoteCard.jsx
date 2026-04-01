@@ -1,12 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-function showRemainingBalance(quote) {
-  if (quote.has_unsigned_changes && quote.signed_quote_total != null) return true;
-  const s = quote.status || 'draft';
-  return s === 'approved' || s === 'confirmed' || s === 'closed';
-}
-
 function ConflictIcon() {
   return (
     <span role="img" title="Inventory conflict" aria-label="Inventory conflict" className="shrink-0">
@@ -47,8 +41,9 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
   const remaining = quote.has_unsigned_changes && quote.signed_remaining_balance != null
     ? quote.signed_remaining_balance
     : (quote.remaining_balance != null ? quote.remaining_balance : (hasTotal ? contractTotal - (quote.amount_paid || 0) : null));
-  const overpaid = remaining < 0;
-  const showBalance = showRemainingBalance(quote);
+  const normalizedDisplayTotal = Number(displayTotal ?? 0);
+  const normalizedRemaining = Number(remaining ?? 0);
+  const overpaid = normalizedRemaining < 0;
 
   function getBorderKey() {
     if (hasConflict || quote.has_unsigned_changes) return 'conflict';
@@ -80,83 +75,91 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
 
   return (
     <div
-      className={`bg-bg border border-border border-l-4 ${borderClass} rounded overflow-hidden transition-shadow duration-200 hover:shadow-md relative ${selectable ? 'cursor-pointer select-none' : ''} ${selectable && selected ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+      className={`bg-bg border border-border border-l-4 ${borderClass} rounded overflow-hidden transition-shadow duration-200 hover:shadow-md relative h-full flex flex-col ${selectable ? 'cursor-pointer select-none' : ''} ${selectable && selected ? 'ring-2 ring-primary ring-offset-1' : ''}`}
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
       onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleCardClick()}
     >
-      {selectable && (
-        <div className="absolute top-3 right-3 z-10" onClick={e => e.stopPropagation()}>
-          <input
-            type="checkbox"
-            checked={!!selected}
-            onChange={() => onToggleSelect?.(quote.id)}
-            aria-label={`Select ${quote.name}`}
-            className="w-4 h-4 accent-primary cursor-pointer"
-          />
+      <div className="flex flex-col flex-1">
+        <div className="px-4 pt-3.5 pb-2">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+              {(hasConflict || quote.has_unsigned_changes) && <ConflictIcon />}
+              <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wide ${statusClass}`}>
+                {statusDisplay(quote.status)}
+              </span>
+            </div>
+            {selectable && (
+              <div className="shrink-0" onClick={e => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={!!selected}
+                  onChange={() => onToggleSelect?.(quote.id)}
+                  aria-label={`Select ${quote.name}`}
+                  className="w-4 h-4 accent-primary cursor-pointer"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <h3 className="text-[14px] font-semibold text-text-base leading-snug whitespace-normal break-words [overflow-wrap:anywhere]">
+              {quote.name}
+            </h3>
+            {date && <span className="text-[12px] text-text-muted">{date}</span>}
+          </div>
         </div>
-      )}
 
-      {/* Header */}
-      <div className="flex items-start gap-2 px-4 pt-3.5 pb-2 flex-wrap">
-        {(hasConflict || quote.has_unsigned_changes) && <ConflictIcon />}
-        <h3 className="text-[14px] font-semibold text-text-base leading-snug flex-1 min-w-0 pr-2 truncate">{quote.name}</h3>
-        <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wide ${statusClass}`}>
-          {statusDisplay(quote.status)}
-        </span>
-        {date && <span className="w-full text-[12px] text-text-muted">{date}</span>}
-      </div>
-
-      {/* Meta */}
-      <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3">
-        {clientName && <span className="text-[12.5px] font-medium text-text-base mr-1">{clientName}</span>}
-        {quote.guest_count > 0 && (
+        {/* Meta */}
+        <div className="flex flex-wrap items-center content-start gap-1.5 px-4 pb-3">
+          {clientName && <span className="text-[12.5px] font-medium text-text-base mr-1 break-words [overflow-wrap:anywhere]">{clientName}</span>}
+          {quote.guest_count > 0 && (
+            <span className="text-[11px] text-text-muted bg-surface px-1.5 py-0.5 rounded-full">
+              <span aria-hidden="true">👥</span> {quote.guest_count}
+            </span>
+          )}
           <span className="text-[11px] text-text-muted bg-surface px-1.5 py-0.5 rounded-full">
-            <span aria-hidden="true">👥</span> {quote.guest_count}
+            <span aria-hidden="true">🕒</span> {new Date(quote.created_at).toLocaleDateString()}
           </span>
-        )}
-        <span className="text-[11px] text-text-muted bg-surface px-1.5 py-0.5 rounded-full">
-          <span aria-hidden="true">🕒</span> {new Date(quote.created_at).toLocaleDateString()}
-        </span>
-        {expiresAt && (
-          <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${
-            isExpired ? 'bg-danger-subtle text-danger-strong' : expiringSoon ? 'bg-warning-subtle text-warning-strong' : 'bg-surface text-text-muted'
-          }`}>
-            <span aria-hidden="true">⏱</span> {isExpired ? 'Expired' : 'Expires'} {expiresAt}
-          </span>
-        )}
-        {showBalance && overpaid && (
-          <span className="text-[11px] bg-success-subtle text-success-strong px-1.5 py-0.5 rounded-full font-semibold">Overpaid</span>
-        )}
-      </div>
+          {expiresAt && (
+            <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${
+              isExpired ? 'bg-danger-subtle text-danger-strong' : expiringSoon ? 'bg-warning-subtle text-warning-strong' : 'bg-surface text-text-muted'
+            }`}>
+              <span aria-hidden="true">⏱</span> {isExpired ? 'Expired' : 'Expires'} {expiresAt}
+            </span>
+          )}
+          {overpaid && (
+            <span className="text-[11px] bg-success-subtle text-success-strong px-1.5 py-0.5 rounded-full font-semibold">Overpaid</span>
+          )}
+        </div>
 
-      {/* Totals */}
-      {displayTotal != null && displayTotal > 0 && (
+        {/* Totals */}
         <div className="px-4 py-2.5 bg-surface/60 border-t border-border text-[12.5px]">
           <div className="flex items-center justify-between">
             <span className="text-text-muted">{quote.has_unsigned_changes && quote.signed_quote_total != null ? 'Signed total' : 'Project total'}</span>
-            <span className="font-semibold text-text-base">${Number(displayTotal).toFixed(2)}</span>
+            <span className="font-semibold text-text-base">${normalizedDisplayTotal.toFixed(2)}</span>
           </div>
-          {showBalance && (
-            <div className={`flex items-center justify-between mt-0.5 ${overpaid ? 'text-success-strong' : 'text-text-muted'}`}>
-              <span>{overpaid ? 'Overpaid' : 'Remaining balance'}</span>
-              <strong>${Math.abs(remaining).toFixed(2)}{overpaid ? ' (refund due)' : ''}</strong>
-            </div>
-          )}
+          <div className={`flex items-center justify-between mt-0.5 ${overpaid ? 'text-success-strong' : 'text-text-muted'}`}>
+            <span>{overpaid ? 'Overpaid' : 'Remaining balance'}</span>
+            <strong>${Math.abs(normalizedRemaining).toFixed(2)}{overpaid ? ' (refund due)' : ''}</strong>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1.5 px-3 py-2.5 border-t border-border flex-wrap" onClick={e => e.stopPropagation()}>
-        <button type="button" className="btn btn-primary btn-sm" onClick={handleOpen}>Open →</button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); navigate(`/quotes/${quote.id}`, { state: { autoEdit: true } }); }}>Edit</button>
+      <div
+        className={`grid gap-1.5 px-3 py-2.5 border-t border-border mt-auto ${onDuplicate ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}
+        onClick={e => e.stopPropagation()}
+      >
+        <button type="button" className="btn btn-primary btn-sm min-h-[44px] justify-center w-full" onClick={handleOpen}>Open</button>
+        <button type="button" className="btn btn-ghost btn-sm min-h-[44px] justify-center w-full" onClick={e => { e.stopPropagation(); navigate(`/quotes/${quote.id}`, { state: { autoEdit: true } }); }}>Edit</button>
         {onDuplicate && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); onDuplicate(quote); }}>Duplicate</button>
+          <button type="button" className="btn btn-ghost btn-sm min-h-[44px] justify-center w-full" onClick={e => { e.stopPropagation(); onDuplicate(quote); }}>Duplicate</button>
         )}
         <button
           type="button"
-          className="btn btn-ghost btn-sm ml-auto"
+          className="btn btn-ghost btn-sm min-h-[44px] justify-center w-full"
           style={{ color: 'var(--color-danger)' }}
           onClick={e => { e.stopPropagation(); onDelete(quote); }}
         >Delete</button>

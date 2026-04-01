@@ -1,35 +1,49 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import React, { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate, useLocation, useOutletContext } from 'react-router-dom';
 import { useNavigationBlocker } from '../hooks/useNavigationBlocker.js';
 import { useQuoteDetail } from '../hooks/useQuoteDetail.js';
 import { api } from '../api.js';
 import QuoteBuilder from '../components/QuoteBuilder.jsx';
 import QuoteExport from '../components/QuoteExport.jsx';
 import QuoteHeader from '../components/QuoteHeader.jsx';
-import AISuggestModal from '../components/AISuggestModal.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
-import AddressMapModal from '../components/AddressMapModal.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { computeTotals } from '../lib/quoteTotals.js';
-import QuoteFilePicker from '../components/QuoteFilePicker.jsx';
 import ImagePicker from '../components/ImagePicker.jsx';
-import QuoteSendModal from '../components/QuoteSendModal.jsx';
-import RenameLogisticsModal from '../components/features/logistics/RenameLogisticsModal.jsx';
 import MessageBody from '../components/messages/MessageBody.jsx';
-import QuoteBillingPanel from './quote-detail/QuoteBillingPanel.jsx';
-import QuoteFilesPanel from './quote-detail/QuoteFilesPanel.jsx';
-import QuoteLogsPanel from './quote-detail/QuoteLogsPanel.jsx';
-import ItemDetailDrawer from '../components/ItemDetailDrawer.jsx';
-import ImageLightbox from '../components/ImageLightbox.jsx';
+import { hasPermission } from '../lib/permissions.js';
 import styles from './QuoteDetailPage.module.css';
 
+const AISuggestModal = lazy(() => import('../components/AISuggestModal.jsx'));
+const AddressMapModal = lazy(() => import('../components/AddressMapModal.jsx'));
+const QuoteFilePicker = lazy(() => import('../components/QuoteFilePicker.jsx'));
+const QuoteSendModal = lazy(() => import('../components/QuoteSendModal.jsx'));
+const RenameLogisticsModal = lazy(() => import('../components/features/logistics/RenameLogisticsModal.jsx'));
+const QuoteBillingPanel = lazy(() => import('./quote-detail/QuoteBillingPanel.jsx'));
+const QuoteFilesPanel = lazy(() => import('./quote-detail/QuoteFilesPanel.jsx'));
+const QuoteLogsPanel = lazy(() => import('./quote-detail/QuoteLogsPanel.jsx'));
+const QuoteFulfillmentPanel = lazy(() => import('./quote-detail/QuoteFulfillmentPanel.jsx'));
+const ItemDetailDrawer = lazy(() => import('../components/ItemDetailDrawer.jsx'));
+const ImageLightbox = lazy(() => import('../components/ImageLightbox.jsx'));
+
 const isLogistics = (item) => (item.category || '').toLowerCase().includes('logistics');
+
+function DeferredPanelFallback({ label = 'Loading…' }) {
+  return (
+    <div className="card" style={{ padding: 20, minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+      <span className="spinner" aria-hidden="true" />
+      <span className={styles.notes}>{label}</span>
+    </div>
+  );
+}
 
 
 export default function QuoteDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const outletContext = useOutletContext() || {};
+  const authUser = outletContext.authUser || null;
   const toast = useToast();
 
   const controller = useQuoteDetail(id, { autoEdit: !!(location.state?.autoEdit) });
@@ -37,8 +51,10 @@ export default function QuoteDetailPage() {
   const { setQuote, setCustomItems, setAdjustments, setEditing, setForm } = controller;
   const eventTypes = String(settings.quote_event_types || '').split('\n').map((v) => v.trim()).filter(Boolean);
   const [showAI, setShowAI] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [venueEditing, setVenueEditing] = useState(false);
   const [clientEditing, setClientEditing] = useState(false);
+  const [notesEditing, setNotesEditing] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [pendingTransition, setPendingTransition] = useState(null); // { message, label, confirmClass, action }
@@ -54,7 +70,9 @@ export default function QuoteDetailPage() {
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customForm, setCustomForm] = useState({ title: '', unit_price: '', quantity: '1', taxable: true, photo_url: '' });
   // Contract (in edit-quote settings)
-  const [detailTab, setDetailTab] = useState('quote');
+  const [detailTab, setDetailTab] = useState(() => window.innerWidth <= 640 ? 'items' : 'quote');
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
+  const quoteExportRef = useRef(null);
   const [contract, setContract] = useState(null);
   const [contractBody, setContractBody] = useState('');
   const [contractSaving, setContractSaving] = useState(false);
@@ -75,6 +93,7 @@ export default function QuoteDetailPage() {
   const [showFilePicker, setShowFilePicker] = useState(false);
   // Logs tab
   const [activity, setActivity] = useState([]);
+  const [fulfillment, setFulfillment] = useState(null);
   // Availability
   // Adjustments
   // Quote messages (for sales team view)
@@ -105,6 +124,13 @@ export default function QuoteDetailPage() {
   const isDirty = controller.isDirty;
   const contractDirty = editing && contractBody !== (savedContractBody || '');
   const hasUnsavedChanges = isDirty || contractDirty;
+  const permissions = authUser?.permissions || {};
+  const canModifyQuote = hasPermission(permissions, 'projects', 'modify');
+  const canReadBilling = hasPermission(permissions, 'billing', 'read');
+  const canReadFiles = hasPermission(permissions, 'files', 'read');
+  const canReadMessages = hasPermission(permissions, 'messages', 'read');
+  const canModifyFulfillment = hasPermission(permissions, 'fulfillment', 'modify');
+  const canSeeFulfillment = canModifyFulfillment && ['confirmed', 'closed'].includes(String(quote?.status || 'draft'));
 
   // Warn on browser refresh / tab close
   useEffect(() => {
@@ -117,6 +143,10 @@ export default function QuoteDetailPage() {
   // Block in-app navigation when there are unsaved changes
   const blocker = useNavigationBlocker(hasUnsavedChanges);
 
+  useEffect(() => {
+    if (!canModifyQuote && editing) setEditing(false);
+  }, [canModifyQuote, editing, setEditing]);
+
   // ─────────────────────────────────────────────────────────────────────────
   const load = controller.load;
   useEffect(() => {
@@ -125,6 +155,42 @@ export default function QuoteDetailPage() {
     api.getQuoteContract(id).then(d => setContract(d.contract)).catch(() => {});
     api.getMessages({ quote_id: id }).then(d => setQuoteMessages((d.messages || []).slice().reverse())).catch(() => {});
   }, [id]);
+
+  useEffect(() => {
+    if (!quote) return;
+    const ids = [];
+    for (const it of quote.items || []) {
+      const p = it.photo_url;
+      if (p != null && /^\d+$/.test(String(p).trim())) ids.push(String(p).trim());
+    }
+    const cis = (customItems && customItems.length > 0 ? customItems : quote.customItems) || [];
+    for (const ci of cis) {
+      const p = ci.photo_url;
+      if (p != null && /^\d+$/.test(String(p).trim())) ids.push(String(p).trim());
+    }
+    for (const f of quoteFiles || []) {
+      if (f.file_id != null && /^\d+$/.test(String(f.file_id))) ids.push(String(f.file_id));
+    }
+    if (!ids.length) return;
+    api.prefetchFileServeUrls(ids).catch(() => {});
+  }, [quote, customItems, quoteFiles]);
+
+  useEffect(() => {
+    if (!quoteMessages.length) return;
+    const ids = [];
+    for (const m of quoteMessages) {
+      try {
+        const raw = typeof m.attachments_json === 'string' ? JSON.parse(m.attachments_json) : m.attachments_json;
+        if (Array.isArray(raw)) {
+          for (const a of raw) {
+            if (a && a.file_id != null && /^\d+$/.test(String(a.file_id))) ids.push(String(a.file_id));
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    if (!ids.length) return;
+    api.prefetchFileServeUrls(ids).catch(() => {});
+  }, [quoteMessages]);
 
   // Load contract, contract templates, payment policies, rental terms when editing
   useEffect(() => {
@@ -165,6 +231,11 @@ export default function QuoteDetailPage() {
     if (detailTab !== 'logs' || !id) return;
     api.getQuoteActivity(id).then(d => setActivity(d.activity || [])).catch(() => setActivity([]));
   }, [detailTab, id]);
+
+  useEffect(() => {
+    if (detailTab !== 'fulfillment' || !id || !canSeeFulfillment) return;
+    api.getQuoteFulfillment(id).then((data) => setFulfillment(data)).catch(() => setFulfillment(null));
+  }, [detailTab, id, canSeeFulfillment]);
 
   const handleSaveContract = async (e) => {
     e?.preventDefault();
@@ -446,6 +517,33 @@ export default function QuoteDetailPage() {
     }
   };
 
+  const handleNotesSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.updateQuote(id, {
+        notes: form.notes || null,
+        quote_notes: form.quote_notes || null,
+      });
+      toast.success('Notes saved');
+      setNotesEditing(false);
+      load();
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelNotesEdit = () => {
+    setForm(current => ({
+      ...current,
+      notes: quote?.notes || '',
+      quote_notes: quote?.quote_notes || '',
+    }));
+    setNotesEditing(false);
+  };
+
   const handleApprove = async () => {
     setTransitioning(true);
     try {
@@ -657,7 +755,7 @@ export default function QuoteDetailPage() {
 
   return (
     <div className={styles.page}>
-      {editing ? (
+      {editing && canModifyQuote ? (
         <div className={styles.topBar}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/quotes')}>
             ← Projects
@@ -676,69 +774,110 @@ export default function QuoteDetailPage() {
             </button>
             <div className={styles.tabsWrap}>
               <div className={styles.tabs}>
-                <button type="button" className={`${styles.tab} ${detailTab === 'quote' ? styles.tabActive : ''}`} onClick={() => setDetailTab('quote')}>Project</button>
-                <button type="button" className={`${styles.tab} ${detailTab === 'billing' ? styles.tabActive : ''}`} onClick={() => setDetailTab('billing')}>Billing</button>
-                <button type="button" className={`${styles.tab} ${detailTab === 'files' ? styles.tabActive : ''}`} onClick={() => setDetailTab('files')}>Files {quoteFiles.length > 0 ? `(${quoteFiles.length})` : ''}</button>
+                <button type="button" className={`${styles.tab} ${styles.mobileItemsTab} ${detailTab === 'items' ? styles.tabActive : ''}`} onClick={() => setDetailTab('items')}>Items{(quote.items || []).length > 0 ? ` (${(quote.items || []).length})` : ''}</button>
+                {canSeeFulfillment && <button type="button" className={`${styles.tab} ${detailTab === 'fulfillment' ? styles.tabActive : ''}`} onClick={() => setDetailTab('fulfillment')}>Fulfillment</button>}
+                {canReadBilling && <button type="button" className={`${styles.tab} ${detailTab === 'billing' ? styles.tabActive : ''}`} onClick={() => setDetailTab('billing')}>Billing</button>}
+                {canReadFiles && <button type="button" className={`${styles.tab} ${detailTab === 'files' ? styles.tabActive : ''}`} onClick={() => setDetailTab('files')}>Files {quoteFiles.length > 0 ? `(${quoteFiles.length})` : ''}</button>}
                 <button type="button" className={`${styles.tab} ${detailTab === 'logs' ? styles.tabActive : ''}`} onClick={() => setDetailTab('logs')}>Logs</button>
+                <button type="button" className={`${styles.tab} ${detailTab === 'quote' ? styles.tabActive : ''}`} onClick={() => setDetailTab('quote')}>Details</button>
               </div>
             </div>
           </div>
           <div className={styles.topDivActions}>
-            {(quote.status || 'draft') === 'sent' && (
+            {/* Status-specific primary actions — always visible */}
+            {canModifyQuote && (quote.status || 'draft') === 'sent' && (
               <button type="button" className="btn btn-primary btn-sm" disabled={transitioning} onClick={handleApprove}>
                 {transitioning ? 'Approving…' : 'Mark Approved'}
               </button>
             )}
-            {(quote.status || 'draft') === 'approved' && (
+            {canModifyQuote && (quote.status || 'draft') === 'approved' && (
               <button type="button" className="btn btn-primary btn-sm" disabled={transitioning} onClick={handleConfirm}>
                 {transitioning ? 'Confirming…' : 'Confirm Booking'}
               </button>
             )}
-            {(quote.status || 'draft') === 'confirmed' && (
+            {canModifyQuote && (quote.status || 'draft') === 'confirmed' && (
               <button type="button" className="btn btn-primary btn-sm" disabled={transitioning} onClick={handleClose}>
                 {transitioning ? 'Closing…' : 'Close Quote'}
               </button>
             )}
+            {/* Send — desktop always visible; on mobile it's in the Items tab */}
+            <button type="button" className={`btn btn-primary btn-sm ${styles.desktopAction}`} onClick={handleSendClick}>
+              Send to Client
+            </button>
+            {/* Secondary actions — desktop only */}
             {['sent', 'approved', 'confirmed'].includes(quote.status || 'draft') && (
-              <button type="button" className="btn btn-ghost btn-sm" disabled={transitioning} onClick={handleRevert}>
+              <button type="button" className={`btn btn-ghost btn-sm ${styles.desktopAction}`} disabled={transitioning} onClick={handleRevert}>
                 {transitioning ? 'Reverting…' : 'Revert to Draft'}
               </button>
             )}
-            <button type="button" className="btn btn-primary btn-sm" onClick={handleSendClick} title="Email quote link to client">
-              Send to Client
-            </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={handleViewQuote} title="Open client-viewable quote in new tab">
-              View Quote
-            </button>
+            <button type="button" className={`btn btn-ghost btn-sm ${styles.desktopAction}`} onClick={handleViewQuote}>View Quote</button>
             {quote.public_token && (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
+              <button type="button" className={`btn btn-ghost btn-sm ${styles.desktopAction}`} onClick={() => {
                 const url = `${window.location.origin}/quote/public/${quote.public_token}`;
                 navigator.clipboard.writeText(url);
                 toast.success('Client link copied to clipboard');
-              }}>
-                Copy Client Link
-              </button>
+              }}>Copy Client Link</button>
             )}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowAI(true)}>
+            <button type="button" className={`btn btn-ghost btn-sm ${styles.desktopAction}`} onClick={() => setShowAI(true)}>
               <span aria-hidden="true">✨</span> AI Suggest
             </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              disabled={duplicating}
-              onClick={handleDuplicateQuote}
-              title="Duplicate this quote (same details and line items)"
-            >
+            <button type="button" className={`btn btn-ghost btn-sm ${styles.desktopAction}`} disabled={duplicating} onClick={handleDuplicateQuote}>
               {duplicating ? 'Duplicating…' : 'Duplicate'}
             </button>
-            <button
-              type="button"
-              className={`btn btn-ghost btn-sm ${styles.btnDanger}`}
-              onClick={() => setShowConfirmDelete(true)}
-              title="Delete this quote"
-            >
+            <button type="button" className={`btn btn-ghost btn-sm ${styles.btnDanger} ${styles.desktopAction}`} onClick={() => setShowConfirmDelete(true)}>
               Delete
             </button>
+            {/* Mobile overflow menu — only visible on mobile */}
+            <div className={styles.mobileMenuWrap}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setMobileMenuOpen(v => !v)}
+                aria-label="More actions"
+                aria-expanded={mobileMenuOpen}
+              >
+                ⋮ More
+              </button>
+              {mobileMenuOpen && (
+                <>
+                  <div className={styles.mobileMenuBackdrop} onClick={() => setMobileMenuOpen(false)} />
+                  <div className={styles.mobileMenu} role="menu">
+                    {['sent', 'approved', 'confirmed'].includes(quote.status || 'draft') && (
+                      <button type="button" className={styles.mobileMenuItem} disabled={transitioning} onClick={() => { setMobileMenuOpen(false); handleRevert(); }}>
+                        {transitioning ? 'Reverting…' : 'Revert to Draft'}
+                      </button>
+                    )}
+                    <button type="button" className={styles.mobileMenuItem} onClick={() => { setMobileMenuOpen(false); handleViewQuote(); }}>View Quote</button>
+                    {quote.public_token && (
+                      <button type="button" className={styles.mobileMenuItem} onClick={() => {
+                        setMobileMenuOpen(false);
+                        const url = `${window.location.origin}/quote/public/${quote.public_token}`;
+                        navigator.clipboard.writeText(url);
+                        toast.success('Client link copied to clipboard');
+                      }}>Copy Client Link</button>
+                    )}
+                    {canReadMessages && <button type="button" className={styles.mobileMenuItem} onClick={() => { setMobileMenuOpen(false); setShowMessagesModal(true); }}>
+                      Messages {quoteMessages.length > 0 ? `(${quoteMessages.length})` : ''}
+                    </button>}
+                    <button type="button" className={styles.mobileMenuItem} onClick={() => { setMobileMenuOpen(false); quoteExportRef.current?.handleExport(); }}>
+                      Export as PNG
+                    </button>
+                    <button type="button" className={styles.mobileMenuItem} onClick={() => { setMobileMenuOpen(false); quoteExportRef.current?.handlePrint(); }}>
+                      Save as PDF
+                    </button>
+                    {canModifyQuote && <button type="button" className={styles.mobileMenuItem} onClick={() => { setMobileMenuOpen(false); setShowAI(true); }}>
+                      ✨ AI Suggest
+                    </button>}
+                    {canModifyQuote && <button type="button" className={styles.mobileMenuItem} disabled={duplicating} onClick={() => { setMobileMenuOpen(false); handleDuplicateQuote(); }}>
+                      {duplicating ? 'Duplicating…' : 'Duplicate'}
+                    </button>}
+                    {canModifyQuote && <button type="button" className={`${styles.mobileMenuItem} ${styles.mobileMenuItemDanger}`} onClick={() => { setMobileMenuOpen(false); setShowConfirmDelete(true); }}>
+                      Delete
+                    </button>}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -746,8 +885,10 @@ export default function QuoteDetailPage() {
         <QuoteHeader
           quote={quote}
           showTopRow={false}
-          onEdit={() => setEditing(true)}
+          onEdit={() => canModifyQuote && setEditing(true)}
           onSend={handleSendClick}
+          canModify={canModifyQuote}
+          canSeeMessages={canReadMessages}
           onDismissUnsignedChanges={async () => {
             try {
               await api.dismissUnsignedChanges(quote.id);
@@ -760,7 +901,7 @@ export default function QuoteDetailPage() {
         />
       )}
 
-      {editing ? (
+      {editing && canModifyQuote ? (
         <div className={`card ${styles.editCard}`}>
           <form onSubmit={handleSaveEdit} className={styles.form}>
             <div className={styles.formRow}>
@@ -808,8 +949,12 @@ export default function QuoteDetailPage() {
               </div>
             </div>
             <div className="form-group">
-              <label htmlFor="qdp-notes">Quote notes</label>
-              <textarea id="qdp-notes" rows={2} value={form.quote_notes || ''} onChange={e => setForm(f => ({ ...f, quote_notes: e.target.value }))} placeholder="Internal or client-facing notes for this quote" />
+              <label htmlFor="qdp-notes-ext">External notes <span className={styles.notesTag}>client visible</span></label>
+              <textarea id="qdp-notes-ext" rows={2} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Shown to the client on the public quote page…" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="qdp-notes-int">Internal notes <span className={styles.notesTag}>team only</span></label>
+              <textarea id="qdp-notes-int" rows={2} value={form.quote_notes || ''} onChange={e => setForm(f => ({ ...f, quote_notes: e.target.value }))} placeholder="Not visible to the client…" />
             </div>
             <div className={styles.formSection}>
               <h4 className={styles.formSectionTitle}>Quote Expiration</h4>
@@ -955,7 +1100,48 @@ export default function QuoteDetailPage() {
         <>
           {detailTab === 'quote' && (
         <>
-          {quote.quote_notes && <p className={styles.notes}><strong>Quote notes:</strong> {quote.quote_notes}</p>}
+          {/* Notes card — inline editable */}
+          <div className={styles.notesCard}>
+            {notesEditing ? (
+              <form onSubmit={handleNotesSave} className={styles.notesForm}>
+                <h4 className={styles.venueTitle}>Notes</h4>
+                <div className="form-group">
+                  <label htmlFor="qdn-external">External notes <span className={styles.notesTag}>client visible</span></label>
+                  <textarea id="qdn-external" rows={3} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Shown to the client on the public quote page…" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="qdn-internal">Internal notes <span className={styles.notesTag}>team only</span></label>
+                  <textarea id="qdn-internal" rows={3} value={form.quote_notes || ''} onChange={e => setForm(f => ({ ...f, quote_notes: e.target.value }))} placeholder="Not visible to the client…" />
+                </div>
+                <div className={styles.formActions}>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={handleCancelNotesEdit}>Cancel</button>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+                </div>
+              </form>
+            ) : (
+              <div role="button" tabIndex={0} className={styles.venueClickable} onClick={() => setNotesEditing(true)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setNotesEditing(true)}>
+                <h4 className={styles.venueTitle}>Notes</h4>
+                {(quote.notes || quote.quote_notes) ? (
+                  <div className={styles.notesView}>
+                    {quote.notes && (
+                      <div className={styles.notesViewItem}>
+                        <span className={styles.notesTag}>Client visible</span>
+                        <p className={styles.notesViewText}>{quote.notes}</p>
+                      </div>
+                    )}
+                    {quote.quote_notes && (
+                      <div className={styles.notesViewItem}>
+                        <span className={`${styles.notesTag} ${styles.notesTagInternal}`}>Team only</span>
+                        <p className={styles.notesViewText}>{quote.quote_notes}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className={styles.emptyHint}>Click to add notes</p>
+                )}
+              </div>
+            )}
+          </div>
           <div className={styles.clientVenueRow}>
             <div className={styles.clientBlock}>
               {clientEditing ? (
@@ -1040,6 +1226,7 @@ export default function QuoteDetailPage() {
             </div>
           </div>
 
+      <div className={styles.desktopOnlyBuilder}>
       <div className={styles.columns}>
         <div className={styles.builderCol}>
           <QuoteBuilder
@@ -1113,7 +1300,7 @@ export default function QuoteDetailPage() {
           <div className={styles.logisticsBlock}>
             <div className={styles.logisticsHeader}>
               <h4 className={styles.logisticsTitle}>Logistics / Delivery</h4>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setShowLogPicker(v => !v); setLogSearch(''); }}>
+              <button type="button" className={styles.logisticsAddBtn} onClick={() => { setShowLogPicker(v => !v); setLogSearch(''); }}>
                 {showLogPicker ? 'Cancel' : '+ Add item'}
               </button>
             </div>
@@ -1177,7 +1364,7 @@ export default function QuoteDetailPage() {
         <div className={styles.exportCol}>
           <div className={`card ${styles.exportCard}`}>
             <h3 className={styles.exportTitle}>Export</h3>
-            <QuoteExport quote={quote} settings={settings} totals={totals} customItems={customItems} visibleItems={visibleItems} />
+            <QuoteExport ref={quoteExportRef} quote={quote} settings={settings} totals={totals} customItems={customItems} visibleItems={visibleItems} />
           </div>
           <div className={`card ${styles.exportCard}`}>
             <h3 className={styles.exportTitle}>Messages</h3>
@@ -1341,73 +1528,284 @@ export default function QuoteDetailPage() {
           )}
         </div>
       </div>
+      </div>{/* end desktopOnlyBuilder */}
 
           </>)}
-          {detailTab === 'billing' && (
-            <QuoteBillingPanel
-              payments={payments}
-              quote={quote}
-              totals={totals}
-              contract={contract}
-              damageCharges={damageCharges}
-              showDamageForm={showDamageForm}
-              setShowDamageForm={setShowDamageForm}
-              damageForm={damageForm}
-              setDamageForm={setDamageForm}
-              damageSaving={damageSaving}
-              onOpenPaymentModal={() => {
-                const now = new Date();
-                const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                setPaymentForm(f => ({ ...f, paid_at: local }));
-                setShowPaymentModal(true);
-              }}
-              onDeletePayment={setPendingPaymentDelete}
-              onAddDamageCharge={handleAddDamageCharge}
-              onRemoveDamageCharge={handleRemoveDamageCharge}
-            />
+          {detailTab === 'items' && (
+            <>
+              <div className={styles.mobileItemsTotals}>
+                <div>
+                  <div className={styles.mobileTotalsLabel}>Grand total</div>
+                  <div className={styles.mobileTotalsAmount}>${totals.total.toFixed(2)}</div>
+                </div>
+                {canModifyQuote && <button type="button" className="btn btn-primary btn-sm" onClick={handleSendClick}>
+                  Send to Client
+                </button>}
+              </div>
+              {canModifyQuote ? <QuoteBuilder
+                quoteId={id}
+                items={quote.items}
+                sections={sections}
+                onItemsChange={load}
+                onAddCustomItem={() => setShowCustomForm(true)}
+                settings={settings}
+                availability={availability}
+                adjustments={adjustments}
+                onAdjustmentsChange={setAdjustments}
+                onOpenDrawer={(itemId) => setDrawerItemId(itemId)}
+                onOpenLightbox={(images, index) => { setLightboxImages(images); setLightboxIndex(index); }}
+              /> : (
+                <QuoteExport
+                  ref={quoteExportRef}
+                  quote={{ ...quote, sections }}
+                  settings={settings}
+                  totals={totals}
+                  customItems={customItems}
+                />
+              )}
+              {canModifyQuote && showCustomForm && (
+                <form onSubmit={handleAddCustomItem} className={styles.customItemForm}>
+                  <div className={styles.formRow}>
+                    <div className="form-group" style={{ flex: 2 }}>
+                      <label htmlFor="mci-name">Item name *</label>
+                      <input id="mci-name" required placeholder="Custom item name" value={customForm.title} onChange={e => setCustomForm(f => ({ ...f, title: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="mci-price">Price ($)</label>
+                      <input id="mci-price" type="number" min="0" step="0.01" placeholder="0.00" value={customForm.unit_price} onChange={e => setCustomForm(f => ({ ...f, unit_price: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="mci-qty">Qty</label>
+                      <input id="mci-qty" type="number" min="1" value={customForm.quantity} onChange={e => setCustomForm(f => ({ ...f, quantity: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className={styles.formActions}>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowCustomForm(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary btn-sm">Add item</button>
+                  </div>
+                </form>
+              )}
+              {canModifyQuote && customItems.length > 0 && (
+                <div className={styles.customItemsCompact}>
+                  <h4 className={styles.customItemsCompactTitle}>Custom items</h4>
+                  <ul className={styles.customItemsCompactList}>
+                    {customItems.map(ci => (
+                      <li key={ci.id} className={styles.customItemCompact}>
+                        <span>{ci.title} ×{ci.quantity || 1}</span>
+                        <span>${((ci.unit_price || 0) * (ci.quantity || 1)).toFixed(2)}</span>
+                        <button type="button" className={styles.logRemoveBtn} onClick={() => handleRemoveCustomItem(ci.id)} aria-label="Remove item">✕</button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {canModifyQuote && <div className={styles.logisticsBlock}>
+                <div className={styles.logisticsHeader}>
+                  <h4 className={styles.logisticsTitle}>Logistics / Delivery</h4>
+                  <button type="button" className={styles.logisticsAddBtn} onClick={() => { setShowLogPicker(v => !v); setLogSearch(''); }}>
+                    {showLogPicker ? 'Cancel' : '+ Add item'}
+                  </button>
+                </div>
+                {logisticsItems.length > 0 && (
+                  <ul className={styles.logisticsList}>
+                    {logisticsItems.map(it => (
+                      <li key={it.qitem_id} className={styles.logisticsItem}>
+                        <span className={styles.logisticsItemName}>{it.label || it.title} ×{it.quantity || 1}</span>
+                        {(it.unit_price_override != null ? it.unit_price_override : it.unit_price) > 0 && <span>${((it.unit_price_override != null ? it.unit_price_override : it.unit_price) * (it.quantity || 1)).toFixed(2)}</span>}
+                        <button type="button" className={styles.logRemoveBtn} onClick={() => handleRemoveLogisticsItem(it.qitem_id, it.label || it.title)} aria-label={`Remove ${it.label || it.title}`}>✕</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {logisticsItems.length === 0 && !showLogPicker && (
+                  <p className={styles.emptyHint}>No delivery items. Click "+ Add item" to add logistics-category items.</p>
+                )}
+                {showLogPicker && (
+                  <div className={styles.logPicker}>
+                    <input
+                      className={styles.logPickerSearch}
+                      aria-label="Search logistics items"
+                      placeholder="Search logistics items…"
+                      value={logSearch}
+                      onChange={e => setLogSearch(e.target.value)}
+                      autoFocus
+                    />
+                    {logItems.length === 0 ? (
+                      <p className={styles.emptyHint}>No items with "logistics" in their category found in inventory.</p>
+                    ) : (
+                      <div className={styles.logPickerList}>
+                        {logItems
+                          .filter(i => !logSearch || i.title.toLowerCase().includes(logSearch.toLowerCase()))
+                          .map(item => (
+                            <div key={item.id} className={styles.logPickerRow}>
+                              <span className={styles.logPickerTitle}>{item.title}</span>
+                              {item.unit_price > 0 && <span className={styles.logPickerPrice}>${item.unit_price.toFixed(2)}</span>}
+                              <button type="button" className="btn btn-primary btn-sm" onClick={() => handleAddLogisticsItem(item)}>+ Add</button>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>}
+            </>
           )}
-          {detailTab === 'files' && (
-            <QuoteFilesPanel
-              quoteFiles={quoteFiles}
-              onDetach={handleDetachFile}
-              onOpenPicker={() => setShowFilePicker(true)}
-            />
+          {detailTab === 'fulfillment' && canSeeFulfillment && (
+            <Suspense fallback={<DeferredPanelFallback label="Loading fulfillment…" />}>
+              <QuoteFulfillmentPanel
+                fulfillment={fulfillment}
+                canModify={canModifyFulfillment}
+                onCheckIn={async (fulfillmentItemId, body) => {
+                  const data = await api.checkInFulfillmentItem(id, fulfillmentItemId, body);
+                  setFulfillment(data);
+                  toast.success('Items checked in');
+                }}
+                onAddNote={async (body) => {
+                  const data = await api.addFulfillmentNote(id, body);
+                  setFulfillment(data);
+                  toast.success('Fulfillment note added');
+                }}
+              />
+            </Suspense>
+          )}
+          {detailTab === 'billing' && canReadBilling && (
+            <Suspense fallback={<DeferredPanelFallback label="Loading billing…" />}>
+              <QuoteBillingPanel
+                payments={payments}
+                quote={quote}
+                totals={totals}
+                contract={contract}
+                damageCharges={damageCharges}
+                showDamageForm={showDamageForm}
+                setShowDamageForm={setShowDamageForm}
+                damageForm={damageForm}
+                setDamageForm={setDamageForm}
+                damageSaving={damageSaving}
+                onOpenPaymentModal={() => {
+                  const now = new Date();
+                  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                  setPaymentForm(f => ({ ...f, paid_at: local }));
+                  setShowPaymentModal(true);
+                }}
+                onDeletePayment={setPendingPaymentDelete}
+                onAddDamageCharge={handleAddDamageCharge}
+                onRemoveDamageCharge={handleRemoveDamageCharge}
+              />
+            </Suspense>
+          )}
+          {detailTab === 'files' && canReadFiles && (
+            <Suspense fallback={<DeferredPanelFallback label="Loading files…" />}>
+              <QuoteFilesPanel
+                quoteFiles={quoteFiles}
+                onDetach={handleDetachFile}
+                onOpenPicker={() => setShowFilePicker(true)}
+                canModify={canModifyQuote}
+              />
+            </Suspense>
           )}
           {detailTab === 'logs' && (
-            <QuoteLogsPanel activity={activity} />
+            <Suspense fallback={<DeferredPanelFallback label="Loading logs…" />}>
+              <QuoteLogsPanel activity={activity} />
+            </Suspense>
           )}
         </>
 
       )}
 
+      {showMessagesModal && canReadMessages && (
+        <div className={styles.messagesModalOverlay} onClick={() => setShowMessagesModal(false)}>
+          <div className={styles.messagesModalPanel} onClick={e => e.stopPropagation()}>
+            <div className={styles.messagesModalHeader}>
+              <h3 className={styles.messagesModalTitle}>Messages</h3>
+              <button type="button" className={styles.messagesModalClose} onClick={() => setShowMessagesModal(false)} aria-label="Close">✕</button>
+            </div>
+            <div className={styles.messagesModalBody}>
+              {quoteMessages.length > 0 ? (
+                <div className={styles.msgList}>
+                  {quoteMessages.map(m => (
+                    <div key={m.id} className={`${styles.msgBubble} ${m.direction === 'inbound' ? styles.msgIn : styles.msgOut}`}>
+                      <div className={styles.msgBubbleBody}><MessageBody msg={m} /></div>
+                      <div className={styles.msgBubbleMeta}>
+                        {m.direction === 'inbound' ? (m.from_email || 'Client') : 'You'}
+                        {' · '}
+                        {m.sent_at ? new Date(m.sent_at.replace(' ', 'T') + 'Z').toLocaleString() : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.msgEmpty}>No messages yet.</p>
+              )}
+            </div>
+            <form onSubmit={async e => {
+              e.preventDefault();
+              const links = msgLinks.split(/[\s,]+/).map(s => s.trim()).filter(Boolean).filter(u => /^https?:\/\//i.test(u));
+              if (!msgText.trim() && !links.length && !msgAttachments.length) return;
+              setMsgSending(true);
+              try {
+                const d = await api.sendQuoteMessage(id, {
+                  body_text: msgText.trim() || undefined,
+                  links: links.length ? links : undefined,
+                  attachments: msgAttachments.length ? msgAttachments : undefined,
+                });
+                setMsgText(''); setMsgLinks(''); setMsgAttachments([]);
+                setQuoteMessages((d.messages || []).slice().reverse());
+              } catch (err) {
+                toast.error('Failed to send message');
+              } finally {
+                setMsgSending(false);
+              }
+            }} className={styles.messagesModalForm}>
+              <textarea
+                className={styles.msgTextarea}
+                rows={2}
+                placeholder="Add a message or note…"
+                aria-label="Message or note"
+                value={msgText}
+                onChange={e => setMsgText(e.target.value)}
+              />
+              <button type="submit" className={`btn btn-primary btn-sm ${styles.messagesModalSend}`} disabled={msgSending}>
+                {msgSending ? 'Sending…' : 'Send'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showAI && (
-        <AISuggestModal
-          quoteId={id}
-          guestCount={quote.guest_count || 0}
-          currentItems={quote.items || []}
-          onAdd={handleAIAdd}
-          onClose={() => setShowAI(false)}
-        />
+        <Suspense fallback={<DeferredPanelFallback label="Loading AI tools…" />}>
+          <AISuggestModal
+            quoteId={id}
+            guestCount={quote.guest_count || 0}
+            currentItems={quote.items || []}
+            onAdd={handleAIAdd}
+            onClose={() => setShowAI(false)}
+          />
+        </Suspense>
       )}
 
       {showSendModal && (
-        <QuoteSendModal
-          quote={quote}
-          onClose={() => setShowSendModal(false)}
-          onSent={() => { setShowSendModal(false); load(); toast.success('Quote sent; client link ready.'); }}
-          onError={e => toast.error(e.message)}
-          classNames={styles}
-        />
+        <Suspense fallback={<DeferredPanelFallback label="Loading send dialog…" />}>
+          <QuoteSendModal
+            quote={quote}
+            onClose={() => setShowSendModal(false)}
+            onSent={() => { setShowSendModal(false); load(); toast.success('Quote sent; client link ready.'); }}
+            onError={e => toast.error(e.message)}
+            classNames={styles}
+          />
+        </Suspense>
       )}
 
       {renameLogistics && (
-        <RenameLogisticsModal
-          open
-          inventoryTitle={renameLogistics.title}
-          currentLabel={renameLogistics.label}
-          onClose={() => setRenameLogistics(null)}
-          onSave={handleSaveLogisticsRename}
-        />
+        <Suspense fallback={<DeferredPanelFallback label="Loading rename dialog…" />}>
+          <RenameLogisticsModal
+            open
+            inventoryTitle={renameLogistics.title}
+            currentLabel={renameLogistics.label}
+            onClose={() => setRenameLogistics(null)}
+            onSave={handleSaveLogisticsRename}
+          />
+        </Suspense>
       )}
 
       {showPaymentModal && (
@@ -1451,12 +1849,14 @@ export default function QuoteDetailPage() {
       )}
 
       {showFilePicker && (
-        <QuoteFilePicker
-          currentFileIds={quoteFiles.map(f => f.file_id)}
-          onSelect={handleAttachFile}
-          onClose={() => setShowFilePicker(false)}
-          classNames={styles}
-        />
+        <Suspense fallback={<DeferredPanelFallback label="Loading files…" />}>
+          <QuoteFilePicker
+            currentFileIds={quoteFiles.map(f => f.file_id)}
+            onSelect={handleAttachFile}
+            onClose={() => setShowFilePicker(false)}
+            classNames={styles}
+          />
+        </Suspense>
       )}
 
       {showCancelConfirm && (
@@ -1520,31 +1920,38 @@ export default function QuoteDetailPage() {
       )}
 
       {addressModalData != null && (
-        <AddressMapModal
-          address={addressModalData.address}
-          companyAddress={addressModalData.companyAddress}
-          mapboxToken={addressModalData.mapboxToken}
-          defaultMapStyle={addressModalData.defaultMapStyle || 'map'}
-          onClose={() => setAddressModalData(null)}
-        />
+        <Suspense fallback={<DeferredPanelFallback label="Loading map…" />}>
+          <AddressMapModal
+            address={addressModalData.address}
+            companyAddress={addressModalData.companyAddress}
+            mapboxToken={addressModalData.mapboxToken}
+            defaultMapStyle={addressModalData.defaultMapStyle || 'map'}
+            onClose={() => setAddressModalData(null)}
+          />
+        </Suspense>
       )}
 
       {drawerItemId != null && (
-        <ItemDetailDrawer
-          itemId={drawerItemId}
-          onClose={() => setDrawerItemId(null)}
-          onItemUpdated={() => load()}
-        />
+        <Suspense fallback={<DeferredPanelFallback label="Loading item details…" />}>
+          <ItemDetailDrawer
+            itemId={drawerItemId}
+            onClose={() => setDrawerItemId(null)}
+            onItemUpdated={() => load()}
+          />
+        </Suspense>
       )}
 
       {lightboxImages.length > 0 && (
-        <ImageLightbox
-          images={lightboxImages}
-          index={lightboxIndex}
-          onClose={() => setLightboxImages([])}
-          onNavigate={setLightboxIndex}
-        />
+        <Suspense fallback={<DeferredPanelFallback label="Loading gallery…" />}>
+          <ImageLightbox
+            images={lightboxImages}
+            index={lightboxIndex}
+            onClose={() => setLightboxImages([])}
+            onNavigate={setLightboxIndex}
+          />
+        </Suspense>
       )}
+
     </div>
   );
 }

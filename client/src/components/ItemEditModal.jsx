@@ -42,6 +42,11 @@ export default function ItemEditModal({ itemId, onClose, onSaved }) {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
+    const p = item?.photo_url;
+    if (!p || !/^\d+$/.test(String(p).trim())) return;
+    api.prefetchFileServeUrls([String(p).trim()]).catch(() => {});
+  }, [item?.photo_url]);
+  useEffect(() => {
     api.getCategories().then(d => setCategories(d.categories || [])).catch(() => {});
     api.getVendors().then(d => setVendors(d.vendors || [])).catch(() => {});
   }, []);
@@ -91,7 +96,7 @@ export default function ItemEditModal({ itemId, onClose, onSaved }) {
                 <div className={styles.imgWrapper}>
                   {item.photo_url && !imgError ? (
                     <img
-                      src={api.proxyImageUrl(item.photo_url)}
+                      src={api.proxyImageUrl(item.photo_url, { variant: 'ui' })}
                       alt={item.title}
                       className={styles.img}
                       onError={() => setImgError(true)}

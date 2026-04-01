@@ -29,6 +29,7 @@ function getCurrentUserId() {
 
 function UsersTab({ currentUserId }) {
   const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [filterTab, setFilterTab] = useState('all');
   const [error, setError] = useState('');
 
@@ -42,8 +43,12 @@ function UsersTab({ currentUserId }) {
 
   const loadUsers = useCallback(async () => {
     try {
-      const data = await api.admin.getUsers();
+      const [data, rolesData] = await Promise.all([
+        api.admin.getUsers(),
+        api.admin.getRoles().catch(() => ({ roles: [] })),
+      ]);
       setUsers(data);
+      setRoles(rolesData.roles || []);
     } catch (e) {
       setError(e.message);
     }
@@ -163,9 +168,9 @@ function UsersTab({ currentUserId }) {
                         onChange={e => handleRoleChange(u.id, e.target.value)}
                         aria-label={`Role for ${u.email}`}
                       >
-                        <option value="admin">Admin</option>
-                        <option value="operator">Operator</option>
-                        <option value="user">User</option>
+                        {roles.map((role) => (
+                          <option key={role.key} value={role.key}>{role.name}</option>
+                        ))}
                       </select>
                     </td>
                     <td>
@@ -202,6 +207,136 @@ function UsersTab({ currentUserId }) {
         </div>
       </div>
     </>
+  );
+}
+
+function RolesTab() {
+  const [roles, setRoles] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [error, setError] = useState('');
+  const [createForm, setCreateForm] = useState({ key: '', name: '', description: '' });
+  const [savingKey, setSavingKey] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      const data = await api.admin.getRoles();
+      setRoles(data.roles || []);
+      setModules(data.modules || []);
+    } catch (e) {
+      setError(e.message);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setError('');
+    try {
+      await api.admin.createRole({
+        key: createForm.key,
+        name: createForm.name,
+        description: createForm.description,
+      });
+      setCreateForm({ key: '', name: '', description: '' });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function setPermission(role, moduleKey, accessLevel) {
+    setSavingKey(`${role.key}:${moduleKey}`);
+    setError('');
+    try {
+      await api.admin.updateRolePermissions(role.key, {
+        ...role.permissions,
+        [moduleKey]: accessLevel,
+      });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSavingKey('');
+    }
+  }
+
+  return (
+    <div className={styles.systemPane}>
+      {error && <div role="alert" style={{ color: 'var(--color-danger)', fontSize: 13 }}>{error}</div>}
+
+      <div className="card" style={{ padding: '20px 24px' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Create role</div>
+        <form className={styles.createForm} onSubmit={handleCreate}>
+          <label>
+            Role key
+            <input value={createForm.key} onChange={e => setCreateForm((f) => ({ ...f, key: e.target.value }))} placeholder="event-worker" required />
+          </label>
+          <label>
+            Role name
+            <input value={createForm.name} onChange={e => setCreateForm((f) => ({ ...f, name: e.target.value }))} placeholder="Event Worker" required />
+          </label>
+          <label style={{ gridColumn: '1 / -1' }}>
+            Description
+            <input value={createForm.description} onChange={e => setCreateForm((f) => ({ ...f, description: e.target.value }))} placeholder="Optional internal description" />
+          </label>
+          <button className="btn btn-primary" type="submit">Create role</button>
+        </form>
+      </div>
+
+      <div className="card" style={{ padding: '20px 24px' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>Role permissions</div>
+        <div style={{ display: 'grid', gap: 18 }}>
+          {roles.map((role) => (
+            <section key={role.key} style={{ border: '1px solid var(--color-border)', borderRadius: 14, padding: 16, background: 'var(--color-surface)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', marginBottom: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 700 }}>{role.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>@{role.key}{role.description ? ` • ${role.description}` : ''}</div>
+                </div>
+                {Number(role.is_system || 0) === 1 && <span className={styles.badgeApproved}>System role</span>}
+              </div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {modules.map((module) => (
+                  <div key={module.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) auto', gap: 12, alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{module.label}</div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{module.key}</div>
+                    </div>
+                    <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                      {['none', 'read', 'modify'].map((level) => {
+                        const active = (role.permissions?.[module.key] || 'none') === level;
+                        return (
+                          <button
+                            key={level}
+                            type="button"
+                            onClick={() => setPermission(role, module.key, level)}
+                            disabled={savingKey === `${role.key}:${module.key}`}
+                            title={`${module.label}: ${level}`}
+                            aria-label={`${role.name} ${module.label} ${level}`}
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 999,
+                              border: active ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                              background: active ? 'color-mix(in srgb, var(--color-primary) 14%, var(--color-surface))' : 'var(--color-bg)',
+                              color: active ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {level === 'none' ? 'N' : level === 'read' ? 'R' : 'M'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -432,6 +567,7 @@ function DatabaseTab() {
 
 const TABS = [
   { key: 'users',    label: 'Users' },
+  { key: 'roles',    label: 'Roles' },
   { key: 'system',  label: 'System' },
   { key: 'database', label: 'Database' },
 ];
@@ -482,6 +618,7 @@ export default function AdminPage() {
       </div>
 
       {tab === 'users'    && <UsersTab currentUserId={currentUserId} />}
+      {tab === 'roles'    && <RolesTab />}
       {tab === 'system'   && <SystemTab />}
       {tab === 'database' && <DatabaseTab />}
     </div>

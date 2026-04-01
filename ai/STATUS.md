@@ -1,7 +1,77 @@
 # STATUS
 
-## In Progress / Latest Implementation Notes (2026-03-27)
+## In Progress / Latest Implementation Notes (2026-03-31)
 
+- Fulfillment and permissions framework landed:
+  - new `roles` and `role_permissions` tables back a module-level `none/read/modify` permission model
+  - built-in seeded roles now include `worker`
+  - `GET /api/auth/me` now returns effective permissions for the current user
+  - client route guards and sidebar visibility now use those permissions instead of only hardcoded roles
+  - first enforcement pass is live across quotes/projects, files, messages, billing, inventory, settings, maps, directory, dashboard, and admin route/page entry points
+  - Admin page now has a first-pass Roles tab for creating custom roles and editing permissions with circle selectors
+- Fulfillment domain framework landed:
+  - new tables: `quote_fulfillment_items`, `quote_fulfillment_notes`, `quote_fulfillment_events`
+  - confirming a project now creates/syncs fulfillment rows from its quote items
+  - outstanding fulfillment quantities remain reserved against inventory until manually checked in, even after project close
+  - new project detail fulfillment API:
+    - `GET /api/quotes/:id/fulfillment`
+    - `POST /api/quotes/:id/fulfillment/items/:fulfillmentItemId/check-in`
+    - `POST /api/quotes/:id/fulfillment/notes`
+  - project detail now has a first-pass Fulfillment tab for confirmed/closed projects
+  - worker users can now:
+    - view projects
+    - view files
+    - check items in
+    - add internal fulfillment notes
+  - worker users cannot modify commercial quote data through the main quote-edit actions
+
+- User profile system landed:
+  - `users` now support `first_name`, `last_name`, `phone`, `photo_url`, and `bio`
+  - `users` now also support distinct `username` and `display_name` fields
+  - first + last name are now the primary human identity across the app
+  - `username` and `display_name` are auto-generated from the user’s name (with email fallback and unique username suffixing when needed)
+  - `/api/auth/me` now returns the full current-user profile instead of only id/email/role
+  - new `PUT /api/auth/me` lets each authenticated user update first name, last name, phone, email, photo, and bio
+  - profile updates now issue a fresh JWT so email changes stay aligned with auth state
+  - new protected `/profile` page lets users edit their system profile and upload a profile photo through the existing file pipeline
+  - sidebar now exposes `Profile` directly for all authenticated users
+  - team roster cards now use profile names/photos/bios/phone details and show generated usernames instead of remaining strictly email-only
+- Team workspace landed:
+  - new protected `/api/team` endpoint returns approved admin/operator staff with live presence, YTD sales totals, quote counts, and recent projects
+  - new protected `/team` page renders a responsive team roster with online status, last seen, current focus, sales totals, and recent quote links
+  - `Directory` now links to `Team`, and `Team` now appears under the `Directory` nav group
+  - presence is no longer in-memory only; `user_presence` now persists `last_seen_at`, `current_path`, and `current_label`
+  - app layout now sends a presence heartbeat every 60 seconds so “last seen” stays current even without route changes
+- Image upload compression pipeline landed for new uploads:
+  - server now uses `sharp` for image uploads instead of storing raw originals only
+  - new image uploads are auto-rotated, stripped, converted to aggressive WebP, and can optionally generate AVIF mirrors
+  - image files now persist `thumb`, `ui`, and `large` variants in `file_variants`
+  - `/api/files/:id/serve` now serves optimized image variants, preferring AVIF when enabled and accepted, and defaults to the `ui` variant
+  - existing legacy image uploads remain untouched; only new uploads enter the variant pipeline
+  - Settings now include `image_webp_quality` and `image_avif_enabled`, plus a live server-generated compression preview
+  - high-density image UI surfaces now explicitly request smaller variants instead of always pulling the default image asset
+- Sales Pipeline Analytics dashboard landed:
+  - new authenticated backend endpoint at `/api/sales/analytics`
+  - pipeline analytics now derive from quotes/contracts/totals with month-level normalization for `quoteSent`, `contractSigned`, and `lost`
+  - dashboard UI was rebuilt into a dedicated feature with service, query hook, view-model hook, Recharts area chart, KPI sections, and a collapsible filter rail
+  - filters now support instant date/status/staff changes with React Query-backed optimistic retention of prior data during refetch
+  - chart hover now drives a persistent monthly breakdown panel instead of only a transient tooltip
+  - dashboard loading uses skeletons and explicit empty states
+  - first redesign correction has landed: the dashboard/chart shell now uses theme tokens instead of hardcoded navy panels, so it is readable across the supported app themes
+- Maps workspace landed:
+  - new authenticated `/api/maps/quotes` backend endpoint returns map-ready quote pins
+  - new protected `/maps` page renders a 2D Mapbox world with clustered pins and direct project links
+  - pin classification is now:
+    - `quote` for draft/sent
+    - `booked` for approved/confirmed
+    - `closed` for closed projects
+  - pins use `venue_address` first and fall back to `client_address`
+  - quote records now persist map cache fields (`map_address_source`, `map_address_text`, `map_lat`, `map_lng`, `map_geocoded_at`, `map_geocode_status`)
+  - quote create/update now refresh that map cache, and older quotes lazily geocode on the first maps-page request
+  - main sidebar navigation was reordered so `Maps` sits below `Projects`, `Messages` sits above `Inventory`, `Inventory` sits below `Directory`, `Billing` is now a standalone nav item below `Files`, and `Extension` now lives under `Settings`
+- Quote ownership for analytics landed:
+  - `quotes.created_by` now stores the creating staff user when projects are created through the main quote flow
+  - this powers the new staff filter in sales analytics and prepares future drill-down/reporting surfaces
 - Quote items now support multiple titled sections with per-section rental dates.
 - Project create/edit now supports settings-driven event types.
 - Project title can optionally auto-append the project city from settings.
@@ -20,6 +90,79 @@
 - Audit follow-up reliability fixes landed: AI suggest catch now returns its fallback response, email poller/quote aggregation failures now log instead of failing silently, process-level exception handlers are registered, `.env.example` matches the current local server port/runtime overrides, and quote conflict-load failures now preserve previous state with explicit logging.
 - The remaining audit-hit hardcoded status/action colors in client CSS modules were replaced with theme-aware semantic tokens in `theme.css`, so those modules now follow the active theme instead of baking in blue/green/red hex values.
 - Inventory card overlay actions are now keyboard-reachable: focusing the card reveals the action tray, the tray is grouped/labeled for assistive tech, and action buttons have visible focus states instead of being hover-only.
+- Projects page performance pass landed:
+  - `GET /api/quotes` now supports server pagination and server sort params (`page`, `limit`, `sort_by`, `sort_dir`).
+  - Default project-list loads paginate in SQL before totals work.
+  - Quote totals, payments, and signed-contract balance metadata for the visible page are now batched instead of computed through per-quote N+1 reads.
+  - The projects page now requests paged results and renders server-backed pagination instead of loading the full quote list and sorting entirely in the browser.
+- Quote detail performance pass landed:
+  - `QuoteDetailPage` now lazy-loads non-primary tabs and modal-only tools instead of parsing them on first open.
+  - Extracted chunks now include billing, files, logs, AI suggest, send modal, map modal, file picker, logistics rename, item drawer, and image lightbox.
+  - Built `QuoteDetailPage` JS dropped from about `347.20 KiB` to `313.13 KiB`.
+- Shared client request performance hardening landed:
+  - `client/src/api.js` now supports opt-in abortable and deduped requests.
+  - Quote list, inventory list, leads list, lead suggestions/events, and billing history now cancel stale reads instead of allowing older responses to race in.
+  - This reduces wasted fetches and stale UI updates during rapid typing/navigation.
+- App bootstrap performance hardening landed:
+  - `AuthGate` now renders the shared `PageSpinner` while auth state is loading instead of returning `null` and showing a blank screen.
+  - Auth bootstrap now keys off auth-relevant state instead of rerunning on ordinary in-app route changes, and unauthenticated auth-route visits short-circuit earlier.
+  - This reduces perceived startup blankness and avoids redundant auth bootstrap work during navigation.
+- Route-prefetch performance hardening landed:
+  - Background route warming now checks device/network budget before spending bandwidth or parse time.
+  - Sessions with `saveData`, slow connections, low memory/CPU, or hidden tabs now skip background warming.
+  - Warmed routes are now smaller and context-aware by current page, while explicit hover/focus prefetch still handles clear user intent.
+- Public quote route splitting landed:
+  - `PublicQuotePage` now lazy-loads the contract view and item detail modal.
+  - Built public-quote route JS dropped from about `81 KiB` to `36.46 KiB`.
+  - The section-heavy contract presentation now lives in a separate `PublicQuoteContractView` chunk, so standard client-view loads parse substantially less JS up front.
+- Heavy-list client render caps landed:
+  - Inventory now uses real windowed rendering for large card sets through `VirtualGrid`.
+  - Files page now uses real windowed rendering for large tile and list views through `VirtualGrid` / `VirtualList`.
+  - Billing history still uses bounded paging rather than full virtualization.
+  - This removes the highest-risk DOM-heavy inventory/file surfaces without forcing a larger sortable-table rewrite into the same pass.
+- Quote-builder row memoization landed:
+  - Quote line items now render through a memoized row component instead of rebuilding the full inline row tree on every local panel state change.
+  - Row updates are now narrower for price editing, discount editing, qty edits, drag-over state, and new-item highlight state.
+  - This reduces avoidable sibling rerenders in the heaviest quote-edit surface.
+- Search debounce normalization landed:
+  - Quote, inventory, and leads server-backed searches now share a common `useDebouncedValue` hook and timing.
+  - Leads suggestions now reuse the same debounced input instead of stacking another hand-rolled timer on top.
+  - Billing search was intentionally left immediate because it is a local table filter, not a server-backed fetch path.
+- Architecture-overhaul groundwork started:
+  - `ARCH-1` is now the top-ranked architecture initiative.
+  - Quote list/query orchestration was extracted out of `server/routes/quotes.js` into `server/services/quoteListService.js`.
+  - Quote section behavior was extracted out of `server/routes/quotes.js` into `server/services/quoteSectionService.js`.
+  - Quote item mutation behavior was extracted out of `server/routes/quotes.js` into `server/services/quoteItemService.js`.
+  - Quote custom-item mutation behavior was extracted out of `server/routes/quotes.js` into `server/services/quoteCustomItemService.js`.
+  - Quote contract read/write/log behavior was extracted out of `server/routes/quotes.js` into `server/services/quoteContractService.js`.
+  - Quote lifecycle behavior was extracted out of `server/routes/quotes.js` into `server/services/quoteLifecycleService.js`.
+  - Quote finance behavior was extracted out of `server/routes/quotes.js` into `server/services/quoteFinanceService.js`.
+  - Quote core detail/update/activity/send behavior was extracted out of `server/routes/quotes.js` into `server/services/quoteCoreService.js`.
+  - Quote file attachment behavior was extracted out of `server/routes/quotes.js` into `server/services/quoteFileService.js`.
+  - Item catalog/detail/category/accessory/association behavior was extracted out of `server/routes/items.js` into `server/services/itemService.js`.
+  - File upload/list/delete/attachment lookup behavior was extracted out of `server/routes/files.js` into `server/services/fileService.js`.
+  - Lead list/event/create/update/import/delete behavior was extracted out of `server/routes/leads.js` into `server/services/leadService.js`.
+  - Quote list/summary, detail/activity/create/update, contract read/write/logs, file attachment CRUD, section create/update/duplicate/delete, section bootstrapping, quote item add/reorder/update/delete, quote custom-item add/update/delete, quote approve/revert/confirm/close/delete/duplicate, and quote payment/refund/adjustment/damage-charge routes now call dedicated services instead of keeping that logic inline in the route file.
+  - `server/routes/items.js`, `server/routes/files.js`, and `server/routes/leads.js` are now materially thinner and delegate their main workflows instead of carrying those domains inline.
+  - `server/routes/quotes.js` is now mostly a thin controller/delegation layer for the quote domain; remaining architecture work is now more about extending the same pattern to other route domains and optionally introducing repository boundaries.
+  - `ARCH-2` has started:
+    - base schema bootstrap moved from `server/db.js` to `server/db/schema.js`
+    - base schema definitions are now split by domain under `server/db/schema/` (`items`, `users`, `quotes`, `settings`, `leads`)
+    - schema-change/table/index bootstrap moved from `server/db.js` to `server/db/migrations.js`
+    - DB migration definitions are now split by domain under `server/db/migrations/` (`items`, `users`, `quotes`, `leads`, `files`, `messages`) instead of one giant list
+    - settings/default seeding moved from `server/db.js` to `server/db/settings.js`
+    - shared DB bootstrap helpers now live in `server/db/helpers.js`
+    - raw settings-default definitions now live in `server/db/defaults.js`
+    - settings defaults are now split by domain under `server/db/defaults/` (`app`, `mail`, `inventory`, `ai`, `quotes`)
+    - lightweight DB bootstrap metadata now lives in `server/db/meta.js` and records per-domain schema/migration/defaults version markers in `db_bootstrap_meta`
+    - those version markers now come from the schema/migration/defaults domain modules themselves instead of one central hardcoded map
+    - small shared DB query utilities now live under `server/db/queries/`, with settings/meta/quotes/users/files/leads/messages helpers available for reuse
+    - repeated settings reads/writes in `settings`, `updates`, `updateCheck`, `availability`, `files`, and `index` have started moving onto the shared settings query helper instead of raw ad hoc SQL
+    - extracted quote services now reuse centralized quote existence / quote fetch / actor-email lookup helpers instead of duplicating those DB lookups
+    - leads/files routes now reuse centralized DB query helpers for their common read paths instead of duplicating that SQL inline
+    - the messages route now also uses centralized DB query helpers for its core read/write paths
+    - the first repository-style DB module now exists at `server/db/repositories/quoteRepository.js`, and `quoteCoreService` / `quoteListService` now use it for the heavier quote detail/activity/list/list-summary read paths
+    - `server/db.js` now mainly owns the sql.js wrapper, persistence, and init orchestration
 
 ### Important limitations still open
 
@@ -27,6 +170,8 @@
 - Section reordering is not implemented.
 - Signed-contract artifacts are now section-aware in content, but the generated PDF is still a simple text-style server artifact rather than a designed/compliance-grade document.
 - Custom-item descriptions do not yet have a first-class create/edit workflow.
+
+**Released v0.0.11** (2026-03-31): Visibility + operations release. Highlights: Maps workspace with quote geocoding/cache fields; sales analytics foundation; user profiles + persistent presence + Team workspace; fulfillment rows/check-in/notes; module-level permissions; expanded `server/db/*` + quote service decomposition; and GitHub/release metadata refresh aligned to `0.0.11`.
 
 **Released v0.0.10** (2026-03-29): Workflow expansion + product polish release. Highlights: section-aware quote/public/export flows; stronger signed-vs-unsigned project handling; re-sign support with versioned signed-contract PDFs; right-side inventory edit drawer; route prefetching for faster page transitions; upload allowlist settings/prompting; and GitHub/release metadata refresh aligned to `0.0.10`.
 

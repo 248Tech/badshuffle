@@ -1,8 +1,40 @@
 const BASE = (import.meta.env.VITE_API_BASE || '') + '/api';
+const inflightRequests = new Map();
 
 function getToken() { return localStorage.getItem('bs_token'); }
 function setToken(t) { localStorage.setItem('bs_token', t); }
-function clearToken() { localStorage.removeItem('bs_token'); }
+
+/** Signed file serve paths (from POST /files/serve-links); cleared on logout */
+const fileServePathCache = new Map();
+
+function parseExpMsFromServePath(p) {
+  const m = /[?&]exp=(\d+)/.exec(p);
+  return m ? parseInt(m[1], 10) : Date.now() + 3600000;
+}
+
+function rememberServePath(id, path) {
+  const sid = String(id).trim();
+  fileServePathCache.set(sid, { path, expMs: parseExpMsFromServePath(path) });
+}
+
+function appendVariantQuery(url, variant) {
+  if (!variant) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}variant=${encodeURIComponent(variant)}`;
+}
+
+function getCachedServePath(id) {
+  const sid = String(id ?? '').trim();
+  if (!isNumericId(sid)) return null;
+  const row = fileServePathCache.get(sid);
+  if (!row || row.expMs <= Date.now() + 30_000) return null;
+  return row.path;
+}
+
+function clearToken() {
+  localStorage.removeItem('bs_token');
+  fileServePathCache.clear();
+}
 function isNumericId(value) { return /^\d+$/.test(String(value || '').trim()); }
 let cachedSettings = null;
 const DEFAULT_ALLOWED_FILE_TYPES = new Set([
@@ -10,12 +42,14 @@ const DEFAULT_ALLOWED_FILE_TYPES = new Set([
   'image/png',
   'image/gif',
   'image/webp',
+  'image/avif',
   'application/pdf',
   '.jpg',
   '.jpeg',
   '.png',
   '.gif',
   '.webp',
+  '.avif',
   '.pdf',
 ]);
 
@@ -83,46 +117,149 @@ async function ensureAllowedUploadTypes(formData) {
   cachedSettings = await request('/settings', { method: 'PUT', body: { allowed_file_types: nextTypes } });
 }
 
-function fileServeUrlForId(id) {
-  const t = getToken();
-  return `/api/files/${id}/serve${t ? `?token=${encodeURIComponent(t)}` : ''}`;
+function fileServeUrlForId(id, options = {}) {
+  const cached = getCachedServePath(id);
+  const variant = options && options.variant ? String(options.variant).trim() : '';
+  if (cached) return appendVariantQuery(cached, variant);
+  const sid = String(id ?? '').trim();
+  if (!isNumericId(sid)) return appendVariantQuery(`/api/files/${sid}/serve`, variant);
+  return appendVariantQuery(`/api/files/${sid}/serve`, variant);
+}
+
+function isAbortError(error) {
+  return !!(error && (error.name === 'AbortError' || error.code === 20));
+}
+
+function buildFetchOptions(options = {}) {
+  const {
+    dedupeKey = null,
+    cancelPrevious = false,
+    signal,
+    body,
+    ...fetchOptions
+  } = options;
+
+  let controller = null;
+  let cleanupExternalAbort = null;
+  if (dedupeKey && cancelPrevious) {
+    const previous = inflightRequests.get(dedupeKey);
+    if (previous?.controller) previous.controller.abort();
+    controller = new AbortController();
+    if (signal) {
+      if (signal.aborted) controller.abort();
+      else {
+        const abortFromExternal = () => controller.abort();
+        signal.addEventListener('abort', abortFromExternal, { once: true });
+        cleanupExternalAbort = () => signal.removeEventListener('abort', abortFromExternal);
+      }
+    }
+  }
+
+  const finalSignal = controller?.signal || signal;
+  return {
+    dedupeKey,
+    cancelPrevious,
+    body,
+    fetchOptions: { ...fetchOptions, signal: finalSignal },
+    controller,
+    cleanupExternalAbort,
+  };
 }
 
 async function request(path, options = {}) {
   const token = getToken();
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const { dedupeKey, fetchOptions, body, controller, cleanupExternalAbort } = buildFetchOptions(options);
+  if (dedupeKey && !options.cancelPrevious) {
+    const existing = inflightRequests.get(dedupeKey);
+    if (existing?.promise) {
+      cleanupExternalAbort?.();
+      return existing.promise;
+    }
+  }
+  const headers = { 'Content-Type': 'application/json', ...fetchOptions.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const resp = await fetch(`${BASE}${path}`, {
-    headers,
-    ...options,
-    body: options.body ? JSON.stringify(options.body) : undefined
+  const run = async () => {
+    const resp = await fetch(`${BASE}${path}`, {
+      headers,
+      ...fetchOptions,
+      body: body ? JSON.stringify(body) : undefined
+    });
+
+    if (resp.status === 401) {
+      clearToken();
+      throw new Error('Unauthorized');
+    }
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+    return data;
+  };
+
+  const promise = run().finally(() => {
+    cleanupExternalAbort?.();
+    if (dedupeKey && inflightRequests.get(dedupeKey)?.promise === promise) {
+      inflightRequests.delete(dedupeKey);
+    }
   });
 
-  if (resp.status === 401) {
-    clearToken();
-    throw new Error('Unauthorized');
-  }
-
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
-  return data;
+  if (dedupeKey) inflightRequests.set(dedupeKey, { promise, controller });
+  return promise;
 }
 
 /** Public API call (no Authorization header) — for quote approval by token, etc. */
 async function publicRequest(path, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
-  const resp = await fetch(`${BASE}${path}`, {
-    headers,
-    ...options,
-    body: options.body ? JSON.stringify(options.body) : undefined
+  const { dedupeKey, fetchOptions, body, controller, cleanupExternalAbort } = buildFetchOptions(options);
+  if (dedupeKey && !options.cancelPrevious) {
+    const existing = inflightRequests.get(dedupeKey);
+    if (existing?.promise) {
+      cleanupExternalAbort?.();
+      return existing.promise;
+    }
+  }
+  const headers = { 'Content-Type': 'application/json', ...fetchOptions.headers };
+
+  const run = async () => {
+    const resp = await fetch(`${BASE}${path}`, {
+      headers,
+      ...fetchOptions,
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+    return data;
+  };
+
+  const promise = run().finally(() => {
+    cleanupExternalAbort?.();
+    if (dedupeKey && inflightRequests.get(dedupeKey)?.promise === promise) {
+      inflightRequests.delete(dedupeKey);
+    }
   });
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
-  return data;
+
+  if (dedupeKey) inflightRequests.set(dedupeKey, { promise, controller });
+  return promise;
 }
 
-export { getToken, setToken, clearToken };
+/**
+ * Batch-fetch signed /api/files/:id/serve?sig=&exp= URLs (requires login).
+ * Call when loading grids (inventory, files, quote) so img/src and hrefs work without JWT in query strings.
+ */
+async function prefetchFileServeUrls(ids) {
+  const list = [...new Set(ids.map((x) => String(x).trim()).filter(isNumericId))].slice(0, 200);
+  if (!list.length || !getToken()) return;
+  try {
+    const data = await request('/files/serve-links', { method: 'POST', body: { ids: list } });
+    const paths = data.paths || {};
+    for (const [fid, p] of Object.entries(paths)) {
+      if (typeof p === 'string') rememberServePath(fid, p);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export { getToken, setToken, clearToken, isAbortError, prefetchFileServeUrls };
 
 export const api = {
   // Auth
@@ -130,6 +267,11 @@ export const api = {
     status: () => request('/auth/status'),
     captchaConfig: () => publicRequest('/auth/captcha-config'),
     me: () => request('/auth/me'),
+    updateMe: async (body) => {
+      const data = await request('/auth/me', { method: 'PUT', body });
+      if (data && data.token) setToken(data.token);
+      return data;
+    },
     setup: (body) => request('/auth/setup', { method: 'POST', body }),
     login: (body) => request('/auth/login', { method: 'POST', body }),
     forgot: (body) => request('/auth/forgot', { method: 'POST', body }),
@@ -145,6 +287,10 @@ export const api = {
     list: () => request('/presence'),
   },
 
+  team: {
+    overview: () => request('/team'),
+  },
+
   // Admin
   admin: {
     getUsers:           ()           => request('/admin/users'),
@@ -153,6 +299,10 @@ export const api = {
     rejectUser:         (id)         => request(`/admin/users/${id}/reject`, { method: 'PUT' }),
     deleteUser:         (id)         => request(`/admin/users/${id}`, { method: 'DELETE' }),
     changeRole:         (id, role)   => request(`/admin/users/${id}/role`, { method: 'PUT', body: { role } }),
+    getRoles:           ()           => request('/admin/roles'),
+    createRole:         (body)       => request('/admin/roles', { method: 'POST', body }),
+    updateRole:         (key, body)  => request(`/admin/roles/${key}`, { method: 'PUT', body }),
+    updateRolePermissions: (key, body) => request(`/admin/roles/${key}/permissions`, { method: 'PUT', body }),
     getSystemSettings:  ()           => request('/admin/system'),
     updateSystemSettings: (body)     => request('/admin/system', { method: 'PUT', body }),
     exportDb: () => {
@@ -170,9 +320,9 @@ export const api = {
   },
 
   // Items
-  getItems: (params = {}) => {
+  getItems: (params = {}, requestOptions = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''));
-    return request(`/items?${qs}`);
+    return request(`/items?${qs}`, requestOptions);
   },
   getItem: (id) => request(`/items/${id}`),
   createItem: (body) => request('/items', { method: 'POST', body }),
@@ -208,15 +358,29 @@ export const api = {
   importPdfQuote: (text) => request('/sheets/import-pdf-quote', { method: 'POST', body: { text } }),
 
   // Quotes — optional params: search, status, event_from, event_to, has_balance, venue
-  getQuotes: (params = {}) => {
+  getQuotes: (params = {}, requestOptions = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
     });
     const query = qs.toString();
-    return request(query ? `/quotes?${query}` : '/quotes');
+    return request(query ? `/quotes?${query}` : '/quotes', requestOptions);
   },
+  getMapQuotePins: (requestOptions = {}) => request('/maps/quotes', requestOptions),
   getQuotesSummary: () => request('/quotes/summary'),
+  getSalesAnalytics: (params = {}, requestOptions = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      if (Array.isArray(value)) {
+        if (value.length) qs.set(key, value.join(','));
+        return;
+      }
+      qs.set(key, String(value));
+    });
+    const query = qs.toString();
+    return request(query ? `/sales/analytics?${query}` : '/sales/analytics', requestOptions);
+  },
   getQuote: (id) => request(`/quotes/${id}`),
   createQuote: (body) => request('/quotes', { method: 'POST', body }),
   duplicateQuote: (id) => request(`/quotes/${id}/duplicate`, { method: 'POST' }),
@@ -248,6 +412,9 @@ export const api = {
   removeQuotePayment: (quoteId, paymentId) => request(`/quotes/${quoteId}/payments/${paymentId}`, { method: 'DELETE' }),
   recordRefund: (id, body) => request(`/quotes/${id}/refund`, { method: 'POST', body }),
   getQuoteActivity: (id) => request(`/quotes/${id}/activity`),
+  getQuoteFulfillment: (id) => request(`/quotes/${id}/fulfillment`),
+  checkInFulfillmentItem: (quoteId, fulfillmentItemId, body) => request(`/quotes/${quoteId}/fulfillment/items/${fulfillmentItemId}/check-in`, { method: 'POST', body }),
+  addFulfillmentNote: (quoteId, body) => request(`/quotes/${quoteId}/fulfillment/notes`, { method: 'POST', body }),
   addQuoteItem: (quoteId, body) => request(`/quotes/${quoteId}/items`, { method: 'POST', body }),
   updateQuoteItem: (quoteId, qitemId, body) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'PUT', body }),
   removeQuoteItem: (quoteId, qitemId) => request(`/quotes/${quoteId}/items/${qitemId}`, { method: 'DELETE' }),
@@ -267,6 +434,22 @@ export const api = {
     const settings = await request('/settings', { method: 'PUT', body });
     cachedSettings = settings;
     return settings;
+  },
+  getImageCompressionPreview: async ({ quality = 68, format = 'webp', avif = false, original = false } = {}) => {
+    const token = getToken();
+    const qs = new URLSearchParams();
+    qs.set('quality', String(quality));
+    qs.set('format', format);
+    qs.set('avif', avif ? '1' : '0');
+    if (original) qs.set('original', '1');
+    const resp = await fetch(`${BASE}/settings/image-preview?${qs}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.error || `HTTP ${resp.status}`);
+    }
+    return resp.blob();
   },
 
   // Email templates (admin/operator)
@@ -296,19 +479,19 @@ export const api = {
   removeItemAccessory: (id, accessoryId) => request(`/items/${id}/accessories/${accessoryId}`, { method: 'DELETE' }),
 
   // Leads
-  getLeads: (params = {}) => {
+  getLeads: (params = {}, requestOptions = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''));
-    return request(`/leads?${qs}`);
+    return request(`/leads?${qs}`, requestOptions);
   },
   createLead: (body) => request('/leads', { method: 'POST', body }),
   previewLeadsImport: (body) => request('/leads/preview', { method: 'POST', body }),
   importLeads: (body) => request('/leads/import', { method: 'POST', body }),
   updateLead: (id, body) => request(`/leads/${id}`, { method: 'PUT', body }),
-  getLeadEvents: (id) => request(`/leads/${id}/events`),
+  getLeadEvents: (id, requestOptions = {}) => request(`/leads/${id}/events`, requestOptions),
   deleteLead: (id) => request(`/leads/${id}`, { method: 'DELETE' }),
 
   // Billing (operator)
-  getBillingHistory: () => request('/billing/history'),
+  getBillingHistory: (requestOptions = {}) => request('/billing/history', requestOptions),
 
   // Stats
   getStats: () => request('/stats'),
@@ -318,9 +501,9 @@ export const api = {
   aiSuggest: (body) => request('/ai/suggest', { method: 'POST', body }),
 
   // Image proxy
-  proxyImageUrl: (url) => {
+  proxyImageUrl: (url, options) => {
     if (!url) return '';
-    if (isNumericId(url)) return fileServeUrlForId(String(url).trim());
+    if (isNumericId(url)) return fileServeUrlForId(String(url).trim(), options);
     if (String(url).startsWith('/api/')) return String(url);
     return `/api/proxy-image?url=${encodeURIComponent(url)}`;
   },
@@ -341,8 +524,11 @@ export const api = {
     });
   },
   deleteFile: (id) => request(`/files/${id}`, { method: 'DELETE' }),
+  renameFile: (id, name) => request(`/files/${id}`, { method: 'PATCH', body: { original_name: name } }),
+  compressFile: (id) => request(`/files/${id}/compress`, { method: 'POST' }),
   getFileQuotes: (id) => request(`/files/${id}/quotes`),
-  fileServeUrl: (id) => fileServeUrlForId(id),
+  prefetchFileServeUrls,
+  fileServeUrl: (id, options) => fileServeUrlForId(id, options),
 
   // Quote adjustments (discounts / surcharges)
   getAdjustments:    (qid)           => request(`/quotes/${qid}/adjustments`),

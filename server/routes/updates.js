@@ -4,6 +4,7 @@ const fs         = require('fs');
 const path       = require('path');
 const { spawn }  = require('child_process');
 const express    = require('express');
+const { getSettingValue } = require('../db/queries/settings');
 
 const REPO         = '248Tech/badshuffle';
 const RELEASES_URL = `https://api.github.com/repos/${REPO}/releases`;
@@ -79,8 +80,8 @@ module.exports = function makeRouter(db) {
   router.get('/', (req, res) => {
     const current = getVersion();
     const isPkg   = typeof process.pkg !== 'undefined';
-    const latest  = (db.prepare("SELECT value FROM settings WHERE key = 'update_check_latest'").get() || {}).value || null;
-    const avail   = (db.prepare("SELECT value FROM settings WHERE key = 'update_available'").get() || {}).value || '0';
+    const latest  = getSettingValue(db, 'update_check_latest', null);
+    const avail   = getSettingValue(db, 'update_available', '0');
     res.json({ current, latest, update_available: avail === '1', is_pkg: isPkg });
   });
 

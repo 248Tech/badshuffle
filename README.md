@@ -1,6 +1,6 @@
-# BadShuffle v0.0.10
+# BadShuffle v0.0.11
 
-![Release](https://img.shields.io/badge/release-0.0.10-0a7ea4)
+![Release](https://img.shields.io/badge/release-0.0.11-0a7ea4)
 ![Status](https://img.shields.io/badge/status-pre--release-c79200)
 ![Product](https://img.shields.io/badge/product-self--hosted%20event%20rental%20software-1f6feb)
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
@@ -11,7 +11,7 @@ BadShuffle is a self-hosted event rental software platform for inventory managem
 
 **SEO keywords:** self-hosted event rental software, rental inventory management software, quote management system, client portal for rentals, public product catalog, event operations platform, React Express SQLite app.
 
-*Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history and [RELEASE_NOTES_0.0.10.md](RELEASE_NOTES_0.0.10.md) for the current release summary.*
+*Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history and [RELEASE_NOTES_0.0.11.md](RELEASE_NOTES_0.0.11.md) for the current release summary.*
 
 ---
 
@@ -22,26 +22,27 @@ BadShuffle is a self-hosted event rental software platform for inventory managem
 - **Complex operational domain** — Signed-vs-unsigned quote changes, inventory conflicts, rental sections, contract artifacts, quote-linked messaging, and public catalog SEO all target real event-rental problems.
 - **Portfolio-grade engineering signals** — Safe startup migrations, route-level code splitting, shared totals logic, audit-oriented signing artifacts, structured release notes, and handoff docs show maintainability discipline, not just feature velocity.
 
-## What’s New In v0.0.10
+## What’s New In v0.0.11
 
-`v0.0.10` is the workflow-expansion and product-polish release. It pushes BadShuffle closer to a complete rental operations product by improving client quote presentation, section-aware quoting, audit-tracked contract flows, inventory editing UX, page-transition speed, and upload governance.
+`v0.0.11` is the visibility-and-operations release. It expands BadShuffle with map-aware project views, early sales analytics, stronger team/profile surfaces, fulfillment workflows, permission-aware routing, and a more scalable backend structure for the quote domain.
 
-- **Section-aware quote workflows** — Quote item areas now support editable titles, per-section rental periods, duplication/deletion, section subtotals, and better client-facing rendering in public quote views and exports.
-- **Signed vs unsigned project clarity** — Projects now distinguish signed balances from unsigned changes, allow re-signature when contracts change, and preserve signed-contract PDF versions as audit files.
-- **Inventory-aware availability improvements** — Signed projects and unsigned changes are handled more accurately for conflict checking, reducing false certainty in inventory planning.
-- **Sharper operator UX** — Inventory item editing can now stay in-context via a right-side slideout, destructive actions are safer, and unsaved-change handling is more consistent.
-- **Faster route transitions** — Core app routes now prefetch on hover/focus and warm during idle time after auth, improving first-hit page transitions.
-- **Upload governance** — Settings now support extra allowed file types, and uploads can prompt operators to extend the allowlist when a new file type is encountered.
-- **GitHub/readability refresh** — README, package metadata, changelog, and release notes are aligned to make the repo easier to evaluate by employers, collaborators, and search traffic.
+- **Maps workspace** — Operators can view quotes/projects on a Mapbox-powered map with cached geocoding, status-aware pins, and direct navigation into project detail.
+- **Sales dashboard foundation** — New analytics endpoints and client feature modules support pipeline-style reporting by date range, staff, and status.
+- **Profile, team, and permissions** — User profiles, persistent presence, team workspace metrics, and module-level permissions move the app closer to a multi-user operations system.
+- **Fulfillment workflow foundation** — Confirmed projects now drive fulfillment rows, check-in actions, and internal fulfillment notes in project detail.
+- **Backend architecture cleanup** — Quote logic is being split from route handlers into focused services, repositories, queries, and schema/migration modules to reduce coupling.
+- **API and integration docs** — The repo now includes a dedicated `AI/Api/` documentation set for authentication, inventory, quotes, public catalog use, and e-commerce integration planning.
 
 ## Core Features
 
 - **Inventory management** — Searchable catalog with photos, categories, subrental support, vendor links, associations, and accessory relationships.
 - **Project workflow** — Event projects/quotes, custom items, price overrides, line-item discounts, adjustments, contract text, approvals, signatures, and public sharing.
 - **Availability awareness** — Quote conflict checks, oversold detection, subrental needs, and inventory-aware quote building.
+- **Fulfillment + operations** — Fulfillment rows, item check-in, internal fulfillment notes, persistent staff presence, and a team workspace.
+- **Maps + analytics** — Quote geocoding, operator map views, and early sales pipeline reporting.
 - **Public-facing surfaces** — Client quote page, live quote messaging, SEO catalog pages, `robots.txt`, sitemap generation, and JSON-LD metadata.
 - **Comms and files** — SMTP send, IMAP reply capture, media library uploads, and quote-linked attachments.
-- **Operations + admin** — Role-aware navigation, user approval/admin tools, update controls, SQLite backup/restore, and directory-style lead/vendor management.
+- **Operations + admin** — Module permissions, role-aware navigation, user approval/admin tools, update controls, SQLite backup/restore, and directory-style lead/vendor management.
 - **Import and sync** — Google Sheets import plus a Chrome extension for syncing items from Goodshuffle Pro, with manual JSON fallback import.
 - **Optional AI** — Per-feature provider settings for OpenAI, Anthropic, and Gemini without making AI a hard dependency.
 
@@ -55,10 +56,10 @@ BadShuffle is a self-hosted event rental software platform for inventory managem
 
 ## Near-Term Roadmap
 
-- **Section-aware export/print depth** — Keep polishing section rendering and contract-history presentation.
+- **Permission follow-through** — Finish moving remaining legacy route/page checks onto the shared permission system.
+- **Fulfillment depth** — Add partial returns, stronger project-edit behavior, and richer operational history around check-in/out.
 - **Accessibility and responsiveness** — Finish the cross-theme QA, mobile pass, and keyboard/focus improvements still tracked in the AI docs.
-- **Workflow automation** — Expand accessories automation, richer warehouse flows, and stronger import/template preview ergonomics.
-- **Compliance hardening** — Continue improving the contract-signing audit trail while separating technical evidence capture from formal legal compliance claims.
+- **Compliance hardening** — Continue improving contract-signing evidence capture while separating technical auditability from formal legal compliance claims.
 
 More context lives in [AI/TODO.md](AI/TODO.md), [AI/HANDOFF.md](AI/HANDOFF.md), and the coordination docs under [AI/].
 
@@ -70,19 +71,21 @@ More context lives in [AI/TODO.md](AI/TODO.md), [AI/HANDOFF.md](AI/HANDOFF.md), 
 badshuffle/
 ├── server/          Express API + sql.js SQLite (port 3001)
 │   ├── index.js
-│   ├── db.js        sql.js shim that mirrors better-sqlite3's API
-│   ├── routes/      items, quotes, sheets, stats, ai, files, messages, settings, vendors, availability, updates, extension, publicCatalog
-│   ├── services/    singleInstance, updateCheck, emailPoller (IMAP)
-│   └── lib/         authMiddleware, crypto, imageProxy
+│   ├── db.js        DB bootstrap + persistence orchestration
+│   ├── db/          schema, migrations, defaults, queries, repositories
+│   ├── routes/      auth, quotes, items, files, maps, sales, team, settings, admin, publicCatalog
+│   ├── services/    quote domain services, analytics, geocoding, files, diagnostics, IMAP
+│   └── lib/         auth, permissions, file signing, crypto, image proxy
 ├── client/          React + Vite SPA (port 5173 in dev)
 │   ├── src/
-│   │   ├── pages/   Dashboard, Inventory, Import, Quotes, QuoteDetail,
-│   │   │            Stats, Files, Messages, Settings, Leads, Templates, Vendors,
-│   │   │            PublicCatalog, PublicItem
+│   │   ├── pages/   Dashboard, Maps, Inventory, Quotes, QuoteDetail, Team,
+│   │   │            Profile, Files, Messages, Settings, PublicCatalog, PublicItem
+│   │   ├── features/sales-dashboard/
 │   │   └── components/
 │   └── serve.js     Zero-dep static server used by the packaged exe
 ├── extension/       Chrome MV3 extension (load unpacked)
-├── AI/              Architecture notes, audits, workflows, roadmap, setup
+├── AI/              Release planning, API docs, audits, and agent notes
+├── ai/              Current-state architecture, workflows, and handoff docs
 ├── Dockerfile       Multi-stage build (Bun → client, Node:20 → server)
 ├── docker-compose.yml
 └── scripts/
@@ -130,9 +133,12 @@ Copy `.env.example` to `.env`, then set the values you care about:
 PORT=3001
 APP_URL=http://localhost:3001
 OPENAI_API_KEY=sk-...
+MAPBOX_ACCESS_TOKEN=pk-...
 ```
 
 `APP_URL` matters for public catalog canonicals, signed file URLs, and sitemap output.
+
+`MAPBOX_ACCESS_TOKEN` is optional unless you want the Maps workspace. If it is unset, map/geocode features should be treated as unavailable.
 
 ### 3. Start the app
 
@@ -167,20 +173,35 @@ docker compose up -d --build
 
 That serves the API and built client from `http://localhost:3001` with DB/uploads persisted in the `badshuffle_data` volume.
 
-### 4. Development auth
+### 4. First-run auth and setup
 
 In Vite dev mode, BadShuffle can auto-create and log in a local admin account through `/api/auth/dev-login`.
 
-- `admin@admin.com`
-- `admin123`
+- Email: `admin@admin.com`
+- Password: `admin123`
 
 That route is disabled when `NODE_ENV=production`.
 
+Outside dev mode, run:
+
+```bash
+npm run create-admin -- --email you@example.com --password changeme123
+```
+
+Then sign in, open **Settings**, and configure the modules you plan to use first:
+
+- Company/app identity
+- SMTP/IMAP if you want outbound/inbound messaging
+- AI provider keys if you want suggestions
+- Mapbox token if you want the Maps workspace
+
 ### 5. First-run workflow (recommended)
 
-1. Create a project from the **Projects** page.
-2. Add inventory items (products, groups, or accessories) and attach files.
-3. Send to client, track messages, and review billing/outstanding balances.
+1. Create or import inventory.
+2. Create a project from the **Projects** page and add quote sections/items.
+3. Send the quote, review the public quote page, and test approval/signature.
+4. Confirm the project and review the Fulfillment tab.
+5. Open Team, Maps, and Dashboard to verify your operational surfaces.
 
 ### 6. Optional: load the Chrome extension
 
@@ -195,6 +216,8 @@ That route is disabled when `NODE_ENV=production`.
 **Locked out?** Run `npm run create-admin -- --email your@email.com --password yournewpassword`.
 
 **Frontend can’t reach the API?** If `/api/auth/login` fails with `ECONNREFUSED`, start both services from the repo root with `npm run dev` or `npm run dev:host`.
+
+**Maps page is blank or missing data?** Confirm `MAPBOX_ACCESS_TOKEN` is set and that quotes have valid venue/client addresses for geocoding.
 
 **Why is `badshuffle.lock` missing from git?** It is a local runtime file used to communicate the active dev port and should stay uncommitted.
 

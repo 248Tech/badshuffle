@@ -47,6 +47,10 @@
   color: inherit;
   cursor: pointer;
   text-align: left;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   border-radius: var(--radius-sm);
   transition: color 0.15s, background 0.15s;
 }
@@ -105,6 +109,11 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  min-width: 0;
+}
+
+.backButton {
+  flex-shrink: 0;
 }
 
 .actionsTint .btn-primary {
@@ -148,6 +157,10 @@
   border: 1px solid var(--color-border);
   border-radius: 999px;
   color: var(--color-text-muted);
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .metaTagLink {
@@ -211,7 +224,7 @@
 @media (max-width: 768px) {
   .header { gap: 10px; }
   .mainRow { flex-direction: column; align-items: stretch; gap: 12px; }
-  .titleBlock { gap: 8px; }
+  .titleBlock { gap: 8px; align-items: flex-start; }
   .title, .titleButton { font-size: 20px; }
   .meta { gap: 6px; }
   .metaTag { font-size: 11px; padding: 2px 8px; }
@@ -219,7 +232,42 @@
 }
 
 @media (max-width: 640px) {
+  .topRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
   .title, .titleButton { font-size: 18px; }
   .metaTag { font-size: 10px; }
   .badge { font-size: 10px; padding: 2px 8px; }
+  .backButton {
+    width: 100%;
+    justify-content: center;
+  }
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .actions :global(.btn) {
+    width: 100%;
+    min-height: 44px;
+    padding-inline: 12px;
+  }
+  .unsignedActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .unsignedActions :global(.btn) {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .actions,
+  .unsignedActions {
+    grid-template-columns: 1fr;
+  }
 }

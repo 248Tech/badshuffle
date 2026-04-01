@@ -212,7 +212,7 @@ export default function MessagesPage() {
   const tabActive = 'px-3.5 py-1 rounded-full border bg-primary border-primary text-white text-[13px] cursor-pointer';
 
   return (
-    <div className="flex flex-col gap-4 min-h-0 min-w-0" style={{ height: 'calc(100vh - 80px)' }}>
+    <div className="flex flex-col gap-4 min-h-0 min-w-0 h-[calc(100svh-80px)] max-sm:h-auto">
       {/* Header */}
       <div className="flex items-center gap-4 shrink-0 flex-wrap">
         <h1 className="text-2xl font-bold tracking-tight">Messages</h1>
@@ -234,9 +234,9 @@ export default function MessagesPage() {
       </div>
 
       {/* Split panes */}
-      <div className="grid grid-cols-[300px_1fr] xl:grid-cols-[360px_1fr] gap-4 flex-1 min-h-0 max-[700px]:flex max-[700px]:flex-col">
+      <div className="grid grid-cols-[300px_1fr] xl:grid-cols-[360px_1fr] gap-4 flex-1 min-h-0 max-sm:flex max-sm:flex-col max-sm:min-h-[calc(100svh-180px)]">
         {/* List pane */}
-        <div className={`border border-border rounded overflow-y-auto bg-bg ${selectedThread ? 'max-[700px]:hidden' : ''}`}>
+        <div className={`border border-border rounded overflow-y-auto bg-bg max-sm:min-h-[300px] ${selectedThread ? 'max-sm:hidden' : ''}`}>
           {loading ? (
             <div aria-busy="true" aria-label="Loading messages">
               {Array.from({ length: 7 }).map((_, i) => (
@@ -292,7 +292,7 @@ export default function MessagesPage() {
         </div>
 
         {/* Detail pane */}
-        <div className={`border border-border rounded overflow-y-auto bg-bg ${!selectedThread ? 'max-[700px]:hidden' : ''}`}>
+        <div className={`border border-border rounded overflow-y-auto bg-bg max-sm:min-h-[400px] ${!selectedThread ? 'max-sm:hidden' : ''}`}>
           {!selectedThread ? (
             <div className="flex flex-col items-center justify-center gap-3 px-5 py-16 text-center text-text-muted text-[14px]">
               <svg width="36" height="36" className="opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -306,7 +306,7 @@ export default function MessagesPage() {
               <div className="px-4 py-3.5 border-b border-border shrink-0 flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  className="hidden max-[700px]:flex items-center gap-1 text-primary text-[13px] font-semibold cursor-pointer shrink-0 bg-none border-none p-0"
+                  className="hidden max-sm:flex items-center gap-1 text-primary text-[13px] font-semibold cursor-pointer shrink-0 bg-transparent border-none p-0"
                   onClick={() => setSelectedThread(null)}
                 >
                   <span aria-hidden="true">←</span> Back

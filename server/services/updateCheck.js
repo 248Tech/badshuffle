@@ -8,6 +8,7 @@
  * - Fails gracefully on any network or parse error.
  */
 const https = require('https');
+const { getSettingValue, upsertSettingValue } = require('../db/queries/settings');
 
 const REPO        = '248Tech/badshuffle';
 const API_URL     = 'https://api.github.com/repos/' + REPO + '/releases?per_page=20';
@@ -54,12 +55,11 @@ function fetchJson(url) {
 }
 
 function getSetting(db, key) {
-  var row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  return row ? row.value : '';
+  return getSettingValue(db, key, '');
 }
 
 function setSetting(db, key, value) {
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+  upsertSettingValue(db, key, value);
 }
 
 /**

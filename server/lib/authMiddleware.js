@@ -18,6 +18,15 @@ function getSecret() {
 }
 getSecret._warned = false;
 
+function getBearerToken(req) {
+  const header = req.headers.authorization || '';
+  if (!header.startsWith('Bearer ')) return null;
+  const token = header.slice(7).trim();
+  // Guardrail: avoid spending CPU on extremely large tokens (DoS-ish input).
+  if (!token || token.length > 10_000) return null;
+  return token;
+}
+
 // requireAuth(db)                  — JWT only (default)
 // requireAuth(db, { allowExtension: true }) — also accept x-extension-token (items/sheets sync only)
 module.exports = function requireAuth(db, options) {
@@ -36,13 +45,20 @@ module.exports = function requireAuth(db, options) {
       }
     }
 
-    const header = req.headers.authorization || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    const token = getBearerToken(req);
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-      req.user = jwt.verify(token, getSecret());
+      const payload = jwt.verify(token, getSecret(), {
+        algorithms: ['HS256'],
+      });
+      if (!payload || typeof payload !== 'object') {
+        return res.status(401).json({ error: 'Token invalid or expired' });
+      }
+      req.user = payload;
       req.user.byExtension = false;
+      // Compatibility: some routes expect req.user.id (others use req.user.sub).
+      if (req.user.id == null && req.user.sub != null) req.user.id = req.user.sub;
       next();
     } catch {
       res.status(401).json({ error: 'Token invalid or expired' });

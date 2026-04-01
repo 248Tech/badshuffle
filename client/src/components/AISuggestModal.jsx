@@ -22,6 +22,16 @@ export default function AISuggestModal({ quoteId, guestCount, currentItems, onAd
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!suggestions.length) return;
+    const ids = suggestions
+      .map((s) => s.photo_url)
+      .filter((p) => p != null && /^\d+$/.test(String(p).trim()))
+      .map((p) => String(p).trim());
+    if (!ids.length) return;
+    api.prefetchFileServeUrls(ids).catch(() => {});
+  }, [suggestions]);
+
   return (
     <div className={styles.overlay} onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()}>
       <div

@@ -1,86 +1,12 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
+const path = require('path');
 const multer = require('multer');
-
-// Allowed MIME types and their magic-byte signatures
-const ALLOWED = [
-  { mime: 'image/jpeg',       sig: [0xFF, 0xD8, 0xFF] },
-  { mime: 'image/png',        sig: [0x89, 0x50, 0x4E, 0x47] },
-  { mime: 'image/gif',        sig: [0x47, 0x49, 0x46] },
-  { mime: 'image/webp',       sig: [0x52, 0x49, 0x46, 0x46] },
-  { mime: 'application/pdf',  sig: [0x25, 0x50, 0x44, 0x46] },
-];
-const ALLOWED_MIMES = new Set(ALLOWED.map(a => a.mime));
-const DEFAULT_ALLOWED_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.gif',
-  '.webp',
-  '.pdf',
-]);
-
-function normalizeTypeToken(value) {
-  const raw = String(value || '').trim().toLowerCase();
-  if (!raw) return '';
-  if (raw.includes('/')) return raw;
-  if (raw.startsWith('.')) return raw;
-  return `.${raw}`;
-}
-
-function getConfiguredAllowedTypes(db) {
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'allowed_file_types'").get();
-  const configured = new Set();
-  for (const token of String(row?.value || '').split(/[\s,]+/)) {
-    const normalized = normalizeTypeToken(token);
-    if (normalized) configured.add(normalized);
-  }
-  return configured;
-}
-
-function getFileExtension(filename) {
-  return normalizeTypeToken(path.extname(String(filename || '')));
-}
-
-function isAllowedFileType(file, detectedMime, configuredAllowedTypes) {
-  const extension = getFileExtension(file.originalname);
-  const declaredMime = normalizeTypeToken(file.mimetype);
-  if (detectedMime && (ALLOWED_MIMES.has(detectedMime) || configuredAllowedTypes.has(detectedMime) || DEFAULT_ALLOWED_TYPES.has(detectedMime))) {
-    return true;
-  }
-  if (declaredMime && (configuredAllowedTypes.has(declaredMime) || DEFAULT_ALLOWED_TYPES.has(declaredMime))) {
-    return true;
-  }
-  if (extension && (configuredAllowedTypes.has(extension) || DEFAULT_ALLOWED_TYPES.has(extension))) {
-    return true;
-  }
-  return false;
-}
-
-function resolveStoredMime(file, detectedMime) {
-  return detectedMime || file.mimetype || 'application/octet-stream';
-}
-
-function detectMime(filePath) {
-  const buf = Buffer.alloc(8);
-  const fd = fs.openSync(filePath, 'r');
-  fs.readSync(fd, buf, 0, 8, 0);
-  fs.closeSync(fd);
-  for (const { mime, sig } of ALLOWED) {
-    if (sig.every((b, i) => buf[i] === b)) return mime;
-  }
-  return null;
-}
+const fileService = require('../services/fileService');
 
 module.exports = function makeRouter(db, uploadsDir) {
   const router = express.Router();
+  const ORG_ID = 1;
 
   const storage = multer.diskStorage({
     destination: uploadsDir,
@@ -92,56 +18,75 @@ module.exports = function makeRouter(db, uploadsDir) {
 
   // GET /api/files
   router.get('/', (req, res) => {
-    const files = db.prepare(
-      'SELECT id, original_name, mime_type, size, created_at FROM files ORDER BY created_at DESC'
-    ).all();
-    res.json({ files });
+    try {
+      res.json(fileService.listAllFiles(db, ORG_ID));
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
   });
 
   // POST /api/files/upload
-  router.post('/upload', upload.array('files', 20), (req, res) => {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: 'No files provided' });
+  router.post('/upload', upload.array('files', 20), async (req, res) => {
+    try {
+      const result = await fileService.uploadFiles(db, ORG_ID, req.files || [], req.user, uploadsDir);
+      res.status(201).json(result);
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
-    const userId = req.user ? req.user.id : null;
-    const configuredAllowedTypes = getConfiguredAllowedTypes(db);
-    const inserted = [];
-    for (const f of req.files) {
-      const detectedMime = detectMime(f.path);
-      if (!isAllowedFileType(f, detectedMime, configuredAllowedTypes)) {
-        fs.unlinkSync(f.path);
-        return res.status(400).json({ error: `Unsupported file type: ${f.originalname}` });
-      }
-      const storedMime = resolveStoredMime(f, detectedMime);
-      const result = db.prepare(
-        'INSERT INTO files (original_name, stored_name, mime_type, size, uploaded_by) VALUES (?, ?, ?, ?, ?)'
-      ).run(f.originalname, f.filename, storedMime, f.size, userId);
-      inserted.push(db.prepare('SELECT id, original_name, mime_type, size, created_at FROM files WHERE id = ?').get(result.lastInsertRowid));
+  });
+
+  // POST /api/files/serve-links — authenticated; returns time-limited signed serve paths (no JWT in query strings)
+  router.post('/serve-links', (req, res) => {
+    try {
+      res.json(fileService.buildServeLinks(db, ORG_ID, req.body && req.body.ids, req.baseUrl || '/api/files'));
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
     }
-    res.status(201).json({ files: inserted });
+  });
+
+  // GET /api/files/:id/serve-link — authenticated; signed path for <img src> / clipboard (replaces ?token= JWT)
+  router.get('/:id/serve-link', (req, res) => {
+    try {
+      res.json(fileService.buildServeLink(db, ORG_ID, req.params.id, req.baseUrl || '/api/files'));
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
   });
 
   // GET /api/files/:id/quotes — list quotes this file is attached to
   router.get('/:id/quotes', (req, res) => {
-    const rows = db.prepare(
-      `SELECT q.id, q.name, q.status, q.event_date, q.client_first_name, q.client_last_name
-       FROM quote_attachments qa
-       JOIN quotes q ON q.id = qa.quote_id
-       WHERE qa.file_id = ?
-       ORDER BY q.created_at DESC`
-    ).all(req.params.id);
-    res.json({ quotes: rows });
+    try {
+      res.json(fileService.listAttachedQuotes(db, req.params.id));
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
+  });
+
+  // PATCH /api/files/:id — rename (update original_name)
+  router.patch('/:id', (req, res) => {
+    try {
+      res.json(fileService.renameFile(db, ORG_ID, req.params.id, req.body && req.body.original_name));
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/files/:id/compress — re-compress image variants
+  router.post('/:id/compress', async (req, res) => {
+    try {
+      res.json(await fileService.compressFile(db, ORG_ID, req.params.id, uploadsDir));
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
   });
 
   // DELETE /api/files/:id
   router.delete('/:id', (req, res) => {
-    const file = db.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
-    if (!file) return res.status(404).json({ error: 'Not found' });
-
-    const filePath = path.join(uploadsDir, file.stored_name);
-    try { fs.unlinkSync(filePath); } catch (e) { /* already gone */ }
-    db.prepare('DELETE FROM files WHERE id = ?').run(req.params.id);
-    res.json({ deleted: true });
+    try {
+      res.json(fileService.deleteFile(db, ORG_ID, req.params.id, uploadsDir));
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
   });
 
   return router;

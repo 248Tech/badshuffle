@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { api } from '../api.js';
+import { api, isAbortError } from '../api.js';
 import ItemGrid from '../components/ItemGrid.jsx';
 import AssociationList from '../components/AssociationList.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useDebouncedValue } from '../hooks/useDebouncedValue.js';
 import styles from './InventoryPage.module.css';
 
 const EMPTY_FORM = {
@@ -26,24 +27,36 @@ export default function InventoryPage() {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedType, setSelectedType] = useState(null);
+  const [catsExpanded, setCatsExpanded] = useState(false);
   const [accessories, setAccessories] = useState([]);
   const [accessorySearch, setAccessorySearch] = useState('');
   const [accessoryResults, setAccessoryResults] = useState([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showSource, setShowSource] = useState(false);
+  const [, setPhotoServeEpoch] = useState(0);
   const formRef = useRef(null);
   const photoInputRef = useRef(null);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
-  const load = useCallback(() => {
+  const load = useCallback((signal) => {
     setLoading(true);
     const params = {};
-    if (search) params.search = search;
+    if (debouncedSearch) params.search = debouncedSearch;
     if (selectedCategory) params.category = selectedCategory;
     if (selectedType) params.item_type = selectedType;
-    api.getItems(params).then(d => setItems(d.items || [])).catch(() => {}).finally(() => setLoading(false));
-  }, [search, selectedCategory, selectedType]);
+    api.getItems(params, { signal, dedupeKey: 'inventory:list', cancelPrevious: true })
+      .then(d => setItems(d.items || []))
+      .catch((err) => {
+        if (!isAbortError(err)) console.error('[InventoryPage] Failed to load items:', err?.message || err);
+      })
+      .finally(() => { if (!signal?.aborted) setLoading(false); });
+  }, [debouncedSearch, selectedCategory, selectedType]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
 
   useEffect(() => {
     api.getCategories().then(d => setCategories(d.categories || [])).catch(() => {});
@@ -54,6 +67,21 @@ export default function InventoryPage() {
       setShowSource((s.inventory_show_source || '0') === '1');
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!items.length) return;
+    const ids = items
+      .map((i) => i.photo_url)
+      .filter((p) => p != null && /^\d+$/.test(String(p).trim()))
+      .map((p) => String(p).trim());
+    api.prefetchFileServeUrls(ids).catch(() => {});
+  }, [items]);
+
+  useEffect(() => {
+    const pid = form.photo_url?.trim();
+    if (!pid || !/^\d+$/.test(pid)) return;
+    api.prefetchFileServeUrls([pid]).then(() => setPhotoServeEpoch((e) => e + 1)).catch(() => {});
+  }, [form.photo_url]);
 
   useEffect(() => {
     if (!editingItem) return undefined;
@@ -82,6 +110,7 @@ export default function InventoryPage() {
       const uploaded = result.files?.[0];
       if (uploaded?.id) {
         setForm(f => ({ ...f, photo_url: String(uploaded.id) }));
+        api.prefetchFileServeUrls([String(uploaded.id)]).catch(() => {});
         toast.success('Photo uploaded');
       }
     } catch (err) {
@@ -95,9 +124,11 @@ export default function InventoryPage() {
   const searchAccessories = useCallback(async (q) => {
     if (!q.trim()) { setAccessoryResults([]); return; }
     try {
-      const d = await api.getItems({ search: q });
+      const d = await api.getItems({ search: q }, { dedupeKey: 'inventory:accessory-search', cancelPrevious: true });
       setAccessoryResults((d.items || []).filter(i => !i.hidden));
-    } catch { setAccessoryResults([]); }
+    } catch (err) {
+      if (!isAbortError(err)) setAccessoryResults([]);
+    }
   }, []);
 
   const handleEdit = (item) => {
@@ -217,27 +248,42 @@ export default function InventoryPage() {
       </div>
 
       {/* Category navbar */}
-      {categories.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            className={!selectedCategory ? navBtnActive : navBtnBase}
-            onClick={() => setSelectedCategory(null)}
-          >
-            All
-          </button>
-          {categories.map(cat => (
+      {categories.length > 0 && (() => {
+        const MAX_CAT = 6;
+        const visible = catsExpanded ? categories : categories.slice(0, MAX_CAT);
+        const hasMore = categories.length > MAX_CAT;
+        return (
+          <div className="flex flex-wrap gap-1.5">
             <button
-              key={cat}
               type="button"
-              className={selectedCategory === cat ? navBtnActive : navBtnBase}
-              onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+              className={!selectedCategory ? navBtnActive : navBtnBase}
+              onClick={() => setSelectedCategory(null)}
             >
-              {cat}
+              All
             </button>
-          ))}
-        </div>
-      )}
+            {visible.map(cat => (
+              <button
+                key={cat}
+                type="button"
+                className={selectedCategory === cat ? navBtnActive : navBtnBase}
+                onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+              >
+                {cat}
+              </button>
+            ))}
+            {hasMore && !catsExpanded && (
+              <button type="button" className={navBtnBase} onClick={() => setCatsExpanded(true)}>
+                +{categories.length - MAX_CAT} more…
+              </button>
+            )}
+            {hasMore && catsExpanded && (
+              <button type="button" className={navBtnBase} onClick={() => setCatsExpanded(false)}>
+                Show less
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Search */}
       <div className="flex gap-2.5 items-center flex-wrap">
@@ -351,7 +397,7 @@ export default function InventoryPage() {
                 </button>
                 {form.photo_url && /^\d+$/.test(form.photo_url.trim()) && (
                   <img
-                    src={api.fileServeUrl(form.photo_url.trim())}
+                    src={api.fileServeUrl(form.photo_url.trim(), { variant: 'ui' })}
                     alt="preview"
                     className="w-12 h-12 object-cover rounded-md border border-border shrink-0"
                     onError={e => { e.target.style.display = 'none'; }}
@@ -528,7 +574,7 @@ export default function InventoryPage() {
                     </button>
                     {form.photo_url && /^\d+$/.test(form.photo_url.trim()) && (
                       <img
-                        src={api.fileServeUrl(form.photo_url.trim())}
+                        src={api.fileServeUrl(form.photo_url.trim(), { variant: 'ui' })}
                         alt="preview"
                         className="w-12 h-12 object-cover rounded-md border border-border shrink-0"
                         onError={e => { e.target.style.display = 'none'; }}

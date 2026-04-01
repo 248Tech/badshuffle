@@ -1,0 +1,26 @@
+const { APP_DEFAULTS_VERSION, APP_DEFAULT_GROUPS } = require('./defaults/app');
+const { MAIL_DEFAULTS_VERSION, MAIL_DEFAULT_GROUPS } = require('./defaults/mail');
+const { INVENTORY_DEFAULTS_VERSION, INVENTORY_DEFAULT_GROUPS } = require('./defaults/inventory');
+const { AI_DEFAULTS_VERSION, AI_DEFAULT_GROUPS } = require('./defaults/ai');
+const { QUOTE_DEFAULTS_VERSION, QUOTE_DEFAULT_GROUPS } = require('./defaults/quotes');
+
+const SETTINGS_DEFAULT_GROUPS = [
+  ...APP_DEFAULT_GROUPS,
+  ...MAIL_DEFAULT_GROUPS,
+  ...INVENTORY_DEFAULT_GROUPS,
+  ...AI_DEFAULT_GROUPS,
+  ...QUOTE_DEFAULT_GROUPS,
+];
+
+const DEFAULTS_VERSIONS = {
+  app: APP_DEFAULTS_VERSION,
+  mail: MAIL_DEFAULTS_VERSION,
+  inventory: INVENTORY_DEFAULTS_VERSION,
+  ai: AI_DEFAULTS_VERSION,
+  quotes: QUOTE_DEFAULTS_VERSION,
+};
+
+module.exports = {
+  DEFAULTS_VERSIONS,
+  SETTINGS_DEFAULT_GROUPS,
+};

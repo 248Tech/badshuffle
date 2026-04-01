@@ -104,6 +104,298 @@ function InfoIcon() {
   );
 }
 
+const QuoteLineItemRow = React.memo(function QuoteLineItemRow({
+  item,
+  qty,
+  basePrice,
+  hasOverride,
+  overridePrice,
+  hasDiscount,
+  unitPrice,
+  lineTotal,
+  lineLabor,
+  itemId,
+  avail,
+  isEditingPrice,
+  isEditingDiscount,
+  isOversold,
+  isSubrental,
+  isNew,
+  isDragOver,
+  displayQtyValue,
+  priceInput,
+  discountForm,
+  styles,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  onOpenQuoteItemEdit,
+  onOpenDrawer,
+  onOpenLightbox,
+  onToggleHidden,
+  onStartPriceEdit,
+  onPriceInputChange,
+  onCommitPriceEdit,
+  onCancelPriceEdit,
+  onStartDiscountEdit,
+  onDiscountFormChange,
+  onCommitDiscountEdit,
+  onCancelDiscountEdit,
+  onClearDiscount,
+  onClearPriceOverride,
+  onUpdateQty,
+  onHandleQtyChange,
+  onRemoveItem,
+}) {
+  return (
+    <div
+      className={`${styles.quoteItem} ${isNew ? 'quoteItemAdded' : ''} ${
+        item.hidden_from_quote ? styles.quoteItemHidden : ''
+      } ${isOversold ? styles.quoteItemOversold : ''} ${
+        isDragOver ? styles.quoteItemDragOver : ''
+      }`}
+      draggable
+      onDragStart={(e) => onDragStart(e, item)}
+      onDragOver={(e) => onDragOver(e, item)}
+      onDrop={(e) => onDrop(e, item)}
+      onDragEnd={onDragEnd}
+    >
+      <button
+        type="button"
+        className={`${styles.itemActionBtn} ${styles.itemEditBtn}`}
+        onClick={(e) => { e.stopPropagation(); onOpenQuoteItemEdit(item); }}
+        title="Edit quote item"
+        aria-label={`Edit quote item: ${item.label || item.title}`}
+      >
+        <PencilIcon />
+      </button>
+      <span className={styles.dragHandle} title="Drag to reorder" aria-hidden="true">
+        ⠿
+      </span>
+      <div className={`${styles.thumbWrap} ${styles.itemThumbCell}`}>
+        {item.photo_url ? (
+          <img
+            src={api.proxyImageUrl(item.photo_url, { variant: 'thumb' })}
+            alt={item.title}
+            className={`${styles.thumb} ${styles.thumbClickable}`}
+            onClick={(e) => { e.stopPropagation(); onOpenLightbox?.([api.proxyImageUrl(item.photo_url, { variant: 'large' })], 0); }}
+            onError={(e) => { e.target.src = '/placeholder.png'; }}
+          />
+        ) : (
+          <img src="/placeholder.png" alt="" className={styles.thumb} aria-hidden />
+        )}
+        <button
+          type="button"
+          className={styles.eyeBtn}
+          onClick={(e) => { e.stopPropagation(); onToggleHidden(item); }}
+          title={item.hidden_from_quote ? 'Show on customer quote' : 'Hide from customer quote'}
+          aria-label={item.hidden_from_quote ? 'Show on customer quote' : 'Hide from customer quote'}
+        >
+          <EyeIcon hidden={!!item.hidden_from_quote} className={styles.eyeIcon} />
+        </button>
+      </div>
+      <span
+        className={`${styles.itemTitleLink} ${styles.itemTitleBlock}`}
+        onClick={(e) => { e.stopPropagation(); onOpenDrawer?.(itemId); }}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpenDrawer?.(itemId)}
+        title="View item details"
+        role="button"
+        tabIndex={0}
+      >
+        {avail && (avail.status === 'reserved' || avail.status === 'potential') && (
+          <ConflictStopSignIcon
+            className={styles.conflictIcon}
+            title={
+              avail.status === 'reserved'
+                ? `Confirmed oversold (${avail.my_qty} needed / ${avail.stock} in stock)`
+                : `Potential oversold (${avail.my_qty} needed / ${avail.stock} in stock)`
+            }
+          />
+        )}
+        {avail && avail.status === 'ok' && (
+          <AvailableCheckIcon className={styles.availableIcon} title="Item available" />
+        )}
+        {isSubrental && (
+          <span className={styles.subrentalBadge} title="Subrental item">
+            S
+          </span>
+        )}
+        {item.label || item.title}
+        {avail && avail.stock != null && (avail.reserved_qty > 0 || avail.status !== 'ok') && (
+          <span
+            className={styles.stockBadge}
+            title={`${avail.stock} in stock, ${avail.reserved_qty} already booked on this date`}
+          >
+            Only {avail.stock} available, {avail.reserved_qty} already booked
+          </span>
+        )}
+      </span>
+      {isEditingPrice ? (
+        <span className={`${styles.priceEditWrap} ${styles.itemPriceBlock}`} onClick={(e) => e.stopPropagation()}>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className={styles.priceInput}
+            value={priceInput}
+            onChange={(e) => onPriceInputChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onCommitPriceEdit(item);
+              if (e.key === 'Escape') onCancelPriceEdit();
+            }}
+            autoFocus
+          />
+          <button type="button" className={styles.priceEditSave} onClick={() => onCommitPriceEdit(item)} aria-label="Save price" title="Save">✓</button>
+          <button type="button" className={styles.priceEditCancel} onClick={onCancelPriceEdit} aria-label="Cancel price edit" title="Cancel">✕</button>
+        </span>
+      ) : isEditingDiscount ? (
+        <span className={`${styles.priceEditWrap} ${styles.itemPriceBlock}`} onClick={(e) => e.stopPropagation()}>
+          <select
+            className={styles.adjSelect}
+            value={discountForm.type}
+            onChange={(e) => onDiscountFormChange((f) => ({ ...f, type: e.target.value }))}
+          >
+            <option value="percent">%</option>
+            <option value="fixed">$</option>
+          </select>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className={styles.priceInput}
+            value={discountForm.amount}
+            onChange={(e) => onDiscountFormChange((f) => ({ ...f, amount: e.target.value }))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onCommitDiscountEdit(item);
+              if (e.key === 'Escape') onCancelDiscountEdit();
+            }}
+            placeholder={discountForm.type === 'percent' ? '10' : '5.00'}
+            autoFocus
+          />
+          <button type="button" className={styles.priceEditSave} onClick={() => onCommitDiscountEdit(item)} aria-label="Apply discount" title="Apply discount">✓</button>
+          <button type="button" className={styles.priceEditCancel} onClick={onCancelDiscountEdit} aria-label="Cancel discount edit" title="Cancel">✕</button>
+        </span>
+      ) : (
+        <span className={`${styles.priceCol} ${styles.itemPriceBlock}`} onClick={(e) => e.stopPropagation()}>
+          <span
+            className={`${styles.unitPrice} ${hasOverride ? styles.unitPriceOverride : ''} ${
+              hasDiscount ? styles.unitPriceDiscounted : ''
+            }`}
+            onClick={() => onStartPriceEdit(item)}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onStartPriceEdit(item)}
+            title={
+              hasOverride
+                ? `Override: $${overridePrice.toFixed(2)} (base: $${basePrice.toFixed(2)}). Click to edit.`
+                : `$${basePrice.toFixed(2)} — click to override for this quote`
+            }
+            role="button"
+            tabIndex={0}
+          >
+            ${unitPrice.toFixed(2)}
+            {hasOverride && (
+              <button
+                type="button"
+                className={styles.clearOverrideBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClearPriceOverride(item);
+                }}
+                aria-label="Reset to base price"
+                title="Reset to base price"
+              >
+                ✕
+              </button>
+            )}
+          </span>
+          {hasDiscount ? (
+            <span
+              className={styles.discountBadge}
+              onClick={() => onStartDiscountEdit(item)}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onStartDiscountEdit(item)}
+              role="button"
+              tabIndex={0}
+              title="Click to edit discount"
+            >
+              -{item.discount_type === 'percent' ? `${item.discount_amount}%` : `$${Number(item.discount_amount).toFixed(2)}`}
+              <button
+                type="button"
+                className={styles.clearOverrideBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClearDiscount(item);
+                }}
+                aria-label="Remove discount"
+                title="Remove discount"
+              >
+                ✕
+              </button>
+            </span>
+          ) : (
+            <button type="button" className={styles.discountBtn} onClick={() => onStartDiscountEdit(item)} title="Add item discount" aria-label="Add item discount">
+              %
+            </button>
+          )}
+        </span>
+      )}
+      <span className={`${styles.laborHours} ${styles.itemLabor}`} title="Labor hours (this line)">
+        {lineLabor > 0 ? `${lineLabor.toFixed(1)} hrs` : '—'}
+      </span>
+      <div className={`${styles.qtyControl} ${styles.itemQtyBlock}`} onClick={(e) => e.stopPropagation()}>
+        <button type="button" onClick={() => onUpdateQty(item.qitem_id, qty - 1)} aria-label="Decrease">−</button>
+        <input
+          type="number"
+          min={0}
+          step={1}
+          value={displayQtyValue}
+          onChange={(e) => onHandleQtyChange(item.qitem_id, e.target.value)}
+          className={styles.qtyInput}
+          aria-label="Quantity"
+        />
+        <button type="button" onClick={() => onUpdateQty(item.qitem_id, qty + 1)} aria-label="Increase">+</button>
+      </div>
+      <span className={`${styles.lineTotal} ${styles.itemTotalBlock}`}>${lineTotal.toFixed(2)}</span>
+      {item.hidden_from_quote && <span className={`${styles.hiddenBadge} ${styles.itemStatusBadge}`}>Hidden from quote</span>}
+      {itemId != null && (
+        <button
+          type="button"
+          className={`${styles.itemActionBtn} ${styles.itemInfoBtn}`}
+          onClick={(e) => { e.stopPropagation(); onOpenDrawer?.(itemId); }}
+          title="View item details"
+          aria-label={`View details: ${item.label || item.title}`}
+        >
+          <InfoIcon />
+        </button>
+      )}
+      <button
+        type="button"
+        className={`${styles.removeBtn} ${styles.itemRemoveBtn}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemoveItem(item.qitem_id, item.title);
+        }}
+        title="Remove"
+        aria-label={`Remove ${item.title} from quote`}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}, (prev, next) => (
+  prev.item === next.item &&
+  prev.avail === next.avail &&
+  prev.isEditingPrice === next.isEditingPrice &&
+  prev.isEditingDiscount === next.isEditingDiscount &&
+  prev.isOversold === next.isOversold &&
+  prev.isSubrental === next.isSubrental &&
+  prev.isNew === next.isNew &&
+  prev.isDragOver === next.isDragOver &&
+  prev.displayQtyValue === next.displayQtyValue &&
+  prev.priceInput === next.priceInput &&
+  prev.discountForm.type === next.discountForm.type &&
+  prev.discountForm.amount === next.discountForm.amount
+));
+
 export default function QuoteLineItemsPanel({ quoteId, items = [], availability = {}, onItemsChange, onOpenDrawer, onOpenLightbox, title = 'Quote Items' }) {
   const toast = useToast();
   const [localQty, setLocalQty] = useState({});
@@ -130,6 +422,15 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
   }, [items]);
 
   useEffect(() => {
+    const ids = (items || [])
+      .map((it) => it.photo_url)
+      .filter((p) => p != null && /^\d+$/.test(String(p).trim()))
+      .map((p) => String(p).trim());
+    if (!ids.length) return;
+    api.prefetchFileServeUrls(ids).catch(() => {});
+  }, [items]);
+
+  useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -144,6 +445,9 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
       toast.error(err.message);
     }
   };
+
+  const cancelPriceEdit = useCallback(() => setEditingPriceId(null), []);
+  const cancelDiscountEdit = useCallback(() => setEditingDiscountId(null), []);
 
   const updateQty = useCallback(
     async (qitemId, quantity) => {
@@ -191,6 +495,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
   };
 
   const startPriceEdit = (item) => {
+    if (editingPriceId === item.qitem_id) return;
     const current = item.unit_price_override != null ? item.unit_price_override : (item.unit_price ?? 0);
     setEditingPriceId(item.qitem_id);
     setPriceInput(String(current));
@@ -222,6 +527,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
   }
 
   const startDiscountEdit = (item) => {
+    if (editingDiscountId === item.qitem_id) return;
     setEditingDiscountId(item.qitem_id);
     setDiscountForm({
       type: item.discount_type && item.discount_type !== 'none' ? item.discount_type : 'percent',
@@ -340,7 +646,7 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
 
   return (
     <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>{title} ({orderedItems?.length || 0})</h3>
+      <h3 className={styles.sectionTitle}>{title}{orderedItems?.length > 0 ? ` (${orderedItems.length})` : ''}</h3>
       {(!orderedItems || orderedItems.length === 0) && <p className={styles.empty}>No items yet. Add from inventory below.</p>}
       <div className={styles.quoteList}>
         {(orderedItems || []).map((item) => {
@@ -359,280 +665,51 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
           const isOversold = avail && (avail.status === 'reserved' || avail.status === 'potential');
           const isSubrental = !!(item.is_subrental || item.is_subrental === 1);
           return (
-            <div
+            <QuoteLineItemRow
               key={item.qitem_id}
-              className={`${styles.quoteItem} ${itemId === newlyAddedItemId ? 'quoteItemAdded' : ''} ${
-                item.hidden_from_quote ? styles.quoteItemHidden : ''
-              } ${isOversold ? styles.quoteItemOversold : ''} ${
-                dragOverId === item.qitem_id ? styles.quoteItemDragOver : ''
-              }`}
-              draggable
-              onDragStart={(e) => handleDragStart(e, item)}
-              onDragOver={(e) => handleDragOver(e, item)}
-              onDrop={(e) => handleDrop(e, item)}
+              item={item}
+              qty={qty}
+              basePrice={basePrice}
+              hasOverride={hasOverride}
+              overridePrice={overridePrice}
+              hasDiscount={hasDiscount}
+              unitPrice={unitPrice}
+              lineTotal={lineTotal}
+              lineLabor={lineLabor}
+              itemId={itemId}
+              avail={avail}
+              isEditingPrice={isEditingPrice}
+              isEditingDiscount={isEditingDiscount}
+              isOversold={isOversold}
+              isSubrental={isSubrental}
+              isNew={itemId === newlyAddedItemId}
+              isDragOver={dragOverId === item.qitem_id}
+              displayQtyValue={displayQty(item)}
+              priceInput={priceInput}
+              discountForm={discountForm}
+              styles={styles}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
               onDragEnd={handleDragEnd}
-            >
-                <button
-                type="button"
-                className={styles.itemActionBtn}
-                onClick={(e) => { e.stopPropagation(); openQuoteItemEdit(item); }}
-                title="Edit quote item"
-                aria-label={`Edit quote item: ${item.label || item.title}`}
-              >
-                <PencilIcon />
-              </button>
-              <span className={styles.dragHandle} title="Drag to reorder" aria-hidden="true">
-                ⠿
-              </span>
-              <div className={styles.thumbWrap}>
-                {item.photo_url ? (
-                  <img
-                    src={api.proxyImageUrl(item.photo_url)}
-                    alt={item.title}
-                    className={`${styles.thumb} ${styles.thumbClickable}`}
-                    onClick={(e) => { e.stopPropagation(); onOpenLightbox?.([api.proxyImageUrl(item.photo_url)], 0); }}
-                    onError={(e) => { e.target.src = '/placeholder.png'; }}
-                  />
-                ) : (
-                  <img src="/placeholder.png" alt="" className={styles.thumb} aria-hidden />
-                )}
-                <button
-                  type="button"
-                  className={styles.eyeBtn}
-                  onClick={(e) => { e.stopPropagation(); toggleHidden(item); }}
-                  title={item.hidden_from_quote ? 'Show on customer quote' : 'Hide from customer quote'}
-                  aria-label={item.hidden_from_quote ? 'Show on customer quote' : 'Hide from customer quote'}
-                >
-                  <EyeIcon hidden={!!item.hidden_from_quote} className={styles.eyeIcon} />
-                </button>
-              </div>
-              <span
-                className={styles.itemTitleLink}
-                onClick={(e) => { e.stopPropagation(); onOpenDrawer?.(itemId); }}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpenDrawer?.(itemId)}
-                title="View item details"
-                role="button"
-                tabIndex={0}
-              >
-                {avail && (avail.status === 'reserved' || avail.status === 'potential') && (
-                  <ConflictStopSignIcon
-                    className={styles.conflictIcon}
-                    title={
-                      avail.status === 'reserved'
-                        ? `Confirmed oversold (${avail.my_qty} needed / ${avail.stock} in stock)`
-                        : `Potential oversold (${avail.my_qty} needed / ${avail.stock} in stock)`
-                    }
-                  />
-                )}
-                {avail && avail.status === 'ok' && (
-                  <AvailableCheckIcon className={styles.availableIcon} title="Item available" />
-                )}
-                {isSubrental && (
-                  <span className={styles.subrentalBadge} title="Subrental item">
-                    S
-                  </span>
-                )}
-                {item.label || item.title}
-                {avail && avail.stock != null && (avail.reserved_qty > 0 || avail.status !== 'ok') && (
-                  <span
-                    className={styles.stockBadge}
-                    title={`${avail.stock} in stock, ${avail.reserved_qty} already booked on this date`}
-                  >
-                    Only {avail.stock} available, {avail.reserved_qty} already booked
-                  </span>
-                )}
-              </span>
-              {isEditingPrice ? (
-                <span className={styles.priceEditWrap} onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className={styles.priceInput}
-                    value={priceInput}
-                    onChange={(e) => setPriceInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') commitPriceEdit(item);
-                      if (e.key === 'Escape') setEditingPriceId(null);
-                    }}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    className={styles.priceEditSave}
-                    onClick={() => commitPriceEdit(item)}
-                    aria-label="Save price"
-                    title="Save"
-                  >
-                    ✓
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.priceEditCancel}
-                    onClick={() => setEditingPriceId(null)}
-                    aria-label="Cancel price edit"
-                    title="Cancel"
-                  >
-                    ✕
-                  </button>
-                </span>
-              ) : isEditingDiscount ? (
-                <span className={styles.priceEditWrap} onClick={(e) => e.stopPropagation()}>
-                  <select
-                    className={styles.adjSelect}
-                    value={discountForm.type}
-                    onChange={(e) => setDiscountForm((f) => ({ ...f, type: e.target.value }))}
-                  >
-                    <option value="percent">%</option>
-                    <option value="fixed">$</option>
-                  </select>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className={styles.priceInput}
-                    value={discountForm.amount}
-                    onChange={(e) => setDiscountForm((f) => ({ ...f, amount: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') commitDiscountEdit(item);
-                      if (e.key === 'Escape') setEditingDiscountId(null);
-                    }}
-                    placeholder={discountForm.type === 'percent' ? '10' : '5.00'}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    className={styles.priceEditSave}
-                    onClick={() => commitDiscountEdit(item)}
-                    aria-label="Apply discount"
-                    title="Apply discount"
-                  >
-                    ✓
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.priceEditCancel}
-                    onClick={() => setEditingDiscountId(null)}
-                    aria-label="Cancel discount edit"
-                    title="Cancel"
-                  >
-                    ✕
-                  </button>
-                </span>
-              ) : (
-                <span className={styles.priceCol} onClick={(e) => e.stopPropagation()}>
-                  <span
-                    className={`${styles.unitPrice} ${hasOverride ? styles.unitPriceOverride : ''} ${
-                      hasDiscount ? styles.unitPriceDiscounted : ''
-                    }`}
-                    onClick={() => startPriceEdit(item)}
-                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && startPriceEdit(item)}
-                    title={
-                      hasOverride
-                        ? `Override: $${overridePrice.toFixed(2)} (base: $${basePrice.toFixed(2)}). Click to edit.`
-                        : `$${basePrice.toFixed(2)} — click to override for this quote`
-                    }
-                    role="button"
-                    tabIndex={0}
-                  >
-                    ${unitPrice.toFixed(2)}
-                    {hasOverride && (
-                      <button
-                        type="button"
-                        className={styles.clearOverrideBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearPriceOverride(item);
-                        }}
-                        aria-label="Reset to base price"
-                        title="Reset to base price"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </span>
-                  {hasDiscount ? (
-                    <span
-                      className={styles.discountBadge}
-                      onClick={() => startDiscountEdit(item)}
-                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && startDiscountEdit(item)}
-                      role="button"
-                      tabIndex={0}
-                      title="Click to edit discount"
-                    >
-                      -{item.discount_type === 'percent' ? `${item.discount_amount}%` : `$${Number(item.discount_amount).toFixed(2)}`}
-                      <button
-                        type="button"
-                        className={styles.clearOverrideBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearDiscount(item);
-                        }}
-                        aria-label="Remove discount"
-                        title="Remove discount"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      className={styles.discountBtn}
-                      onClick={() => startDiscountEdit(item)}
-                      title="Add item discount"
-                      aria-label="Add item discount"
-                    >
-                      %
-                    </button>
-                  )}
-                </span>
-              )}
-              <span className={styles.laborHours} title="Labor hours (this line)">
-                {lineLabor > 0 ? `${lineLabor.toFixed(1)} hrs` : '—'}
-              </span>
-              <div className={styles.qtyControl} onClick={(e) => e.stopPropagation()}>
-                <button type="button" onClick={() => updateQty(item.qitem_id, qty - 1)} aria-label="Decrease">
-                  −
-                </button>
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={displayQty(item)}
-                  onChange={(e) => handleQtyChange(item.qitem_id, e.target.value)}
-                  className={styles.qtyInput}
-                  aria-label="Quantity"
-                />
-                <button type="button" onClick={() => updateQty(item.qitem_id, qty + 1)} aria-label="Increase">
-                  +
-                </button>
-              </div>
-              <span className={styles.lineTotal}>${lineTotal.toFixed(2)}</span>
-              {item.hidden_from_quote && <span className={styles.hiddenBadge}>Hidden from quote</span>}
-              {itemId != null && (
-                <button
-                  type="button"
-                  className={styles.itemActionBtn}
-                  onClick={(e) => { e.stopPropagation(); onOpenDrawer?.(itemId); }}
-                  title="View item details"
-                  aria-label={`View details: ${item.label || item.title}`}
-                >
-                  <InfoIcon />
-                </button>
-              )}
-              <button
-                type="button"
-                className={styles.removeBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeItem(item.qitem_id, item.title);
-                }}
-                title="Remove"
-                aria-label={`Remove ${item.title} from quote`}
-              >
-                ✕
-              </button>
-            </div>
+              onOpenQuoteItemEdit={openQuoteItemEdit}
+              onOpenDrawer={onOpenDrawer}
+              onOpenLightbox={onOpenLightbox}
+              onToggleHidden={toggleHidden}
+              onStartPriceEdit={startPriceEdit}
+              onPriceInputChange={setPriceInput}
+              onCommitPriceEdit={commitPriceEdit}
+              onCancelPriceEdit={cancelPriceEdit}
+              onStartDiscountEdit={startDiscountEdit}
+              onDiscountFormChange={setDiscountForm}
+              onCommitDiscountEdit={commitDiscountEdit}
+              onCancelDiscountEdit={cancelDiscountEdit}
+              onClearDiscount={clearDiscount}
+              onClearPriceOverride={clearPriceOverride}
+              onUpdateQty={updateQty}
+              onHandleQtyChange={handleQtyChange}
+              onRemoveItem={removeItem}
+            />
           );
         })}
       </div>

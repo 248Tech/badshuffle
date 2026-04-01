@@ -1,38 +1,26 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, isAbortError } from '../api.js';
 import { useToast } from '../components/Toast.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import { useDebouncedValue } from '../hooks/useDebouncedValue.js';
 
-/** Build quote payload from lead; only include fields that match expected format. */
 function quoteFromLead(lead) {
   const name = (lead.name && String(lead.name).trim()) || (lead.email && String(lead.email).trim()) || 'Project from lead';
   const body = { name };
-
-  if (lead.guest_count != null && Number.isInteger(Number(lead.guest_count)) && Number(lead.guest_count) >= 0) {
+  if (lead.guest_count != null && Number.isInteger(Number(lead.guest_count)) && Number(lead.guest_count) >= 0)
     body.guest_count = Number(lead.guest_count);
-  }
-
   const eventDate = lead.event_date != null ? String(lead.event_date).trim() : '';
   if (eventDate && /^\d{4}-\d{2}-\d{2}$/.test(eventDate)) body.event_date = eventDate;
-
   if (lead.notes != null && typeof lead.notes === 'string') body.notes = lead.notes;
-
   if (lead.name && typeof lead.name === 'string') {
     const parts = lead.name.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      body.client_first_name = parts[0];
-      body.client_last_name = parts.slice(1).join(' ');
-    } else if (parts.length === 1 && parts[0]) {
-      body.client_first_name = parts[0];
-    }
+    if (parts.length >= 2) { body.client_first_name = parts[0]; body.client_last_name = parts.slice(1).join(' '); }
+    else if (parts.length === 1 && parts[0]) body.client_first_name = parts[0];
   }
-
   const email = lead.email != null ? String(lead.email).trim() : '';
   if (email && email.includes('@')) body.client_email = email;
-
   if (lead.phone != null && typeof lead.phone === 'string' && lead.phone.trim()) body.client_phone = lead.phone.trim();
-
   return body;
 }
 
@@ -55,38 +43,45 @@ export default function LeadsPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef(null);
   const limit = 25;
+  const debouncedSearch = useDebouncedValue(search, 300);
 
-  const load = useCallback(() => {
+  const load = useCallback((signal) => {
     setLoading(true);
     const params = { page, limit };
-    if (search) params.search = search;
-    api.getLeads(params)
+    if (debouncedSearch) params.search = debouncedSearch;
+    api.getLeads(params, { signal, dedupeKey: 'leads:list', cancelPrevious: true })
       .then(d => { setLeads(d.leads || []); setTotal(d.total || 0); })
-      .catch(e => toast.error(e.message))
-      .finally(() => setLoading(false));
-  }, [page, search]);
-
-  useEffect(() => { load(); }, [load]);
-
-  useEffect(() => { setPage(1); }, [search]);
+      .catch(e => {
+        if (!isAbortError(e)) toast.error(e.message);
+      })
+      .finally(() => { if (!signal?.aborted) setLoading(false); });
+  }, [debouncedSearch, page, toast]);
 
   useEffect(() => {
-    if (!search.trim() || search.trim().length < 2) { setSuggestions([]); return; }
-    const t = setTimeout(() => {
-      api.getLeads({ search: search.trim(), limit: 6 })
-        .then(d => setSuggestions(d.leads || []))
-        .catch(() => setSuggestions([]));
-    }, 200);
-    return () => clearTimeout(t);
-  }, [search]);
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+  useEffect(() => { setPage(1); }, [debouncedSearch]);
+
+  useEffect(() => {
+    if (!debouncedSearch.trim() || debouncedSearch.trim().length < 2) { setSuggestions([]); return; }
+    const controller = new AbortController();
+    api.getLeads({ search: debouncedSearch.trim(), limit: 6 }, { signal: controller.signal, dedupeKey: 'leads:suggestions', cancelPrevious: true })
+      .then(d => setSuggestions(d.leads || []))
+      .catch((err) => { if (!isAbortError(err)) setSuggestions([]); });
+    return () => { controller.abort(); };
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (!selectedLead) { setEvents([]); return; }
+    const controller = new AbortController();
     setEventsLoading(true);
-    api.getLeadEvents(selectedLead.id)
-      .then(d => { setEvents(d.events || []); })
-      .catch(() => { setEvents([]); })
-      .finally(() => setEventsLoading(false));
+    api.getLeadEvents(selectedLead.id, { signal: controller.signal, dedupeKey: `leads:events:${selectedLead.id}`, cancelPrevious: true })
+      .then(d => setEvents(d.events || []))
+      .catch((err) => { if (!isAbortError(err)) setEvents([]); })
+      .finally(() => { if (!controller.signal.aborted) setEventsLoading(false); });
+    return () => controller.abort();
   }, [selectedLead]);
 
   const handleDelete = async () => {
@@ -148,22 +143,70 @@ export default function LeadsPage() {
   const sortThClass = `${thClass} cursor-pointer select-none hover:text-primary transition-colors`;
   const tdClass = 'px-3 py-2.5 border-b border-border text-[14px]';
 
+  const LeadDetail = () => selectedLead ? (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-[16px] font-bold truncate">{selectedLead.name || selectedLead.email || `Lead #${selectedLead.id}`}</h3>
+        <button type="button" className="btn btn-ghost btn-sm ml-2 shrink-0" onClick={() => setSelectedLead(null)}>Close</button>
+      </div>
+      <div className="flex flex-col gap-1.5 mb-4 text-[13px]">
+        {selectedLead.email && <a href={`mailto:${selectedLead.email}`} className="text-primary">{selectedLead.email}</a>}
+        {selectedLead.phone && <span className="text-text-muted">{selectedLead.phone}</span>}
+        {selectedLead.event_date && <span className="text-text-muted">{selectedLead.event_date}{selectedLead.event_type ? ` · ${selectedLead.event_type}` : ''}</span>}
+      </div>
+      <button
+        type="button"
+        className="btn btn-primary btn-sm w-full mb-4"
+        disabled={creatingQuoteForId === selectedLead.id}
+        onClick={e => handleCreateQuote(selectedLead, e)}
+      >
+        {creatingQuoteForId === selectedLead.id ? 'Creating…' : '+ Create Project from Lead'}
+      </button>
+      <h4 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">Activity</h4>
+      {eventsLoading ? (
+        <div className="flex flex-col gap-2" aria-hidden="true">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex gap-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-border shrink-0 mt-1" />
+              <div className="flex-1"><div className="skeleton h-[13px] mb-1 rounded" style={{ width: `${50 + i * 15}%` }} /><div className="skeleton h-[11px] w-20 rounded" /></div>
+            </div>
+          ))}
+        </div>
+      ) : events.length === 0 ? (
+        <p className="text-[13px] text-text-muted">No activity yet.</p>
+      ) : (
+        <ul className="list-none p-0 m-0 relative before:absolute before:left-[4px] before:top-2 before:bottom-2 before:w-px before:bg-border">
+          {events.map(ev => (
+            <li key={ev.id} className="flex gap-3 pb-4 last:pb-0 relative">
+              <span className="w-2.5 h-2.5 rounded-full bg-primary shrink-0 mt-0.5 relative z-[1]" />
+              <div className="flex-1 min-w-0">
+                <span className="text-[13px] font-semibold">{eventLabel(ev.event_type)}</span>
+                {ev.note && <span className="text-[13px] text-text-muted"> — {ev.note}</span>}
+                <div className="text-[11px] text-text-muted mt-0.5">{ev.created_at ? new Date(ev.created_at).toLocaleString() : ''}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div className="flex flex-col gap-5">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
-        <p className="text-[13px] text-text-muted mt-0.5">{total} lead{total !== 1 ? 's' : ''} in database</p>
+        <p className="text-[13px] text-text-muted mt-0.5">{total} lead{total !== 1 ? 's' : ''}</p>
       </div>
 
       {/* Search */}
-      <div ref={searchRef} className="relative flex items-center flex-1 max-w-sm">
+      <div ref={searchRef} className="relative flex items-center">
         <svg className="absolute left-2.5 text-text-muted pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
         <input
           className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-[14px] bg-bg text-text focus:outline-none focus:border-primary shadow-sm"
           placeholder="Search name, email, phone…"
-          aria-label="Search leads by name, email, or phone"
+          aria-label="Search leads"
           value={search}
           onChange={e => setSearch(e.target.value)}
           onFocus={() => setShowSuggestions(true)}
@@ -178,10 +221,7 @@ export default function LeadsPage() {
                   type="button"
                   className="w-full text-left px-3 py-2 cursor-pointer hover:bg-surface rounded text-[13px]"
                   onMouseDown={e => e.preventDefault()}
-                  onClick={() => {
-                    setSearch(s.name || s.email || '');
-                    setShowSuggestions(false);
-                  }}
+                  onClick={() => { setSearch(s.name || s.email || ''); setShowSuggestions(false); }}
                 >
                   <span className="font-medium">{s.name || '—'}</span>
                   {s.email && <span className="text-[11px] text-text-muted ml-2">{s.email}</span>}
@@ -193,41 +233,75 @@ export default function LeadsPage() {
         )}
       </div>
 
-      {/* Two-pane layout */}
-      <div className="grid grid-cols-[1fr_300px] gap-5 items-start max-[900px]:grid-cols-1">
-        {/* Leads list */}
-        <div>
-          {loading ? (
-            <div className="card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-[14px]">
-                  <tbody>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <tr key={i}>
-                        {Array.from({ length: 8 }).map((_, j) => (
-                          <td key={j} className={tdClass}>
-                            <div className="skeleton h-[13px]" style={{ width: j === 0 ? 120 : j === 1 ? 160 : 80 }} />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+      {loading ? (
+        /* Skeleton */
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="card p-4 flex flex-col gap-2">
+              <div className="skeleton h-[15px] w-[50%] rounded" />
+              <div className="skeleton h-[12px] w-[70%] rounded" />
             </div>
-          ) : leads.length === 0 ? (
-            <div className="empty-state">
-              {search.trim() ? (
-                <>
-                  <p>No leads match <strong>"{search}"</strong>.</p>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSearch('')}>Clear search</button>
-                </>
-              ) : (
-                <p>No leads yet. Import a sheet on the Import page or use the extension to capture contacts.</p>
-              )}
-            </div>
+          ))}
+        </div>
+      ) : leads.length === 0 ? (
+        <div className="empty-state">
+          {search.trim() ? (
+            <>
+              <p>No leads match <strong>"{search}"</strong>.</p>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSearch('')}>Clear search</button>
+            </>
           ) : (
-            <div className="card overflow-hidden">
+            <p>No leads yet. Import a sheet on the Import page or use the extension to capture contacts.</p>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
+          <div>
+            {/* ── Mobile card list ──────────────── */}
+            <div className="sm:hidden flex flex-col gap-2">
+              {sortedLeads.map(l => (
+                <div
+                  key={l.id}
+                  className={`card p-3.5 cursor-pointer hover:shadow-md transition-shadow ${selectedLead?.id === l.id ? 'ring-2 ring-primary' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedLead(s => s?.id === l.id ? null : l)}
+                  onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setSelectedLead(s => s?.id === l.id ? null : l)}
+                >
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-[14px] truncate">{l.name || '—'}</div>
+                      {l.email && <div className="text-[12px] text-text-muted truncate">{l.email}</div>}
+                      {l.phone && <div className="text-[12px] text-text-muted">{l.phone}</div>}
+                      <div className="text-[11px] text-text-muted mt-1">
+                        {[l.event_date, l.event_type].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={creatingQuoteForId === l.id}
+                        onClick={e => handleCreateQuote(l, e)}
+                      >
+                        {creatingQuoteForId === l.id ? '…' : 'Create'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: 'var(--color-danger)' }}
+                        onClick={() => setConfirmDelete(l)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Desktop table ─────────────────── */}
+            <div className="hidden sm:block card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-[14px]">
                   <thead>
@@ -235,9 +309,7 @@ export default function LeadsPage() {
                       <th className={sortThClass} tabIndex={0} onClick={() => handleSort('name')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('name')} aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>Name <SortIcon col="name" /></th>
                       <th className={sortThClass} tabIndex={0} onClick={() => handleSort('email')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('email')} aria-sort={sortKey === 'email' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>Email <SortIcon col="email" /></th>
                       <th className={thClass}>Phone</th>
-                      <th className={sortThClass} tabIndex={0} onClick={() => handleSort('event_date')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('event_date')} aria-sort={sortKey === 'event_date' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>Event Date <SortIcon col="event_date" /></th>
-                      <th className={sortThClass} tabIndex={0} onClick={() => handleSort('event_type')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('event_type')} aria-sort={sortKey === 'event_type' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>Event Type <SortIcon col="event_type" /></th>
-                      <th className={thClass}>Source</th>
+                      <th className={sortThClass} tabIndex={0} onClick={() => handleSort('event_date')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('event_date')} aria-sort={sortKey === 'event_date' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>Event <SortIcon col="event_date" /></th>
                       <th className={sortThClass} tabIndex={0} onClick={() => handleSort('created_at')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('created_at')} aria-sort={sortKey === 'created_at' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>Added <SortIcon col="created_at" /></th>
                       <th className={thClass}></th>
                     </tr>
@@ -248,22 +320,17 @@ export default function LeadsPage() {
                         key={l.id}
                         className={`hover:bg-hover transition-colors cursor-pointer ${selectedLead?.id === l.id ? 'bg-primary/10' : ''}`}
                         tabIndex={0}
-                        onClick={() => setSelectedLead(s => (s?.id === l.id ? null : l))}
-                        onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setSelectedLead(s => (s?.id === l.id ? null : l))}
+                        onClick={() => setSelectedLead(s => s?.id === l.id ? null : l)}
+                        onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setSelectedLead(s => s?.id === l.id ? null : l)}
                       >
                         <td className={tdClass}>{l.name || '—'}</td>
                         <td className={tdClass}>
-                          {l.email
-                            ? <a href={`mailto:${l.email}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{l.email}</a>
-                            : '—'}
+                          {l.email ? <a href={`mailto:${l.email}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{l.email}</a> : '—'}
                         </td>
                         <td className={tdClass}>{l.phone || '—'}</td>
-                        <td className={tdClass}>{l.event_date || '—'}</td>
-                        <td className={tdClass}>{l.event_type || '—'}</td>
                         <td className={tdClass}>
-                          {l.source_url
-                            ? <a href={l.source_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" title={l.source_url} onClick={e => e.stopPropagation()}>view</a>
-                            : '—'}
+                          {l.event_date || '—'}
+                          {l.event_type && <span className="text-text-muted text-[12px] block">{l.event_type}</span>}
                         </td>
                         <td className={tdClass}>{l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}</td>
                         <td className={`${tdClass} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
@@ -272,17 +339,16 @@ export default function LeadsPage() {
                             className="btn btn-primary btn-sm mr-1"
                             disabled={creatingQuoteForId === l.id}
                             onClick={e => handleCreateQuote(l, e)}
-                            title="Create a new project from this lead"
                           >
                             {creatingQuoteForId === l.id ? '…' : 'Create project'}
                           </button>
                           <button
                             type="button"
-                            className="btn btn-ghost btn-sm text-danger"
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: 'var(--color-danger)' }}
                             onClick={() => setConfirmDelete(l)}
-                            aria-label={`Delete lead ${l.name || l.email || ''}`}
                           >
-                            <span aria-hidden="true">✕</span>
+                            ✕
                           </button>
                         </td>
                       </tr>
@@ -293,67 +359,46 @@ export default function LeadsPage() {
 
               {pages > 1 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                  <button className="btn btn-ghost btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-                    <span aria-hidden="true">←</span> Prev
-                  </button>
+                  <button className="btn btn-ghost btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
                   <span className="text-[13px] text-text-muted">Page {page} of {pages}</span>
-                  <button className="btn btn-ghost btn-sm" disabled={page >= pages} onClick={() => setPage(p => p + 1)}>
-                    Next <span aria-hidden="true">→</span>
-                  </button>
+                  <button className="btn btn-ghost btn-sm" disabled={page >= pages} onClick={() => setPage(p => p + 1)}>Next →</button>
                 </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* Detail / timeline */}
-        <div aria-live="polite">
-          {selectedLead ? (
-            <div className="card p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[16px] font-bold truncate">{selectedLead.name || selectedLead.email || 'Lead #' + selectedLead.id}</h3>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedLead(null)}>Close</button>
+            {/* Mobile pagination */}
+            {pages > 1 && (
+              <div className="flex sm:hidden items-center justify-between mt-2 px-1">
+                <button className="btn btn-ghost btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
+                <span className="text-[13px] text-text-muted">Page {page} of {pages}</span>
+                <button className="btn btn-ghost btn-sm" disabled={page >= pages} onClick={() => setPage(p => p + 1)}>Next →</button>
               </div>
-              {eventsLoading ? (
-                <ul className="list-none p-0 m-0 flex flex-col gap-0" aria-hidden="true">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <li key={i} className="flex gap-3 pb-4 relative">
-                      <div className="w-2.5 h-2.5 rounded-full bg-border shrink-0 mt-0.5 relative z-[1]" />
-                      <div className="flex-1">
-                        <div className="skeleton h-[13px] mb-1.5 rounded" style={{ width: `${50 + (i % 3) * 20}%` }} />
-                        <div className="skeleton h-[11px] w-20 rounded" />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : events.length === 0 ? (
-                <p className="text-[13px] text-text-muted">No activity yet.</p>
-              ) : (
-                <ul className="list-none p-0 m-0 relative before:absolute before:left-[4px] before:top-2 before:bottom-2 before:w-px before:bg-border">
-                  {events.map(ev => (
-                    <li key={ev.id} className="flex gap-3 pb-4 last:pb-0 relative">
-                      <span className="w-2.5 h-2.5 rounded-full bg-primary shrink-0 mt-0.5 relative z-[1]" />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[13px] font-semibold">{eventLabel(ev.event_type)}</span>
-                        {ev.note && <span className="text-[13px] text-text-muted"> — {ev.note}</span>}
-                        <div className="text-[11px] text-text-muted mt-0.5">{ev.created_at ? new Date(ev.created_at).toLocaleString() : ''}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-3 py-12 text-text-muted text-[14px] opacity-60">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="8" cy="6" r="3"/><path d="M2 18c0-3.314 2.686-5 6-5"/>
-                <circle cx="16" cy="6" r="3"/><path d="M10 18c0-3.314 2.686-5 6-5s6 1.686 6 5"/>
-              </svg>
-              <span>Select a lead to view activity</span>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Detail / timeline sidebar */}
+          <div aria-live="polite">
+            {selectedLead ? (
+              <LeadDetail />
+            ) : (
+              <div className="hidden lg:flex flex-col items-center justify-center gap-3 py-12 text-text-muted text-[14px] opacity-50">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="8" cy="6" r="3"/><path d="M2 18c0-3.314 2.686-5 6-5"/>
+                  <circle cx="16" cy="6" r="3"/><path d="M10 18c0-3.314 2.686-5 6-5s6 1.686 6 5"/>
+                </svg>
+                <span>Select a lead to view activity</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Mobile lead detail (full-width below list when selected) */}
+      {selectedLead && (
+        <div className="sm:hidden">
+          <LeadDetail />
+        </div>
+      )}
 
       {confirmDelete && (
         <ConfirmDialog

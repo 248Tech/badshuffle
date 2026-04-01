@@ -13,6 +13,158 @@
 }
 .topActions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* Desktop-only action buttons (hidden on mobile behind overflow menu) */
+.desktopAction {}
+
+/* Messages slide-up modal (used on mobile) */
+.messagesModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+}
+.messagesModalPanel {
+  width: 100%;
+  max-height: 80dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+}
+.messagesModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+.messagesModalTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+.messagesModalClose {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 6px;
+}
+.messagesModalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  -webkit-overflow-scrolling: touch;
+}
+.messagesModalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+.messagesModalSend { align-self: flex-end; }
+
+/* Notes card */
+.notesCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+.notesForm { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.notesCard .venueClickable { padding: 14px 16px; }
+.notesCard:hover { border-color: var(--color-primary); }
+.notesView { display: flex; flex-direction: column; gap: 10px; }
+.notesViewItem { display: flex; flex-direction: column; gap: 4px; }
+.notesViewText { margin: 0; font-size: 13px; color: var(--color-text); white-space: pre-wrap; word-break: break-word; }
+.notesTag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+  vertical-align: middle;
+}
+.notesTagInternal {
+  background: color-mix(in srgb, var(--color-text-muted) 14%, transparent);
+  color: var(--color-text-muted);
+}
+
+/* Mobile overflow "⋮ More" menu */
+.mobileMenuWrap { display: none; position: relative; }
+.mobileMenuBackdrop { position: fixed; inset: 0; z-index: 98; }
+.mobileMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 180px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 99;
+  overflow: hidden;
+}
+.mobileMenuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 13px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+}
+.mobileMenuItem:last-child { border-bottom: none; }
+.mobileMenuItem:hover { background: var(--color-surface); }
+.mobileMenuItem:disabled { opacity: 0.5; cursor: default; }
+.mobileMenuItemDanger { color: var(--color-danger); }
+
+/* Mobile-only Items tab (hidden on desktop) */
+.mobileItemsTab { display: none; }
+
+/* Desktop builder columns wrapper — hidden on mobile so the Items tab takes over */
+.desktopOnlyBuilder {}
+
+/* Inline totals banner shown inside the mobile Items tab */
+.mobileItemsTotals {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.mobileTotalsLabel {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+.mobileTotalsAmount {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1;
+}
+
 /* Top section: divider + tabs + action buttons */
 .topDiv {
   display: flex;
@@ -49,7 +201,7 @@
 }
 @media (max-width: 960px) {
   .columns { grid-template-columns: 1fr; }
-  .exportCol { order: -1; } /* Export + Summary above builder on tablet/mobile */
+  .exportCol { order: 0; position: static; top: auto; } /* Keep builder first on tablet/mobile */
 }
 
 /* Mobile */
@@ -88,16 +240,29 @@
   .tabs::-webkit-scrollbar { display: none; }
   .tabs .tab,
   .tabs .tabActive { flex-shrink: 0; }
+  .desktopAction { display: none !important; }
+  .mobileMenuWrap { display: block; }
   .topDivActions {
-    justify-content: flex-start;
-    gap: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
   }
-  .topDivActions .btn { font-size: 12px; padding: 6px 10px; }
+  .topDivActions .btn {
+    width: auto;
+    font-size: 13px;
+    padding: 8px 12px;
+  }
   .clientVenueRow { gap: 12px; padding: 10px 0; }
   .clientBlock, .venueBlock { padding: 10px; }
   .columns { gap: 14px; }
   .builderCol { gap: 12px; }
-  .exportCol { order: -1; }
+  .exportCol {
+    order: 0;
+    position: static;
+    top: auto;
+  }
   .exportCard, .totalsCard { padding: 14px; }
   .exportTitle { font-size: 13px; margin-bottom: 10px; }
   .totalsRow { font-size: 13px; }
@@ -111,10 +276,12 @@
   .logPicker { padding: 10px; }
   .customItemForm { padding: 10px; }
   .customItemsCompact { margin-top: 10px; padding-top: 10px; }
+  .mobileItemsTab { display: flex; flex-shrink: 0; }
+  .desktopOnlyBuilder { display: none; }
 }
 
 @media (max-width: 480px) {
-  .topDivActions .btn { font-size: 11px; padding: 6px 8px; }
+  .topDivActions .btn { font-size: 12px; padding: 8px 10px; }
   .tab, .tabActive { padding: 6px 10px; font-size: 12px; }
 }
 .topDivActions .btn-primary {
@@ -194,6 +361,7 @@
   border-radius: var(--radius-sm);
   background: var(--color-bg);
   min-width: 0;
+  overflow: hidden;
 }
 .venueClickable {
   cursor: pointer;
@@ -204,7 +372,7 @@
 .venueTitle { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin-bottom: 8px; }
 .venueGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
   gap: 10px 16px;
   font-size: 13px;
 }
@@ -271,6 +439,22 @@
 
 .logisticsBlock { padding: 12px 0; border-top: 1px solid var(--color-border); }
 .logisticsHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.logisticsAddBtn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: none;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.logisticsAddBtn:hover {
+  background: var(--color-primary-subtle);
+}
 .logisticsTitle { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); margin: 0; }
 .logisticsList { margin: 0; padding: 0; list-style: none; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
 .logisticsItem { display: flex; align-items: center; gap: 12px; padding: 4px 0; }

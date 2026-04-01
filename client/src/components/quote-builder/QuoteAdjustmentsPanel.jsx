@@ -47,7 +47,7 @@ export default function QuoteAdjustmentsPanel({ quoteId, adjustments = [], onAdj
     <div className={styles.section}>
       <div className={styles.adjHeader}>
         <h3 className={styles.sectionTitle}>Discounts &amp; Surcharges</h3>
-        <button type="button" className={styles.adjAddBtn} onClick={() => setShowAdjForm((v) => !v)}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowAdjForm((v) => !v)}>
           {showAdjForm ? 'Cancel' : '+ Add'}
         </button>
       </div>

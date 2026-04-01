@@ -1,4 +1,6 @@
 const express = require('express');
+const { getSettingValue } = require('../db/queries/settings');
+const quoteFulfillmentService = require('../services/quoteFulfillmentService');
 
 module.exports = function makeRouter(db) {
   const router = express.Router();
@@ -28,8 +30,7 @@ module.exports = function makeRouter(db) {
   }
 
   function getOosSetting() {
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'count_oos_oversold'").get();
-    return row && row.value === '1';
+    return getSettingValue(db, 'count_oos_oversold', '0') === '1';
   }
 
   function getQuoteSectionsMap(quoteIds) {
@@ -156,6 +157,7 @@ module.exports = function makeRouter(db) {
     const quoteIds = quotes.map((quote) => Number(quote.id));
     const currentEntriesByQuote = loadCurrentItemEntries(quoteIds, itemIds);
     const signedEntriesByQuote = loadLatestSignedSnapshotEntries(quoteIds, itemIds);
+    const fulfillmentEntriesByQuote = quoteFulfillmentService.getOutstandingFulfillmentRowsByQuoteAndItems(db, quoteIds, itemIds);
     const result = {};
 
     quotes.forEach((quote) => {
@@ -167,7 +169,10 @@ module.exports = function makeRouter(db) {
       if (hasUnsignedChanges) {
         const signedMap = aggregateEntriesByItemAndSection(signedEntries);
         const currentMap = aggregateEntriesByItemAndSection(currentEntries);
-        const reservedEntries = signedMap.size ? Array.from(signedMap.values()) : currentEntries;
+        const fulfillmentEntries = fulfillmentEntriesByQuote[quoteId] || [];
+        const reservedEntries = fulfillmentEntries.length
+          ? fulfillmentEntries
+          : (signedMap.size ? Array.from(signedMap.values()) : currentEntries);
         const potentialEntries = [];
 
         currentMap.forEach((entry, key) => {
@@ -184,6 +189,12 @@ module.exports = function makeRouter(db) {
         });
 
         result[quoteId] = { reserved: reservedEntries, potential: potentialEntries };
+        return;
+      }
+
+      const fulfillmentEntries = fulfillmentEntriesByQuote[quoteId] || [];
+      if (fulfillmentEntries.length) {
+        result[quoteId] = { reserved: fulfillmentEntries, potential: [] };
         return;
       }
 

@@ -3,12 +3,14 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import s from './Sidebar.module.css';
 import { clearToken, api } from '../api';
 import { prefetchRoute } from '../lib/routePrefetch.js';
+import { hasPermission } from '../lib/permissions.js';
 
 function pathToLabel(path) {
   if (!path || path === '/') return 'Dashboard';
   const p = path.replace(/^\//, '');
   const map = {
     dashboard: 'Dashboard', inventory: 'Inventory', quotes: 'Projects',
+    maps: 'Maps', team: 'Team', profile: 'Profile',
     billing: 'Billing', leads: 'Leads', files: 'Files', messages: 'Messages',
     stats: 'Stats', extension: 'Extension', admin: 'Admin', templates: 'Templates',
     settings: 'Settings', directory: 'Directory', vendors: 'Vendors',
@@ -34,6 +36,7 @@ const AngryFace = () => (
 
 const ICONS = {
   dashboard: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>,
+  maps: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 14s4-3.2 4-7A4 4 0 1 0 4 7c0 3.8 4 7 4 7z"/><circle cx="8" cy="7" r="1.5"/></svg>,
   inventory: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 5.5l-5.5-4-5.5 4v7a1 1 0 001 1h9a1 1 0 001-1v-7z"/><path d="M5.5 14v-5.5a.5.5 0 01.5-.5h4a.5.5 0 01.5.5V14"/></svg>,
   import: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 1v9M4.5 7l3.5 3.5L11.5 7"/><path d="M2 12h12"/></svg>,
   quotes: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="1" width="12" height="14" rx="1"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>,
@@ -47,24 +50,25 @@ const ICONS = {
   admin: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="5" r="2.5"/><path d="M1 13c0-2.485 2.015-4 4.5-4"/><circle cx="11" cy="5" r="2"/><path d="M9 13c0-2.2 1.343-3.5 3.5-3.5A3.5 3.5 0 0115 13"/></svg>,
   templates: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1.5" y="3" width="13" height="10" rx="1"/><path d="M1.5 7l5 3 5-3"/></svg>,
   settings: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>,
+  profile: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.1 2.7-5 6-5s6 1.9 6 5"/></svg>,
   directory: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3.5A1.5 1.5 0 013.5 2h4L9 3.5H12.5A1.5 1.5 0 0114 5v7a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9z"/><circle cx="8" cy="8" r="1.5"/><path d="M5.5 11c0-1.38 1.12-2 2.5-2s2.5.62 2.5 2"/></svg>,
 };
 
 const NAV_GROUPS = [
-  { id: 'dashboard', label: 'Dashboard', icon: ICONS.dashboard, to: '/dashboard', children: [{ to: '/stats', label: 'Stats', icon: ICONS.stats }] },
-  { id: 'projects', label: 'Projects', icon: ICONS.quotes, to: '/quotes', children: [{ to: '/billing', label: 'Billing', icon: ICONS.billing, role: 'operator' }] },
-  { id: 'inventory', label: 'Inventory', icon: ICONS.inventory, to: '/inventory', children: [{ to: '/inventory-settings', label: 'Inventory Settings', icon: ICONS.settings, role: 'operator' }] },
-  { id: 'messages', label: 'Messages', icon: ICONS.messages, children: [{ to: '/messages', label: 'Inbox', icon: ICONS.messages }, { to: '/templates', label: 'Templates', icon: ICONS.templates, role: 'operator' }, { to: '/message-settings', label: 'Message Settings', icon: ICONS.settings, role: 'operator' }] },
-  { id: 'directory', label: 'Directory', icon: ICONS.directory, to: '/directory', children: [{ to: '/leads', label: 'Leads', icon: ICONS.leads }, { to: '/vendors', label: 'Vendors', icon: ICONS.vendors, role: 'operator' }] },
-  { id: 'files', label: 'Files', icon: ICONS.files, to: '/files' },
-  { id: 'extension', label: 'Extension / Help', icon: ICONS.extension, to: '/extension' },
-  { id: 'settings', label: 'Settings', icon: ICONS.settings, to: '/settings', role: 'operator', children: [{ to: '/admin', label: 'Admin', icon: ICONS.admin, role: 'admin' }, { to: '/import', label: 'Import', icon: ICONS.import }] },
+  { id: 'dashboard', label: 'Dashboard', icon: ICONS.dashboard, to: '/dashboard', module: 'dashboard', children: [{ to: '/stats', label: 'Stats', icon: ICONS.stats, module: 'dashboard' }] },
+  { id: 'projects', label: 'Projects', icon: ICONS.quotes, to: '/quotes', module: 'projects' },
+  { id: 'maps', label: 'Maps', icon: ICONS.maps, to: '/maps', module: 'maps' },
+  { id: 'messages', label: 'Messages', icon: ICONS.messages, module: 'messages', children: [{ to: '/messages', label: 'Inbox', icon: ICONS.messages, module: 'messages' }, { to: '/templates', label: 'Templates', icon: ICONS.templates, module: 'messages', minimum: 'modify' }, { to: '/message-settings', label: 'Message Settings', icon: ICONS.settings, module: 'settings', minimum: 'modify' }] },
+  { id: 'directory', label: 'Directory', icon: ICONS.directory, to: '/directory', module: 'directory', children: [{ to: '/team', label: 'Team', icon: ICONS.admin, module: 'directory' }, { to: '/leads', label: 'Leads', icon: ICONS.leads, module: 'directory' }, { to: '/vendors', label: 'Vendors', icon: ICONS.vendors, module: 'directory' }] },
+  { id: 'inventory', label: 'Inventory', icon: ICONS.inventory, to: '/inventory', module: 'inventory', children: [{ to: '/inventory-settings', label: 'Inventory Settings', icon: ICONS.settings, module: 'inventory', minimum: 'modify' }] },
+  { id: 'files', label: 'Files', icon: ICONS.files, to: '/files', module: 'files' },
+  { id: 'billing', label: 'Billing', icon: ICONS.billing, to: '/billing', module: 'billing' },
+  { id: 'settings', label: 'Settings', icon: ICONS.settings, to: '/settings', module: 'settings', children: [{ to: '/admin', label: 'Admin', icon: ICONS.admin, module: 'admin' }, { to: '/import', label: 'Import', icon: ICONS.import, module: 'settings', minimum: 'modify' }, { to: '/extension', label: 'Extension', icon: ICONS.extension, module: 'settings' }] },
 ];
 
-function canSee(item, role) {
-  if (item.role === 'admin') return role === 'admin';
-  if (item.role === 'operator') return role === 'admin' || role === 'operator';
-  return true;
+function canSee(item, authUser) {
+  if (!item.module) return true;
+  return hasPermission(authUser?.permissions, item.module, item.minimum || 'read');
 }
 
 // Pill badge for unread/pending counts
@@ -77,7 +81,7 @@ function Badge({ count }) {
   );
 }
 
-export default function Sidebar({ role = '', mobileOpen = false, onMobileClose }) {
+export default function Sidebar({ authUser = null, mobileOpen = false, onMobileClose }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
@@ -116,21 +120,29 @@ export default function Sidebar({ role = '', mobileOpen = false, onMobileClose }
     setFlyout(null);
   }, [location.pathname]);
 
-  useEffect(() => { api.auth.me().then(me => setCurrentUserEmail(me.email)).catch(() => {}); }, []);
+  useEffect(() => { setCurrentUserEmail(authUser?.email || null); }, [authUser]);
 
   useEffect(() => {
     const load = () => {
       api.presence.list().then(d => setOnline(d.online || [])).catch(() => setOnline([]));
-      api.getUnreadCount().then(d => setUnreadCount(d.count || 0)).catch(() => {});
+      if (hasPermission(authUser?.permissions, 'messages', 'read')) {
+        api.getUnreadCount().then(d => setUnreadCount(d.count || 0)).catch(() => {});
+      } else {
+        setUnreadCount(0);
+      }
     };
     load();
     const id = setInterval(load, 25000);
     return () => clearInterval(id);
-  }, []);
+  }, [authUser]);
 
   useEffect(() => {
+    if (!hasPermission(authUser?.permissions, 'admin', 'read')) {
+      setPendingCount(0);
+      return;
+    }
     api.admin.getUsers().then(users => setPendingCount(users.filter(u => !u.approved).length)).catch(() => {});
-  }, []);
+  }, [authUser]);
 
   useEffect(() => {
     return () => {
@@ -185,9 +197,9 @@ export default function Sidebar({ role = '', mobileOpen = false, onMobileClose }
   const handleFlyoutMouseEnter = useCallback(() => { clearTimeout(flyoutTimers.current['close']); }, []);
   const handleFlyoutMouseLeave = useCallback(() => { flyoutTimers.current['close'] = setTimeout(() => setFlyout(null), 150); }, []);
 
-  const visibleGroups = NAV_GROUPS.filter(g => canSee(g, role));
+  const visibleGroups = NAV_GROUPS.filter(g => canSee(g, authUser));
   const flyoutGroupData = flyout ? NAV_GROUPS.find(g => g.id === flyout.id) : null;
-  const flyoutChildren = flyoutGroupData ? (flyoutGroupData.children || []).filter(c => canSee(c, role)) : [];
+  const flyoutChildren = flyoutGroupData ? (flyoutGroupData.children || []).filter(c => canSee(c, authUser)) : [];
 
   // Shared link classes
   const linkBase = 'relative flex items-center gap-2.5 px-2.5 py-[9px] min-h-[40px] rounded-sm text-[13.5px] font-medium w-full text-left border-none bg-transparent cursor-pointer transition-colors duration-[130ms] whitespace-nowrap overflow-hidden';
@@ -230,7 +242,7 @@ export default function Sidebar({ role = '', mobileOpen = false, onMobileClose }
       {/* Nav */}
       <ul className="list-none flex-1 px-1.5 py-2.5 flex flex-col gap-px overflow-y-auto overflow-x-hidden">
         {visibleGroups.map(group => {
-          const visibleChildren = group.children ? group.children.filter(c => canSee(c, role)) : [];
+          const visibleChildren = group.children ? group.children.filter(c => canSee(c, authUser)) : [];
           const hasChildren = visibleChildren.length > 0;
           const isExpanded = expandedGroups.has(group.id) && !collapsed;
           const isGroupActive = group.to
@@ -385,10 +397,10 @@ export default function Sidebar({ role = '', mobileOpen = false, onMobileClose }
             {online.map(u => (
               <li key={u.userId} className="flex flex-col gap-px text-[12px] text-white">
                 <span className="font-medium overflow-hidden text-ellipsis whitespace-nowrap">
-                  {u.email}
+                  {u.full_name || u.email}
                   {currentUserEmail && u.email === currentUserEmail && <span className="opacity-80 font-normal"> (you)</span>}
                 </span>
-                <span className="text-[11px] text-white/70">{pathToLabel(u.path)}</span>
+                <span className="text-[11px] text-white/70">{u.label || pathToLabel(u.path)}</span>
               </li>
             ))}
           </ul>
@@ -397,6 +409,25 @@ export default function Sidebar({ role = '', mobileOpen = false, onMobileClose }
 
       {/* Footer */}
       <div className="px-2 py-2.5 border-t border-white/[.07] flex flex-col gap-1.5 shrink-0">
+        <NavLink
+          to="/profile"
+          title={collapsed ? 'Profile' : undefined}
+          className={({ isActive }) =>
+            `${linkBase} ${isActive ? linkActive : linkIdle} text-left ${collapsed ? 'justify-center px-[7px]' : ''}`
+          }
+          onMouseEnter={() => prefetchRoute('/profile')}
+          onFocus={() => prefetchRoute('/profile')}
+        >
+          {({ isActive }) => (
+            <>
+              {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-accent rounded-r-sm" aria-hidden="true" />}
+              <span className={`flex items-center justify-center shrink-0 w-[19px] opacity-85 ${collapsed ? 'mx-auto' : ''}`} aria-hidden="true">
+                {ICONS.profile}
+              </span>
+              <span className={`${s.linkLabel} ${collapsed ? s.linkLabelHidden : ''} flex-1 overflow-hidden text-ellipsis`}>Profile</span>
+            </>
+          )}
+        </NavLink>
         <button
           type="button"
           className={`flex items-center gap-2 px-2.5 py-[7px] border-none bg-transparent text-white/45 hover:bg-sidebar-hover hover:text-white/85 rounded-sm cursor-pointer text-[12px] font-medium transition-colors duration-[130ms] w-full whitespace-nowrap overflow-hidden ${collapsed ? 'justify-center px-[7px]' : 'text-left'}`}

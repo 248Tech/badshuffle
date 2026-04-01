@@ -1,6 +1,6 @@
 {
   "name": "badshuffle",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Self-hosted event rental software for quotes, inventory, client approvals, billing, messaging, files, and public catalog publishing.",
   "private": true,
   "license": "MIT",

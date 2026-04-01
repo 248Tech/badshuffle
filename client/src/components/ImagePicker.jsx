@@ -11,9 +11,16 @@ export default function ImagePicker({ onSelect, classNames = {} }) {
     if (!open) return;
     setLoading(true);
     Promise.all([api.getFiles().catch(() => ({ files: [] })), api.getItems({ hidden: '0' }).catch(() => ({ items: [] }))])
-      .then(([filesData, itemsData]) => {
-        setFileImages((filesData.files || []).filter((f) => f.mime_type && f.mime_type.startsWith('image/')));
-        setInvImages((itemsData.items || []).filter((i) => i.photo_url));
+      .then(async ([filesData, itemsData]) => {
+        const fImgs = (filesData.files || []).filter((f) => f.mime_type && f.mime_type.startsWith('image/'));
+        const iImgs = (itemsData.items || []).filter((i) => i.photo_url);
+        setFileImages(fImgs);
+        setInvImages(iImgs);
+        const ids = [
+          ...fImgs.map((f) => f.id),
+          ...iImgs.map((i) => i.photo_url).filter((p) => /^\d+$/.test(String(p).trim())),
+        ];
+        await api.prefetchFileServeUrls(ids);
       })
       .finally(() => setLoading(false));
   }, [open]);
@@ -46,13 +53,13 @@ export default function ImagePicker({ onSelect, classNames = {} }) {
               type="button"
               className={classNames.imagePickerThumb}
               onClick={() => {
-                onSelect(api.fileServeUrl(f.id), null);
+                onSelect(api.fileServeUrl(f.id, { variant: 'ui' }), null);
                 setOpen(false);
               }}
               title={f.original_name}
             >
               <img
-                src={api.fileServeUrl(f.id)}
+                src={api.fileServeUrl(f.id, { variant: 'thumb' })}
                 alt={f.original_name}
                 onError={(e) => {
                   e.target.style.display = 'none';
@@ -66,7 +73,7 @@ export default function ImagePicker({ onSelect, classNames = {} }) {
               type="button"
               className={classNames.imagePickerThumb}
               onClick={() => {
-                onSelect(api.proxyImageUrl(i.photo_url), i.unit_price || null);
+                onSelect(api.proxyImageUrl(i.photo_url, { variant: 'ui' }), i.unit_price || null);
                 setOpen(false);
               }}
               title={i.title}

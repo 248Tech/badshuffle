@@ -1,39 +1,70 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import { clearToken, api } from '../api';
 import s from './Layout.module.css';
 import { prefetchRoute } from '../lib/routePrefetch.js';
+import { hasPermission } from '../lib/permissions.js';
 
 const BOT_NAV = [
   {
-    to: '/dashboard', label: 'Home',
+    to: '/dashboard', label: 'Home', module: 'dashboard',
     icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h4a1 1 0 001-1v-3h2v3a1 1 0 001 1h4a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>,
   },
   {
-    to: '/quotes', label: 'Projects',
+    to: '/quotes', label: 'Projects', module: 'projects',
     icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/></svg>,
   },
   {
-    to: '/inventory', label: 'Inventory',
+    to: '/inventory', label: 'Inventory', module: 'inventory',
     icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd"/></svg>,
   },
   {
-    to: '/messages', label: 'Messages',
+    to: '/messages', label: 'Messages', module: 'messages',
     icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd"/></svg>,
   },
 ];
 
-export default function Layout({ role = '' }) {
+export default function Layout({ authUser = null }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const role = authUser?.role || '';
+  const permissions = authUser?.permissions || {};
+  const mobileNav = BOT_NAV.filter((item) => hasPermission(permissions, item.module, 'read'));
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [navVisible, setNavVisible] = useState(true);
+  const mainRef = useRef(null);
+  const lastScrollRef = useRef(0);
 
   useEffect(() => {
     api.presence.update(location.pathname).catch(() => {});
+    const id = setInterval(() => {
+      api.presence.update(location.pathname).catch(() => {});
+    }, 60_000);
+    return () => clearInterval(id);
   }, [location.pathname]);
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
+
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const scrollTop = el.scrollTop;
+      const scrollHeight = el.scrollHeight - el.clientHeight;
+      const scrollFraction = scrollHeight > 0 ? scrollTop / scrollHeight : 0;
+      const isScrollingDown = scrollTop > lastScrollRef.current + 4; // 4px threshold
+      const isScrollingUp = scrollTop < lastScrollRef.current - 4;
+      if (isScrollingDown && scrollFraction > 0.08) {
+        setNavVisible(false);
+      } else if (isScrollingUp || scrollFraction < 0.08) {
+        setNavVisible(true);
+      }
+      lastScrollRef.current = scrollTop;
+    };
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, []);
 
   function handleLogout() {
     clearToken();
@@ -42,7 +73,7 @@ export default function Layout({ role = '' }) {
 
   return (
     <div className="flex h-screen overflow-hidden relative" style={{ height: '100dvh' }}>
-      <Sidebar role={role} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
+      <Sidebar authUser={authUser} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
       {/* Main column */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
@@ -74,7 +105,7 @@ export default function Layout({ role = '' }) {
               onMouseEnter={() => prefetchRoute('/extension')}
               onFocus={() => prefetchRoute('/extension')}
             >Help</Link>
-            {(role === 'admin' || role === 'operator') && (
+            {hasPermission(permissions, 'settings', 'read') && (
               <Link
                 to="/settings"
                 className="text-sm text-text-muted hover:text-primary hover:bg-border inline-flex items-center px-3 min-h-[44px] rounded transition-colors no-underline"
@@ -91,9 +122,9 @@ export default function Layout({ role = '' }) {
         </header>
 
         {/* Page content */}
-        <main className={`flex-1 overflow-y-auto overflow-x-hidden bg-surface p-5 xl:p-8 ${s.main}`}>
+        <main ref={mainRef} className={`flex-1 overflow-y-auto overflow-x-hidden bg-surface p-5 xl:p-8 ${s.main}`}>
           <div className="w-full">
-            <Outlet />
+            <Outlet context={{ authUser, role, permissions }} />
           </div>
         </main>
       </div>
@@ -112,11 +143,11 @@ export default function Layout({ role = '' }) {
 
       {/* Bottom tab bar — mobile only (<= 640px) */}
       <nav
-        className="flex sm:hidden fixed bottom-0 left-0 right-0 z-[900] bg-bg border-t border-border shadow-[0_-2px_8px_rgba(0,0,0,0.08)]"
+        className={`flex sm:hidden fixed bottom-0 left-0 right-0 z-[900] bg-bg border-t border-border shadow-[0_-2px_8px_rgba(0,0,0,0.08)] transition-transform duration-300 ${navVisible ? 'translate-y-0' : 'translate-y-full'}`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         aria-label="Main navigation"
       >
-        {BOT_NAV.map(({ to, label, icon }) => (
+        {mobileNav.map(({ to, label, icon }) => (
           <NavLink
             key={to}
             to={to}

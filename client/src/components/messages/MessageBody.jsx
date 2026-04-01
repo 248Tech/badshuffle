@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../../api.js';
+import { sanitizeMessageBodyHtml } from '../../lib/sanitizeHtml.js';
 import RichMessageRenderer from './RichMessageRenderer.jsx';
 import styles from './MessageBody.module.css';
 import pageStyles from '../../pages/MessagesPage.module.css';
@@ -60,6 +61,13 @@ export function getMessageSnippet(msg) {
 export default function MessageBody({ msg }) {
   const [expanded, setExpanded] = useState(false);
 
+  useEffect(() => {
+    const raw = parseAttachments(msg);
+    const ids = raw.map((a) => a.file_id).filter((x) => x != null && /^\d+$/.test(String(x)));
+    if (!ids.length) return;
+    api.prefetchFileServeUrls(ids).catch(() => {});
+  }, [msg.id, msg.attachments_json]);
+
   const richPayload = parseJsonField(msg.rich_payload_json);
   const showRich = msg.message_type === 'rich' && richPayload && typeof richPayload === 'object';
 
@@ -102,7 +110,8 @@ export default function MessageBody({ msg }) {
     ) : null;
 
   if (msg.body_html) {
-    const iframeSrc = `<!DOCTYPE html><html><head><style>body{font-family:sans-serif;font-size:14px;color:#1f2937;margin:12px;word-break:break-word;}a{color:#1a8fc1;}img{max-width:100%;}</style></head><body>${msg.body_html}</body></html>`;
+    const safeBody = sanitizeMessageBodyHtml(msg.body_html);
+    const iframeSrc = `<!DOCTYPE html><html><head><style>body{font-family:sans-serif;font-size:14px;color:#1f2937;margin:12px;word-break:break-word;}a{color:#1a8fc1;}img{max-width:100%;}</style></head><body>${safeBody}</body></html>`;
     return (
       <div className={pageStyles.msgBodyHtml}>
         <iframe

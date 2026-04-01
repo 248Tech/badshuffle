@@ -1,7 +1,7 @@
 /* Extra bottom padding on mobile so content clears the fixed bottom nav */
 @media (max-width: 640px) {
   .main {
-    padding-bottom: calc(64px + max(8px, env(safe-area-inset-bottom)));
+    padding-bottom: calc(72px + max(env(safe-area-inset-bottom), 8px)) !important;
     padding-left: max(20px, env(safe-area-inset-left));
     padding-right: max(20px, env(safe-area-inset-right));
   }

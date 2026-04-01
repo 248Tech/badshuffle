@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, isAbortError } from '../api.js';
 import QuoteCard from '../components/QuoteCard.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import DateRangePicker from '../components/DateRangePicker.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useDebouncedValue } from '../hooks/useDebouncedValue.js';
 import { syncQuoteNameWithCitySuffix } from '../lib/quoteTitle.js';
 
 const STATUS_BADGE_STYLE = {
@@ -14,6 +15,15 @@ const STATUS_BADGE_STYLE = {
   confirmed: { background: 'color-mix(in srgb, var(--color-discount) 12%, var(--color-bg))', color: 'var(--color-discount)' },
   closed:    { background: 'var(--color-surface)', color: 'var(--color-text-muted)' },
 };
+
+function parseSortBy(value) {
+  const [rawField = 'created', rawDir = 'desc'] = String(value || 'created_desc').split('_');
+  const fieldMap = { created: 'created', event: 'event', name: 'name', total: 'total' };
+  return {
+    sort_by: fieldMap[rawField] || 'created',
+    sort_dir: rawDir === 'asc' ? 'asc' : 'desc',
+  };
+}
 
 export default function QuotePage() {
   const navigate = useNavigate();
@@ -34,6 +44,7 @@ export default function QuotePage() {
   const autocompleteRef = useRef(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [viewMode, setViewMode] = useState('tiles');
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [batchActioning, setBatchActioning] = useState(false);
   const [filters, setFilters] = useState({
@@ -45,18 +56,40 @@ export default function QuotePage() {
   });
   const [quoteIdsWithConflict, setQuoteIdsWithConflict] = useState(new Set());
   const [sortBy, setSortBy] = useState('created_desc');
+  const [page, setPage] = useState(1);
+  const [totalQuotes, setTotalQuotes] = useState(0);
+  const pageSize = 24;
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    const params = {
-      ...(filters.search && { search: filters.search }),
+  const buildQuoteParams = useCallback((pageOverride = page) => {
+    const sort = parseSortBy(sortBy);
+    return {
+      ...(debouncedSearch && { search: debouncedSearch }),
       ...(filters.status && { status: filters.status }),
       ...(filters.event_from && { event_from: filters.event_from }),
       ...(filters.event_to && { event_to: filters.event_to }),
-      ...(filters.has_balance && { has_balance: '1' })
+      ...(filters.has_balance && { has_balance: '1' }),
+      page: pageOverride,
+      limit: pageSize,
+      ...sort,
     };
-    api.getQuotes(params).then(d => setQuotes(d.quotes || [])).finally(() => setLoading(false));
-  }, [filters.search, filters.status, filters.event_from, filters.event_to, filters.has_balance]);
+  }, [debouncedSearch, filters.status, filters.event_from, filters.event_to, filters.has_balance, page, sortBy]);
+
+  const applyQuoteResponse = useCallback((d, requestedPage = page) => {
+    setQuotes(d.quotes || []);
+    setTotalQuotes(Number(d.total || 0));
+    const nextPages = Math.max(1, Number(d.pages || 1));
+    if (requestedPage > nextPages) {
+      setPage(nextPages);
+    }
+  }, [page]);
+
+  const load = useCallback((pageOverride = page) => {
+    setLoading(true);
+    return api.getQuotes(buildQuoteParams(pageOverride))
+      .then((d) => applyQuoteResponse(d, pageOverride))
+      .finally(() => setLoading(false));
+  }, [applyQuoteResponse, buildQuoteParams, page]);
 
   const loadConflicts = useCallback(() => {
     api.getConflicts()
@@ -69,28 +102,33 @@ export default function QuotePage() {
   useEffect(() => { loadConflicts(); }, [loadConflicts]);
 
   useEffect(() => {
-    let cancelled = false;
-    const params = {
-      ...(filters.search && { search: filters.search }),
-      ...(filters.status && { status: filters.status }),
-      ...(filters.event_from && { event_from: filters.event_from }),
-      ...(filters.event_to && { event_to: filters.event_to }),
-      ...(filters.has_balance && { has_balance: '1' })
+    setPage(1);
+    setSelectedIds(new Set());
+  }, [debouncedSearch, filters.status, filters.event_from, filters.event_to, filters.has_balance, sortBy]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    api.getQuotes(buildQuoteParams(), { signal: controller.signal, dedupeKey: 'quotes:list', cancelPrevious: true })
+      .then(d => {
+        applyQuoteResponse(d, page);
+      })
+      .catch((err) => {
+        if (!isAbortError(err)) console.error('[QuotePage] Failed to load quotes:', err?.message || err);
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => {
+      controller.abort();
     };
-    const run = () => {
-      setLoading(true);
-      api.getQuotes(params)
-        .then(d => { if (!cancelled) setQuotes(d.quotes || []); })
-        .finally(() => { if (!cancelled) setLoading(false); });
-    };
-    const delay = filters.search ? 400 : 0;
-    const id = delay ? setTimeout(run, delay) : null;
-    if (!delay) run();
-    return () => { cancelled = true; if (id) clearTimeout(id); };
-  }, [filters.search, filters.status, filters.event_from, filters.event_to, filters.has_balance]);
+  }, [applyQuoteResponse, buildQuoteParams, page]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, viewMode]);
 
   const hasActiveFilters = filters.search || filters.status || filters.event_from || filters.event_to || filters.has_balance;
   const clearFilters = () => setFilters({ search: '', status: '', event_from: '', event_to: '', has_balance: false });
+  const extraFilterCount = [filters.status, filters.event_from || filters.event_to, filters.has_balance].filter(Boolean).length;
 
   useEffect(() => {
     api.getSettings().then(s => {
@@ -194,7 +232,8 @@ export default function QuotePage() {
   };
 
   const selectAll = () => {
-    if (selectedIds.size === quotes.length) setSelectedIds(new Set());
+    const allVisibleSelected = quotes.length > 0 && quotes.every(q => selectedIds.has(q.id));
+    if (allVisibleSelected) setSelectedIds(new Set());
     else setSelectedIds(new Set(quotes.map(q => q.id)));
   };
 
@@ -255,148 +294,156 @@ export default function QuotePage() {
   };
 
   const selectedCount = selectedIds.size;
+  const totalPages = Math.max(1, Math.ceil(totalQuotes / pageSize));
+  const allVisibleSelected = quotes.length > 0 && quotes.every((q) => selectedIds.has(q.id));
 
-  const sortedQuotes = [...quotes].sort((a, b) => {
-    switch (sortBy) {
-      case 'name_asc': return (a.name || '').localeCompare(b.name || '');
-      case 'name_desc': return (b.name || '').localeCompare(a.name || '');
-      case 'event_asc': return (a.event_date || '').localeCompare(b.event_date || '');
-      case 'event_desc': return (b.event_date || '').localeCompare(a.event_date || '');
-      case 'total_desc': return (b.total || 0) - (a.total || 0);
-      case 'total_asc': return (a.total || 0) - (b.total || 0);
-      case 'created_asc': return a.id - b.id;
-      case 'created_desc':
-      default: return b.id - a.id;
-    }
-  });
-
-  const selectClass = 'px-2.5 py-1.5 text-[13px] border border-border rounded-md bg-bg text-text cursor-pointer focus:outline-none focus:border-primary';
+  const sel = 'px-2.5 py-1.5 text-[13px] border border-border rounded-md bg-bg text-text cursor-pointer focus:outline-none focus:border-primary';
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Header */}
-      <div className="flex justify-between items-start flex-wrap gap-3">
+    <div className="flex flex-col gap-4">
+
+      {/* ── Header ────────────────────────────────────────────────── */}
+      <div className="flex justify-between items-center gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
           <p className="text-[13px] text-text-muted mt-0.5">
-            {quotes.length} {hasActiveFilters ? 'matching' : 'saved'} project{quotes.length !== 1 ? 's' : ''}
+            {totalQuotes} {hasActiveFilters ? 'matching' : 'total'}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <select
-            className={selectClass}
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value)}
-            aria-label="Sort order"
-          >
-            <option value="created_desc">Newest first</option>
-            <option value="created_asc">Oldest first</option>
-            <option value="event_asc">Event date ↑</option>
-            <option value="event_desc">Event date ↓</option>
+        <div className="flex items-center gap-2">
+          {/* Desktop-only controls */}
+          <select className={`${sel} hidden sm:block`} value={sortBy} onChange={e => setSortBy(e.target.value)} aria-label="Sort order">
+            <option value="created_desc">Newest</option>
+            <option value="created_asc">Oldest</option>
+            <option value="event_asc">Event ↑</option>
+            <option value="event_desc">Event ↓</option>
             <option value="name_asc">Name A→Z</option>
             <option value="name_desc">Name Z→A</option>
-            <option value="total_desc">Total high→low</option>
-            <option value="total_asc">Total low→high</option>
+            <option value="total_desc">Total ↓</option>
+            <option value="total_asc">Total ↑</option>
           </select>
+          <select className={`${sel} hidden sm:block`} value={viewMode} onChange={e => setViewMode(e.target.value)} aria-label="View mode">
+            <option value="tiles">Tiles</option>
+            <option value="list">List</option>
+          </select>
+          <button type="button" className="btn btn-primary whitespace-nowrap" onClick={() => showNew ? resetNewForm() : setShowNew(true)}>
+            {showNew ? 'Cancel' : '+ New'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Filter bar ────────────────────────────────────────────── */}
+      <div className="bg-bg-elevated rounded-lg p-3 flex flex-col gap-2.5">
+        {/* Always-visible row: search + mobile extras */}
+        <div className="flex gap-2 items-center">
+          <div className="relative flex-1 flex items-center min-w-0">
+            <svg className="absolute left-2.5 text-text-muted pointer-events-none shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              type="text"
+              className="w-full pl-8 pr-2.5 py-1.5 text-[13px] border border-border rounded-md bg-bg text-text focus:outline-none focus:border-primary"
+              placeholder="Search project, client…"
+              value={filters.search}
+              onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+              aria-label="Search"
+            />
+          </div>
+
+          {/* Mobile: filters toggle + sort */}
+          <div className="flex sm:hidden items-center gap-1.5 shrink-0">
+            <select className={sel} value={sortBy} onChange={e => setSortBy(e.target.value)} aria-label="Sort order">
+              <option value="created_desc">New</option>
+              <option value="created_asc">Old</option>
+              <option value="event_asc">Event ↑</option>
+              <option value="event_desc">Event ↓</option>
+              <option value="name_asc">A→Z</option>
+              <option value="total_desc">$↓</option>
+            </select>
+            <button
+              type="button"
+              className={`relative px-3 py-1.5 text-[13px] border rounded-md cursor-pointer transition-colors whitespace-nowrap ${showFiltersPanel || extraFilterCount > 0 ? 'border-primary bg-primary text-white' : 'border-border bg-bg text-text'}`}
+              onClick={() => setShowFiltersPanel(v => !v)}
+              aria-expanded={showFiltersPanel}
+            >
+              Filters
+              {extraFilterCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-danger text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {extraFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop: always visible. Mobile: only when showFiltersPanel */}
+        <div className={`flex flex-wrap items-center gap-2 ${showFiltersPanel ? 'flex' : 'hidden sm:flex'}`}>
           <select
-            className={selectClass}
-            value={viewMode}
-            onChange={e => setViewMode(e.target.value)}
-            aria-label="View mode"
+            className={sel}
+            value={filters.status}
+            onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+            aria-label="Filter by status"
           >
-            <option value="tiles">Tile View</option>
-            <option value="list">List View</option>
+            <option value="">All statuses</option>
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="approved">Signed</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="closed">Closed</option>
           </select>
-          <button type="button" className="btn btn-primary" onClick={() => showNew ? resetNewForm() : setShowNew(true)}>
-            {showNew ? 'Cancel' : '+ New Project'}
-          </button>
+          <DateRangePicker
+            from={filters.event_from}
+            to={filters.event_to}
+            onChange={({ from: event_from, to: event_to }) => setFilters(f => ({ ...f, event_from, event_to }))}
+            placeholder="Event date"
+          />
+          <label className="flex items-center gap-1.5 text-[13px] text-text-muted cursor-pointer whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={filters.has_balance}
+              onChange={e => setFilters(f => ({ ...f, has_balance: e.target.checked }))}
+            />
+            Outstanding balance
+          </label>
+          {hasActiveFilters && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={clearFilters}>
+              Clear
+            </button>
+          )}
+          {quotes.length > 0 && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={selectAll}>
+              {allVisibleSelected ? 'Clear visible selection' : 'Select all visible'}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2.5 px-3.5 py-3 bg-bg-elevated rounded-lg">
-        <div className="relative flex items-center">
-          <svg className="absolute left-2.5 text-text-muted pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input
-            type="text"
-            className="w-44 pl-8 pr-2.5 py-1.5 text-[13px] border border-border rounded-md bg-bg text-text focus:outline-none focus:border-primary"
-            placeholder="Search project, client, or venue…"
-            value={filters.search}
-            onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-            aria-label="Search by project, client, or venue"
-          />
-        </div>
-        <select
-          className={selectClass}
-          value={filters.status}
-          onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
-          aria-label="Filter by status"
-        >
-          <option value="">All statuses</option>
-          <option value="draft">Draft</option>
-          <option value="sent">Sent</option>
-          <option value="approved">Signed</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="closed">Closed</option>
-        </select>
-        <DateRangePicker
-          from={filters.event_from}
-          to={filters.event_to}
-          onChange={({ from: event_from, to: event_to }) => setFilters(f => ({ ...f, event_from, event_to }))}
-          placeholder="Event date range"
-        />
-        <label className="flex items-center gap-1.5 text-[13px] text-text-muted cursor-pointer whitespace-nowrap">
-          <input
-            type="checkbox"
-            checked={filters.has_balance}
-            onChange={e => setFilters(f => ({ ...f, has_balance: e.target.checked }))}
-          />
-          <span>Outstanding balance</span>
-        </label>
-        {hasActiveFilters && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={clearFilters}>
-            Clear filters
-          </button>
-        )}
-      </div>
-
-      {/* Batch action bar */}
+      {/* ── Batch action bar ──────────────────────────────────────── */}
       {selectedCount > 0 && (
-        <div className="flex items-center gap-3 px-3.5 py-2.5 bg-bg-elevated rounded-lg">
-          <span className="text-[13px] text-text-muted mr-1">{selectedCount} selected</span>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            disabled={batchActioning}
-            onClick={handleBatchDuplicate}
-          >
-            Duplicate ({selectedCount})
+        <div className="flex items-center gap-3 px-3.5 py-2.5 bg-bg-elevated rounded-lg flex-wrap">
+          <span className="text-[13px] text-text-muted">{selectedCount} selected</span>
+          <button type="button" className="btn btn-primary btn-sm" disabled={batchActioning} onClick={handleBatchDuplicate}>
+            Duplicate
           </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm text-danger"
-            onClick={handleBatchDelete}
-          >
-            Delete ({selectedCount})
+          <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={handleBatchDelete}>
+            Delete
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedIds(new Set())}>
-            Clear
+          <button type="button" className="btn btn-ghost btn-sm ml-auto" onClick={() => setSelectedIds(new Set())}>
+            Clear selection
           </button>
         </div>
       )}
 
-      {/* New project form */}
+      {/* ── New project form ──────────────────────────────────────── */}
       {showNew && (
-        <div className="card p-5">
+        <div className="card p-4 sm:p-5">
           <h3 className="text-[15px] font-bold mb-3.5">New Project</h3>
           <form onSubmit={handleCreate} className="flex flex-col gap-3">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted mt-1 pb-1.5 border-b border-border">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted pb-1.5 border-b border-border">
               Event Details
             </div>
-            <div className="flex gap-3 flex-wrap">
-              <div className="form-group" style={{ flex: 2, minWidth: 160 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="form-group sm:col-span-2">
                 <label htmlFor="qp-name">Event name *</label>
                 <input
                   id="qp-name"
@@ -407,7 +454,7 @@ export default function QuotePage() {
                   placeholder="e.g. Smith Wedding — June 2026"
                 />
               </div>
-              <div className="form-group" style={{ minWidth: 100 }}>
+              <div className="form-group">
                 <label htmlFor="qp-guests">Guest count</label>
                 <input
                   id="qp-guests"
@@ -418,7 +465,7 @@ export default function QuotePage() {
                   placeholder="150"
                 />
               </div>
-              <div className="form-group" style={{ minWidth: 120 }}>
+              <div className="form-group">
                 <label htmlFor="qp-date">Event date</label>
                 <input
                   id="qp-date"
@@ -427,7 +474,9 @@ export default function QuotePage() {
                   onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))}
                 />
               </div>
-              <div className="form-group" style={{ minWidth: 120 }}>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="form-group">
                 <label htmlFor="qp-type">Event type</label>
                 <select
                   id="qp-type"
@@ -440,22 +489,21 @@ export default function QuotePage() {
                   ))}
                 </select>
               </div>
+              <div className="form-group">
+                <label htmlFor="qp-notes">Notes</label>
+                <input
+                  id="qp-notes"
+                  value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Any relevant details…"
+                />
+              </div>
             </div>
-            <div className="form-group">
-              <label htmlFor="qp-notes">Notes</label>
-              <textarea
-                id="qp-notes"
-                rows={2}
-                value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Any relevant details…"
-              />
-            </div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted mt-1 pb-1.5 border-b border-border">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted pb-1.5 border-b border-border mt-1">
               Client Info
             </div>
-            <div className="flex gap-3 flex-wrap">
-              <div className="form-group" style={{ minWidth: 120 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="form-group">
                 <label htmlFor="qp-first">First name</label>
                 <input
                   id="qp-first"
@@ -464,7 +512,7 @@ export default function QuotePage() {
                   placeholder="Jane"
                 />
               </div>
-              <div className="form-group" style={{ minWidth: 120 }}>
+              <div className="form-group">
                 <label htmlFor="qp-last">Last name</label>
                 <input
                   id="qp-last"
@@ -473,9 +521,7 @@ export default function QuotePage() {
                   placeholder="Smith"
                 />
               </div>
-            </div>
-            <div className="flex gap-3 flex-wrap">
-              <div className="form-group" style={{ minWidth: 120 }}>
+              <div className="form-group">
                 <label htmlFor="qp-phone">Phone</label>
                 <input
                   id="qp-phone"
@@ -485,7 +531,7 @@ export default function QuotePage() {
                   placeholder="555-555-5555"
                 />
               </div>
-              <div className="form-group" style={{ flex: 2, minWidth: 160 }}>
+              <div className="form-group">
                 <label htmlFor="qp-email">Email</label>
                 <input
                   id="qp-email"
@@ -512,16 +558,16 @@ export default function QuotePage() {
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
-                {saving ? 'Creating…' : <>Create & Open Project <span aria-hidden="true">→</span></>}
+                {saving ? 'Creating…' : 'Create & Open →'}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Skeleton loading */}
+      {/* ── Loading skeleton ──────────────────────────────────────── */}
       {loading && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4" aria-busy="true" aria-label="Loading projects">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" aria-busy="true" aria-label="Loading projects">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="card p-5 flex flex-col gap-2.5" aria-hidden="true">
               <div className="skeleton h-[18px] w-[70%] rounded-md" />
@@ -536,7 +582,7 @@ export default function QuotePage() {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* ── Empty state ───────────────────────────────────────────── */}
       {!loading && quotes.length === 0 && (
         <div className="empty-state">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -557,51 +603,53 @@ export default function QuotePage() {
         </div>
       )}
 
-      {/* Tile view */}
-      {!loading && quotes.length > 0 && viewMode === 'tiles' && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-          {sortedQuotes.map(q => (
-            <QuoteCard
-              key={q.id}
-              quote={q}
-              total={q.total}
-              hasConflict={quoteIdsWithConflict.has(q.id)}
-              onDelete={setConfirmDelete}
-              onDuplicate={handleDuplicateOne}
-              selectable
-              selected={selectedIds.has(q.id)}
-              onToggleSelect={toggleSelect}
-            />
-          ))}
+      {/* ── Tile view — always on mobile, hidden on desktop when list mode ── */}
+      {!loading && quotes.length > 0 && (
+        <div className={viewMode === 'list' ? 'sm:hidden' : ''}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {quotes.map(q => (
+              <QuoteCard
+                key={q.id}
+                quote={q}
+                total={q.total}
+                hasConflict={quoteIdsWithConflict.has(q.id)}
+                onDelete={setConfirmDelete}
+                onDuplicate={handleDuplicateOne}
+                selectable
+                selected={selectedIds.has(q.id)}
+                onToggleSelect={toggleSelect}
+              />
+            ))}
+          </div>
         </div>
       )}
 
-      {/* List view */}
+      {/* ── List view (desktop only, hidden on mobile) ────────────── */}
       {!loading && quotes.length > 0 && viewMode === 'list' && (
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="hidden sm:block overflow-x-auto rounded-lg border border-border">
           <table className="w-full border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-border bg-bg-elevated">
                 <th className="w-10 px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">
                   <input
                     type="checkbox"
-                    checked={sortedQuotes.length > 0 && selectedIds.size === sortedQuotes.length}
+                    checked={quotes.length > 0 && quotes.every(q => selectedIds.has(q.id))}
                     onChange={selectAll}
                     aria-label="Select all"
                   />
                 </th>
-                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px] whitespace-nowrap">Name</th>
+                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Name</th>
                 <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Client</th>
                 <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Status</th>
                 <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Event date</th>
                 <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Guests</th>
                 <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Total</th>
                 <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Balance</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px] whitespace-nowrap">Actions</th>
+                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]"></th>
               </tr>
             </thead>
             <tbody>
-              {sortedQuotes.map(q => {
+              {quotes.map(q => {
                 const eventDate = q.event_date
                   ? new Date(q.event_date + 'T00:00:00').toLocaleDateString()
                   : '—';
@@ -630,11 +678,7 @@ export default function QuotePage() {
                           </svg>
                         </span>
                       )}
-                      <button
-                        type="button"
-                        className="link"
-                        onClick={() => navigate(`/quotes/${q.id}`)}
-                      >
+                      <button type="button" className="link" onClick={() => navigate(`/quotes/${q.id}`)}>
                         {q.name}
                       </button>
                     </td>
@@ -660,25 +704,38 @@ export default function QuotePage() {
                       {(q.has_unsigned_changes || q.status === 'approved' || q.status === 'confirmed' || q.status === 'closed') && (q.total != null || q.signed_quote_total != null) ? (
                         (() => {
                           const bal = q.has_unsigned_changes && q.signed_remaining_balance != null ? q.signed_remaining_balance : (q.remaining_balance ?? q.total);
-                          return bal < 0 ? (
-                            <span className="text-warning-strong font-medium">Overpaid ${Math.abs(bal).toFixed(2)}</span>
-                          ) : (
-                            <span className="text-danger font-medium">${Number(bal).toFixed(2)}</span>
-                          );
+                          return bal < 0
+                            ? <span className="font-medium" style={{ color: 'var(--color-warning-strong)' }}>Overpaid ${Math.abs(bal).toFixed(2)}</span>
+                            : <span className="font-medium" style={{ color: 'var(--color-danger)' }}>${Number(bal).toFixed(2)}</span>;
                         })()
                       ) : '—'}
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       <button type="button" className="btn btn-primary btn-sm mr-1" onClick={() => navigate(`/quotes/${q.id}`)}>Open</button>
-                      <button type="button" className="btn btn-ghost btn-sm mr-1" onClick={() => navigate(`/quotes/${q.id}`, { state: { autoEdit: true } })}>Edit</button>
-                      <button type="button" className="btn btn-ghost btn-sm mr-1" onClick={() => handleDuplicateOne(q)}>Duplicate</button>
-                      <button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => setConfirmDelete(q)}>Delete</button>
+                      <button type="button" className="btn btn-ghost btn-sm mr-1" onClick={() => handleDuplicateOne(q)}>Dup.</button>
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => setConfirmDelete(q)}>Del.</button>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-[13px] text-text-muted">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <button type="button" className="btn btn-ghost btn-sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+              <span aria-hidden="true">←</span> Prev
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+              Next <span aria-hidden="true">→</span>
+            </button>
+          </div>
         </div>
       )}
 

@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { logActivity } = require('../lib/quoteActivity');
+const ORG_ID = 1;
 
 function createHttpError(statusCode, message) {
   const err = new Error(message);
@@ -10,25 +11,17 @@ function createHttpError(statusCode, message) {
 }
 
 function getQuoteOrThrow(db, quoteId) {
-  const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(quoteId);
+  const quote = db.prepare('SELECT * FROM quotes WHERE id = ? AND org_id = ?').get(quoteId, ORG_ID);
   if (!quote) throw createHttpError(404, 'Not found');
   return quote;
 }
 
-function computeQuoteTotals(db, quoteId, explicitTaxRate = null) {
-  const quote = typeof quoteId === 'object' ? quoteId : getQuoteOrThrow(db, quoteId);
-  const items = db.prepare(`
-    SELECT qi.quantity, qi.hidden_from_quote, qi.unit_price_override, qi.discount_type, qi.discount_amount,
-           i.unit_price, i.taxable, i.category
-    FROM quote_items qi
-    JOIN items i ON i.id = qi.item_id
-    WHERE qi.quote_id = ?
-  `).all(quote.id);
-  const customItems = db.prepare('SELECT quantity, unit_price, taxable FROM quote_custom_items WHERE quote_id = ?').all(quote.id);
+function computeTotalsFromRows(quote, items, customItems, adjustments, explicitTaxRate = null) {
   let subtotal = 0;
   let deliveryTotal = 0;
   let customSubtotal = 0;
   let taxableAmount = 0;
+
   items.forEach((row) => {
     if (row.hidden_from_quote) return;
     let unitPrice = row.unit_price_override != null ? row.unit_price_override : (row.unit_price || 0);
@@ -39,12 +32,13 @@ function computeQuoteTotals(db, quoteId, explicitTaxRate = null) {
     else subtotal += line;
     if (row.taxable) taxableAmount += line;
   });
+
   customItems.forEach((row) => {
     const line = (row.quantity || 1) * (row.unit_price || 0);
     customSubtotal += line;
     if (row.taxable) taxableAmount += line;
   });
-  const adjustments = db.prepare('SELECT type, value_type, amount FROM quote_adjustments WHERE quote_id = ?').all(quote.id);
+
   const preTax = subtotal + deliveryTotal + customSubtotal;
   let adjTotal = 0;
   adjustments.forEach((adj) => {
@@ -62,6 +56,106 @@ function computeQuoteTotals(db, quoteId, explicitTaxRate = null) {
     rate,
     total: preTax + adjTotal + tax,
   };
+}
+
+function computeQuoteTotals(db, quoteId, explicitTaxRate = null) {
+  const quote = typeof quoteId === 'object' ? quoteId : getQuoteOrThrow(db, quoteId);
+  const items = db.prepare(`
+    SELECT qi.quantity, qi.hidden_from_quote, qi.unit_price_override, qi.discount_type, qi.discount_amount,
+           i.unit_price, i.taxable, i.category
+    FROM quote_items qi
+    JOIN items i ON i.id = qi.item_id
+    WHERE qi.quote_id = ?
+  `).all(quote.id);
+  const customItems = db.prepare('SELECT quantity, unit_price, taxable FROM quote_custom_items WHERE quote_id = ?').all(quote.id);
+  const adjustments = db.prepare('SELECT type, value_type, amount FROM quote_adjustments WHERE quote_id = ?').all(quote.id);
+  return computeTotalsFromRows(quote, items, customItems, adjustments, explicitTaxRate);
+}
+
+function summarizeQuotesForList(db, quotes, defaultTaxRate = 0) {
+  if (!Array.isArray(quotes) || quotes.length === 0) return [];
+
+  const ids = quotes.map((quote) => quote.id);
+  const placeholders = ids.map(() => '?').join(', ');
+  const itemsByQuote = new Map(ids.map((id) => [id, []]));
+  const customItemsByQuote = new Map(ids.map((id) => [id, []]));
+  const adjustmentsByQuote = new Map(ids.map((id) => [id, []]));
+  const amountPaidByQuote = new Map(ids.map((id) => [id, 0]));
+  const contractByQuote = new Map(ids.map((id) => [id, null]));
+
+  db.prepare(`
+    SELECT qi.quote_id, qi.quantity, qi.hidden_from_quote, qi.unit_price_override, qi.discount_type, qi.discount_amount,
+           i.unit_price, i.taxable, i.category
+    FROM quote_items qi
+    JOIN items i ON i.id = qi.item_id
+    WHERE qi.quote_id IN (${placeholders})
+  `).all(...ids).forEach((row) => {
+    itemsByQuote.get(row.quote_id)?.push(row);
+  });
+
+  db.prepare(`
+    SELECT quote_id, quantity, unit_price, taxable
+    FROM quote_custom_items
+    WHERE quote_id IN (${placeholders})
+  `).all(...ids).forEach((row) => {
+    customItemsByQuote.get(row.quote_id)?.push(row);
+  });
+
+  db.prepare(`
+    SELECT quote_id, type, value_type, amount
+    FROM quote_adjustments
+    WHERE quote_id IN (${placeholders})
+  `).all(...ids).forEach((row) => {
+    adjustmentsByQuote.get(row.quote_id)?.push(row);
+  });
+
+  db.prepare(`
+    SELECT quote_id, COALESCE(SUM(amount), 0) AS amount_paid
+    FROM quote_payments
+    WHERE quote_id IN (${placeholders})
+    GROUP BY quote_id
+  `).all(...ids).forEach((row) => {
+    amountPaidByQuote.set(row.quote_id, Number(row.amount_paid || 0));
+  });
+
+  db.prepare(`
+    SELECT quote_id, signed_at, signed_quote_total
+    FROM contracts
+    WHERE quote_id IN (${placeholders})
+  `).all(...ids).forEach((row) => {
+    contractByQuote.set(row.quote_id, row);
+  });
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  return quotes.map((quote) => {
+    const totals = computeTotalsFromRows(
+      quote,
+      itemsByQuote.get(quote.id) || [],
+      customItemsByQuote.get(quote.id) || [],
+      adjustmentsByQuote.get(quote.id) || [],
+      quote.tax_rate != null ? quote.tax_rate : defaultTaxRate
+    );
+    const total = totals.total;
+    const amount_paid = amountPaidByQuote.get(quote.id) || 0;
+    const remaining_balance = total - amount_paid;
+    const contract = contractByQuote.get(quote.id) || {};
+    const signed_quote_total = contract.signed_quote_total != null ? Number(contract.signed_quote_total) : null;
+    const signed_remaining_balance = signed_quote_total != null ? signed_quote_total - amount_paid : null;
+    const overpaid = remaining_balance < 0;
+    const is_expired = !!(quote.expires_at && quote.expires_at < todayStr);
+    return {
+      ...quote,
+      total,
+      contract_total: total,
+      amount_paid,
+      remaining_balance,
+      signed_quote_total,
+      signed_remaining_balance,
+      signed_at: contract.signed_at || null,
+      overpaid,
+      is_expired,
+    };
+  });
 }
 
 function stripHtml(input) {
@@ -445,7 +539,7 @@ function signPublicContract({ db, uploadsDir, token, signerName, signerIp, signe
   const nextStatus = quote.status === 'confirmed' ? 'confirmed' : 'approved';
   db.prepare("UPDATE quotes SET status = ?, has_unsigned_changes = 0, updated_at = datetime('now') WHERE id = ?").run(nextStatus, quote.id);
   const savedContract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(quote.id);
-  const freshQuote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(quote.id);
+  const freshQuote = db.prepare('SELECT * FROM quotes WHERE id = ? AND org_id = ?').get(quote.id, ORG_ID);
   const quoteSnapshotHash = buildQuoteSnapshotHash({
     db,
     quote: freshQuote,
@@ -574,7 +668,7 @@ async function sendQuote({ db, uploadsDir, quoteId, actor, input = {} }) {
     `).run(quoteId, fromAddr, toEmail || null, subject || '', bodyText || '', bodyHtml || null, msgId, quote.name || '');
   } catch (e) {}
 
-  const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(quoteId);
+  const updated = db.prepare('SELECT * FROM quotes WHERE id = ? AND org_id = ?').get(quoteId, ORG_ID);
   return { quote: updated, emailPreview };
 }
 
@@ -668,7 +762,7 @@ function duplicateQuote({ db, sourceQuoteId }) {
   });
 
   db.prepare('UPDATE quotes SET public_token = NULL WHERE id = ?').run(newId);
-  const newQuote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(newId);
+  const newQuote = db.prepare('SELECT * FROM quotes WHERE id = ? AND org_id = ?').get(newId, ORG_ID);
   return { quote: newQuote };
 }
 
@@ -697,12 +791,13 @@ function transitionQuoteStatus({ db, quoteId, fromStatuses, toStatus, actor, cle
     logActivity(db, quoteId, eventType, description, currentStatus, toStatus, actor);
   }
 
-  const updated = db.prepare('SELECT * FROM quotes WHERE id = ?').get(quoteId);
+  const updated = db.prepare('SELECT * FROM quotes WHERE id = ? AND org_id = ?').get(quoteId, ORG_ID);
   return { quote: updated };
 }
 
 module.exports = {
   computeQuoteTotals,
+  summarizeQuotesForList,
   sendQuote,
   signPublicContract,
   duplicateQuote,

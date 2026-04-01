@@ -61,7 +61,9 @@ export default function InventoryPickerPanel({
   const [inventory, setInventory] = useState([]);
   const [inventoryTotal, setInventoryTotal] = useState(0);
   const [search, setSearch] = useState('');
-  const [pickerView, setPickerView] = useState('tile');
+  const [pickerView, setPickerView] = useState(() =>
+    (typeof window !== 'undefined' && window.innerWidth < 640) ? 'list' : 'tile'
+  );
   const [pickerPage, setPickerPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -169,6 +171,15 @@ export default function InventoryPickerPanel({
       cancelled = true;
     };
   }, [quoteId, pickerPage, pageSize, debouncedSearch, selectedCategory, items?.length]);
+
+  useEffect(() => {
+    const ids = (inventory || [])
+      .map((i) => i.photo_url)
+      .filter((p) => p != null && /^\d+$/.test(String(p).trim()))
+      .map((p) => String(p).trim());
+    if (!ids.length) return;
+    api.prefetchFileServeUrls(ids).catch(() => {});
+  }, [inventory]);
 
   const totalPages = inventoryTotal > 0 ? Math.max(1, Math.ceil(inventoryTotal / pageSize)) : 1;
 
@@ -385,7 +396,7 @@ export default function InventoryPickerPanel({
                   <div className={styles.tileThumbWrap}>
                     {item.photo_url ? (
                       <img
-                        src={api.proxyImageUrl(item.photo_url)}
+                        src={api.proxyImageUrl(item.photo_url, { variant: 'thumb' })}
                         alt={item.title}
                         className={styles.tileThumb}
                         onError={(e) => {
@@ -416,7 +427,7 @@ export default function InventoryPickerPanel({
                 <>
                   {item.photo_url ? (
                     <img
-                      src={api.proxyImageUrl(item.photo_url)}
+                      src={api.proxyImageUrl(item.photo_url, { variant: 'thumb' })}
                       alt={item.title}
                       className={styles.thumb}
                       onError={(e) => {
