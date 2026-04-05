@@ -1,341 +1,236 @@
-# Next Release — Detected Local Changes (vs GitHub `origin/master`)
+# Next Release — v0.0.12
 
-Generated: 2026-03-31  
-Repo: `badshuffle`  
-Comparison baseline: **`origin/master`** (fetched from GitHub; default branch **`master`**)
+Prepared: 2026-04-05  
+Repository: `badshuffle`  
+GitHub baseline: `origin/master` at `5717987` (`release: v0.0.11`)
 
-## Draft release notes — v0.0.11 (WIP)
+## GitHub Comparison
 
-Release date: TBD
+Local `master` and `origin/master` are still the same commit:
 
-### Summary
+- local `HEAD`: `5717987`
+- GitHub `origin/master`: `5717987`
+- current meaning: `v0.0.12` is still a working-tree release and has not been committed to GitHub yet
 
-`0.0.11` is a **visibility + scalability** release: it adds an operator Maps workspace powered by Mapbox (with lazy geocoding + persisted cache fields on quotes), introduces early sales/pipeline analytics, and continues the backend refactor by splitting quote logic into focused services/repositories to reduce route-layer coupling.
+Release-scope delta from the current GitHub repo, excluding local runtime/build output:
+
+- modified tracked files: `89`
+- new untracked release-source files: `86`
+- total release-source paths changed or added: `175`
+- diff volume: `9174` insertions, `1212` deletions
+
+Excluded from release scope:
+
+- `logs/`
+- `rust-core/target/`
+- `onyx-local/`
+
+`onyx-local/` exists locally as managed companion runtime state and should not be treated as release source.
+
+## Release Summary
+
+`v0.0.12` is the operations, AI, and engine release.
+
+Compared with the current GitHub repo, this release turns BadShuffle into a more operationally complete product with:
+
+- a Rust engine layer for availability/conflicts and pricing parity
+- built-in quote assistant workflows
+- live notifications, team groups, and internal team chat
+- managed local and external AI infrastructure
+- pull sheets, QR product identity, and aggregate internal pick workflows
+- stronger inventory operations, search, stats, and batch editing
+- more complete directory, admin, help, and appearance surfaces
+
+## Highlights
+
+### 1. Rust engine core and guarded rollout
+
+- adds the full `rust-core/` workspace with API, config, DB, inventory-engine, pricing-engine, shared-types, telemetry, and docs
+- integrates Rust-backed inventory availability/conflict checks behind Node-facing seams
+- adds pricing-engine scaffolding plus Node integration hooks and parity-oriented routing
+- adds Rust lifecycle, diagnostics, parity reporting, and release gating
+- adds startup flow support so the client waits for API readiness instead of throwing avoidable startup connection noise
+
+This remains a guarded rollout, not a full stack replacement. Node/Express remains the transport layer and SQLite remains the system of record.
+
+### 2. Quote assistant and AI platform
+
+- adds quote-scoped assistant UI and backend services
+- adds AI provider abstraction work across assistant, item descriptions, and suggestions
+- adds managed local model support via Ollama
+- adds Onyx lifecycle support, settings, diagnostics, CLI commands, and team-chat integration
+- adds team-chat fallback to the configured BadShuffle AI assistant when Onyx is unavailable
+- adds richer item-description controls for style, persona, variation, and guidance
+
+This release is the first time AI in BadShuffle is treated as an app-level platform rather than a small isolated prompt feature.
+
+### 3. Notifications, team coordination, and internal communication
+
+- adds a real notifications system with inbox tray, popup cards, dismiss flows, mobile swipe behavior, bulk actions, and per-type targeting
+- adds notification settings and group-aware delivery plumbing
+- adds Team Groups and deeper Team workspace coordination
+- adds Team Chat as a first-pass internal AI-assisted team workspace
+- improves presence and team-related query/service wiring
+
+Operationally, this is one of the biggest deltas from GitHub `v0.0.11`.
+
+### 4. Inventory operations and internal fulfillment workflows
+
+- adds Set Aside inventory workflow
+- adds richer inventory AI editing, progress UX, redo/revert flows, shortcuts, and mobile-safe controls
+- adds multi-select, shift-range selection, denser page controls, mobile one-column view, and product-card interaction cleanup
+- adds stronger inventory search with loose/exact behavior and ranking
+- adds product identity surfaces including QR-backed scan codes and serial numbers
+- adds product sales totals and date-window filtering in stats surfaces
+- adds internal pull sheets, aggregate pull export, QR-coded pull-sheet identity, and scan redirects
+
+This release makes inventory much more useful as an internal operations surface, not just a catalog list.
+
+### 5. Quotes, projects, and directory expansion
+
+- adds quote pull-sheet tab and aggregate pull export from the main projects list
+- adds stronger quote-detail loading behavior and builder performance improvements
+- improves mobile quote-builder add-item behavior
+- adds clearer quote-builder conflict messaging
+- adds project list column chooser and reordering
+- adds Clients and Venues directory pages plus quote-driven relationship syncing
+
+The quote/project side of the app is materially more operator-focused in this release.
+
+### 6. Admin, settings, help, and appearance
+
+- expands Admin > System with Rust, Onyx, and Ollama runtime controls
+- adds more complete AI settings, provider/model selectors, and fallback controls
+- adds a dedicated Appearance settings page and notification tray placement/icon controls
+- adds a much more detailed Help page with guided AI and app setup paths
+- extends settings/defaults/migrations coverage for the new product surfaces
+
+## Detailed Change Areas
+
+### AI and local model operations
+
+- managed local Ollama runtime install/detect/start/stop/restart controls
+- curated local model catalog and provider wiring
+- Onyx managed-local lifecycle service
+- Onyx external/local settings support
+- item suggestions and descriptions routed through shared provider config
+- quote assistant transcript and orchestration services
+
+Key files:
+
+- `server/services/localModelLifecycleService.js`
+- `server/services/localModelService.js`
+- `server/services/onyxLifecycleService.js`
+- `server/services/teamChatService.js`
+- `server/services/quoteAssistantService.js`
+- `client/src/pages/AdminPage.jsx`
+- `client/src/pages/SettingsPage.jsx`
+- `client/src/pages/HelpPage.jsx`
+
+### Notifications and team workflows
+
+- notification delivery, dismissal, bulk dismissal, and recipient deletion behavior
+- mobile swipe and long-press interactions
+- desktop/mobile tray positioning and visibility improvements
+- notification settings UI
+- Team Chat routes and page
+- Team Groups routes and page
+
+Key files:
+
+- `server/routes/notifications.js`
+- `server/routes/notificationSettings.js`
+- `server/services/notificationService.js`
+- `client/src/components/LiveNotifications.jsx`
+- `client/src/pages/NotificationSettingsPage.jsx`
+- `client/src/pages/TeamChatPage.jsx`
+- `client/src/pages/TeamGroupsPage.jsx`
+
+### Inventory, pull sheets, and QR identity
+
+- item stats and sales totals
+- serial number and scan code fields
+- barcode rendering and scan redirect routes
+- pull-sheet generation and aggregate export
+- inventory search, batch AI edit, and mobile-grid behavior
+
+Key files:
+
+- `server/services/itemStatsService.js`
+- `server/services/quotePullSheetService.js`
+- `server/services/barcodeService.js`
+- `server/services/scanCodeService.js`
+- `server/routes/barcodes.js`
+- `server/routes/scan.js`
+- `client/src/pages/InventoryPage.jsx`
+- `client/src/pages/QuotePullSheetExportPage.jsx`
+- `client/src/pages/quote-detail/QuotePullSheetPanel.jsx`
+
+### Rust engine and parity
+
+- Rust workspace and docs
+- Node-to-Rust client and lifecycle services
+- pricing/inventory parity services
+- admin diagnostics and release guard
+- packaged release-check support
+
+Key files:
+
+- `rust-core/`
+- `server/services/rustEngineClient.js`
+- `server/services/rustEngineLifecycleService.js`
+- `server/services/rustInventoryParityService.js`
+- `server/services/rustPricingParityService.js`
+- `scripts/rust-release-guard.js`
+
+## Support Documentation Already In Repo
+
+These documents support the release notes and define scope, architecture, and remaining verification work:
+
+- `AI/FEATURES/V0_0_12_COMPARE_TO_GITHUB.md`
+- `AI/FEATURES/V0_0_12_RELEASE_PREP.md`
+- `AI/FEATURES/RUST_ENGINE_CORE_V0_0_12.md`
+- `AI/HANDOFF.md`
+- `AI/CURRENT_FOCUS.md`
+- `AI/ARCHITECTURE.md`
+- `AI/PROJECT_CONTEXT.md`
+- `AI/DECISIONS.md`
+- `AI/WORKFLOW.md`
+
+## Release Risks And Verification
+
+Before cutting `v0.0.12`, verify:
+
+1. Rust parity on the live current build, especially availability/conflicts and pricing seams.
+2. Notification delivery and dismissal across multiple users and groups.
+3. Onyx managed-local behavior, hosted/external mode, and fallback-to-assistant behavior.
+4. Ollama managed-local install/start/stop/model pull on the target release environment.
+5. Pull-sheet generation on real quotes, including overlapping-project aggregate pull exports.
+6. Inventory QR preview and scan resolution on the current server build.
+7. Stats date windows and product sales totals on production-like quote data.
+8. Mobile inventory, notifications, and quote-builder flows on a real device pass.
+
+## GitHub Release Notes Draft
 
 ### Added
 
-- **Maps workspace (operator UI)**: New protected `/maps` page with a 2D Mapbox world map, clustered pins, theme-aware legend toggles, and direct links into project detail.
-- **Maps pins API**: New authenticated `GET /api/maps/quotes` endpoint that returns map-ready quote pins (with `quote|booked|closed` classification) plus `map_default_style` for client rendering.
-- **Mapbox geocoding + quote map cache**: Quotes now persist map cache fields (`map_address_source`, `map_address_text`, `map_lat`, `map_lng`, `map_geocoded_at`, `map_geocode_status`) so map rendering is fast and consistent.
-- **Lazy geocoding for older quotes**: When the maps endpoint is hit, quotes with addresses but missing/failed map cache will attempt to geocode and persist results.
-- **Sales analytics API**: New analytics surface at `GET /api/sales/analytics` for pipeline-style reporting over a date range, with optional staff + status filtering.
-- **DB query/repository layering (server)**: New `server/db/*` modules (queries + repositories) to centralize SQL and support service-layer composition.
+- Rust engine workspace and guarded availability/pricing integration
+- Quote Assistant with quote-aware internal AI workflows
+- Team Chat, Team Groups, notification settings, and live notifications
+- managed local Onyx support and managed local Ollama support
+- product QR/scan identity, serial numbers, pull sheets, and aggregate pull exports
+- Clients and Venues directory pages
+- guided Help and Appearance settings pages
 
-### Changed
+### Improved
 
-- **Quote backend architecture**: Quote orchestration continues moving out of `server/routes/quotes.js` into smaller services (`quoteCoreService`, `quoteListService`, `quoteFinanceService`, `quoteFileService`, etc.) so the route layer becomes mostly validation + wiring.
-- **Geocode lifecycle**: Quote create/update flows sync map cache so maps stay current when venue/client addresses change.
+- inventory search, batch AI edit controls, and mobile inventory layouts
+- project list controls, quote-builder conflict visibility, and quote-detail performance
+- stats filtering and product sales tracking
+- admin diagnostics, startup readiness handling, and packaging guardrails
 
-### Notes / migration cues
+### Internal
 
-- **Settings**: Maps requires `mapbox_access_token`; `map_default_style` controls the basemap style used by the Maps UI and pin endpoint.
-- **Data**: Quotes geocode from `venue_address` first, falling back to `client_address`. Older quotes may geocode on-demand when `/api/maps/quotes` is requested; quote create/update also refreshes the cache.
-
-## File structure delta — current local tree vs GitHub
-
-Compared against `origin/master`, the local source tree has expanded in a few clear areas that should be treated as part of the `v0.0.11` documentation pass.
-
-### New documentation surfaces
-
-- `AI/Api/README.md`
-- `AI/Api/authentication.md`
-- `AI/Api/data-models.md`
-- `AI/Api/ecommerce-integration.md`
-- `AI/Api/inventory-api.md`
-- `AI/Api/public-catalog.md`
-- `AI/Api/quotes-api.md`
-- `AI/Api/webhooks-and-events.md`
-- `AI/reports/dashboard-redesign.md`
-
-### New client structure
-
-- `client/src/pages/MapsPage.jsx`
-- `client/src/pages/MapsPage.module.css`
-- `client/src/pages/ProfilePage.jsx`
-- `client/src/pages/ProfilePage.module.css`
-- `client/src/pages/TeamPage.jsx`
-- `client/src/pages/TeamPage.module.css`
-- `client/src/pages/quote-detail/QuoteFulfillmentPanel.jsx`
-- `client/src/components/public-quote/PublicQuoteContractView.jsx`
-- `client/src/components/public-quote/PublicQuoteItemDetailModal.jsx`
-- `client/src/components/virtualization/VirtualGrid.jsx`
-- `client/src/components/virtualization/VirtualList.jsx`
-- `client/src/features/sales-dashboard/*`
-- `client/src/hooks/useDebouncedValue.js`
-- `client/src/lib/permissions.js`
-- `client/src/lib/sanitizeHtml.js`
-
-### New server structure
-
-- `server/routes/maps.js`
-- `server/routes/sales.js`
-- `server/routes/team.js`
-- `server/lib/permissionMiddleware.js`
-- `server/lib/permissions.js`
-- `server/db/defaults/*`
-- `server/db/migrations/*`
-- `server/db/queries/*`
-- `server/db/repositories/quoteRepository.js`
-- `server/db/schema/*`
-- `server/services/diagnosticsService.js`
-- `server/services/fileService.js`
-- `server/services/imageCompressionService.js`
-- `server/services/itemService.js`
-- `server/services/leadService.js`
-- `server/services/mapService.js`
-- `server/services/mapboxGeocodeService.js`
-- `server/services/quoteContractService.js`
-- `server/services/quoteCoreService.js`
-- `server/services/quoteCustomItemService.js`
-- `server/services/quoteFileService.js`
-- `server/services/quoteFinanceService.js`
-- `server/services/quoteFulfillmentService.js`
-- `server/services/quoteItemService.js`
-- `server/services/quoteLifecycleService.js`
-- `server/services/quoteListService.js`
-- `server/services/quoteSectionService.js`
-- `server/services/salesAnalyticsService.js`
-- `server/services/teamService.js`
-
-### Removed from local source tree
-
-No tracked source/docs files from `origin/master` are missing locally. The only baseline-only paths are runtime artifacts excluded from the documentation pass (`backups/badshuffle-20260304-160455.db`, `uploads/dd8655d7a9fe59f9e0ba2ea912c70164.png`).
-
-### Documentation implications
-
-- `ai/ARCHITECTURE.md` needs to describe the new `server/db/*` layering instead of treating `server/db.js` as the only schema/migration home.
-- `ai/PROJECT_OVERVIEW.md` needs to reflect Maps, Team, Profile, fulfillment, and permission-aware routing as current product surfaces.
-- The new `AI/Api/*` folder should be treated as live API/integration documentation for `v0.0.11`, not an incidental local-only addition.
-
-## Git sync (local ↔ GitHub)
-
-| Item | Value |
-|------|--------|
-| Local branch | `master` |
-| Remote tracking | `origin/master` |
-| **`HEAD` commit** | `e928169` — `docs: update README AI references` |
-| **`origin/master`** | Same commit as `HEAD` (no unpushed / unpulled commits at time of check) |
-| Working tree | **Dirty** — changes below are **uncommitted** vs `origin/master` |
-
-Cross-reference: `git fetch origin`, then `git diff --shortstat origin/master`, `git diff --name-only origin/master`, `git ls-files --others --exclude-standard`.
-
-## Summary
-
-| Metric | Count |
-|--------|--------|
-| **Modified tracked files** vs `origin/master` | **116** |
-| **Untracked files** (new, not yet `git add`) | **21** |
-| Diff size | **10528 insertions(+), 6800 deletions(-)** across those 116 files |
-
----
-
-## Untracked (new) files — full list
-
-| Path |
-|------|
-| `AI/Next-Release.md` (this file) |
-| `AI/reports/redesign-plan.md` |
-| `client/postcss.config.js` |
-| `client/tailwind.config.js` |
-| `client/src/index.css` |
-| `client/src/lib/logisticsRename.js` |
-| `client/src/lib/quoteTitle.js` |
-| `client/src/lib/routePrefetch.js` |
-| `client/src/components/ImageLightbox.jsx` |
-| `client/src/components/ImageLightbox.module.css` |
-| `client/src/components/ItemDetailDrawer.jsx` |
-| `client/src/components/ItemDetailDrawer.module.css` |
-| `client/src/components/features/logistics/RenameLogisticsModal.jsx` |
-| `client/src/components/features/logistics/RenameLogisticsModal.module.css` |
-| `client/src/components/messages/MessageBody.jsx` |
-| `client/src/components/messages/MessageBody.module.css` |
-| `client/src/components/messages/RichMessageRenderer.jsx` |
-| `client/src/components/messages/RichMessageRenderer.module.css` |
-| `client/src/pages/quote-detail/QuoteBillingPanel.jsx` |
-| `client/src/pages/quote-detail/QuoteFilesPanel.jsx` |
-| `client/src/pages/quote-detail/QuoteLogsPanel.jsx` |
-
----
-
-## Modified tracked files — full list (alphabetical)
-
-### Repo root
-
-- `.env.example`
-- `package.json`
-- `package-lock.json`
-- `bun.lock`
-
-### AI / project docs (`AI/` and `ai/`)
-
-- `AI/HANDOFF.md`
-- `AI/TODO.md`
-- `AI/reports/code-audit.md`
-- `ai/DATA_MODELS.md`
-- `ai/HANDOFF.md`
-- `ai/KNOWN_GAPS.md`
-- `ai/STATUS.md`
-- `ai/TODO.md`
-
-**Note:** `AI/` and `ai/` are different paths on Linux.
-
-### Client — package metadata & lockfiles
-
-- `client/package.json`
-- `client/package-lock.json`
-- `client/bun.lock`
-
-### Client — entry, API, theme
-
-- `client/src/main.jsx`
-- `client/src/App.jsx`
-- `client/src/api.js`
-- `client/src/theme.css`
-
-### Client — components (shared)
-
-- `client/src/components/AddressMapModal.jsx`
-- `client/src/components/AISuggestModal.jsx`
-- `client/src/components/AssociationList.jsx`
-- `client/src/components/ConfirmDialog.jsx`
-- `client/src/components/ConfirmDialog.module.css`
-- `client/src/components/DateRangePicker.jsx`
-- `client/src/components/ErrorBoundary.jsx`
-- `client/src/components/ItemCard.jsx`
-- `client/src/components/ItemCard.module.css`
-- `client/src/components/ItemEditModal.jsx`
-- `client/src/components/ItemGrid.jsx`
-- `client/src/components/Layout.jsx`
-- `client/src/components/Layout.module.css`
-- `client/src/components/QuoteBuilder.jsx`
-- `client/src/components/QuoteBuilder.module.css`
-- `client/src/components/QuoteCard.jsx`
-- `client/src/components/QuoteCard.module.css`
-- `client/src/components/QuoteExport.jsx`
-- `client/src/components/QuoteExport.module.css`
-- `client/src/components/QuoteFilePicker.jsx`
-- `client/src/components/QuoteHeader.jsx`
-- `client/src/components/QuoteHeader.module.css`
-- `client/src/components/QuoteSendModal.jsx`
-- `client/src/components/Sidebar.jsx`
-- `client/src/components/Sidebar.module.css`
-- `client/src/components/StatsBar.jsx`
-- `client/src/components/StatsBar.module.css`
-- `client/src/components/Toast.jsx`
-- `client/src/components/Toast.module.css`
-
-### Client — quote builder panels
-
-- `client/src/components/quote-builder/InventoryPickerPanel.jsx`
-- `client/src/components/quote-builder/QuoteAdjustmentsPanel.jsx`
-- `client/src/components/quote-builder/QuoteLineItemsPanel.jsx`
-
-### Client — hooks
-
-- `client/src/hooks/useQuoteDetail.js`
-
-### Client — pages
-
-- `client/src/pages/AdminPage.jsx`
-- `client/src/pages/AdminPage.module.css`
-- `client/src/pages/AuthPage.module.css`
-- `client/src/pages/BillingPage.jsx`
-- `client/src/pages/BillingPage.module.css`
-- `client/src/pages/DashboardPage.jsx`
-- `client/src/pages/DashboardPage.module.css`
-- `client/src/pages/DirectoryPage.jsx`
-- `client/src/pages/DirectoryPage.module.css`
-- `client/src/pages/ExtensionPage.jsx`
-- `client/src/pages/ExtensionPage.module.css`
-- `client/src/pages/FilesPage.jsx`
-- `client/src/pages/FilesPage.module.css`
-- `client/src/pages/ForgotPage.jsx`
-- `client/src/pages/ImportPage.jsx`
-- `client/src/pages/ImportPage.module.css`
-- `client/src/pages/InventoryPage.jsx`
-- `client/src/pages/InventoryPage.module.css`
-- `client/src/pages/InventorySettingsPage.jsx`
-- `client/src/pages/InventorySettingsPage.module.css`
-- `client/src/pages/ItemDetailPage.jsx`
-- `client/src/pages/ItemDetailPage.module.css`
-- `client/src/pages/LeadsPage.jsx`
-- `client/src/pages/LeadsPage.module.css`
-- `client/src/pages/LoginPage.jsx`
-- `client/src/pages/MessageSettingsPage.jsx`
-- `client/src/pages/MessageSettingsPage.module.css`
-- `client/src/pages/MessagesPage.jsx`
-- `client/src/pages/MessagesPage.module.css`
-- `client/src/pages/PublicCatalogPage.jsx`
-- `client/src/pages/PublicCatalogPage.module.css`
-- `client/src/pages/PublicItemPage.jsx`
-- `client/src/pages/PublicItemPage.module.css`
-- `client/src/pages/PublicQuotePage.jsx`
-- `client/src/pages/PublicQuotePage.module.css`
-- `client/src/pages/QuoteDetailPage.jsx`
-- `client/src/pages/QuoteDetailPage.module.css`
-- `client/src/pages/QuotePage.jsx`
-- `client/src/pages/QuotePage.module.css`
-- `client/src/pages/ResetPage.jsx`
-- `client/src/pages/SettingsPage.jsx`
-- `client/src/pages/SettingsPage.module.css`
-- `client/src/pages/SetupPage.jsx`
-- `client/src/pages/StatsPage.jsx`
-- `client/src/pages/StatsPage.module.css`
-- `client/src/pages/TemplatesPage.jsx`
-- `client/src/pages/TemplatesPage.module.css`
-- `client/src/pages/VendorsPage.jsx`
-- `client/src/pages/VendorsPage.module.css`
-
-### Server
-
-- `server/package.json`
-- `server/package-lock.json`
-- `server/api/v1.js`
-- `server/db.js`
-- `server/index.js`
-- `server/routes/ai.js`
-- `server/routes/availability.js`
-- `server/routes/files.js`
-- `server/routes/messages.js`
-- `server/routes/quotes.js`
-- `server/routes/settings.js`
-- `server/routes/updates.js`
-- `server/services/emailPoller.js`
-- `server/services/quoteService.js`
-- `server/services/updateCheck.js`
-
----
-
-## Thematic clusters (inferred from paths; confirm in diffs before release)
-
-| Theme | Relevant paths (examples) |
-|-------|---------------------------|
-| **UI redesign / CSS modules** | Broad `*.module.css` across `components/` and `pages/`; `theme.css`; untracked `AI/reports/redesign-plan.md` |
-| **Quote detail / builder** | `QuoteDetailPage*`, `QuoteBuilder*`, `quote-builder/*`, untracked `pages/quote-detail/*` |
-| **Inventory & items** | `InventoryPickerPanel`, untracked `ItemDetailDrawer*`, `ImageLightbox*` |
-| **Logistics / messaging (untracked)** | `features/logistics/*`, `lib/logisticsRename.js`, `components/messages/*` |
-| **Routing / perf** | Untracked `lib/routePrefetch.js`; `App.jsx`, `main.jsx` |
-| **Tooling & deps** | Root + client + server lockfiles / `package.json` / `bun.lock`; untracked Tailwind/PostCSS; **`server/package-lock.json`** (e.g. `npm audit fix`–style dependency bumps) |
-| **Server API** | `messages`, `quotes`, `availability`, `files`, `ai`, `quoteService`, `db`, `index` |
-| **Docs** | `AI/*`, `ai/*`, code audit report |
-
----
-
-## Release checklist (recommended)
-
-- [ ] Commit **untracked** files intentionally (new components, `quote-detail/` panels, Tailwind/PostCSS, libs, `redesign-plan.md`) or omit if WIP.
-- [ ] Reconcile **lockfiles** (`package-lock.json`, `bun.lock`) with your chosen package manager for CI.
-- [ ] Decide canonical docs folder: **`AI/`** vs **`ai/`**.
-- [ ] Review **`.env.example`** and **server/client `package.json`** for deploy notes.
-- [ ] Smoke test after large UI/CSS churn: auth, quotes, inventory, messages, public pages, uploads.
-
----
-
-## Diff command reference
-
-```bash
-git fetch origin
-git diff --shortstat origin/master
-git diff --name-only origin/master
-git ls-files --others --exclude-standard
-```
+- expanded schema/defaults/migrations for notifications, AI settings, item stats, pull sheets, and product identity
+- more route/service separation across quotes, items, settings, admin, team, files, and stats
+- richer AI handoff and architecture documentation in `AI/`

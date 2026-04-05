@@ -6,7 +6,7 @@ const {
   buildQuoteItemSnapshot,
   buildCustomItemSnapshot,
 } = require('../lib/quoteActivity');
-const { upsertItemStats } = require('../services/itemStatsService');
+const { upsertItemStats, recalculateItemSalesStats } = require('../services/itemStatsService');
 const quoteService = require('../services/quoteService');
 const quoteListService = require('../services/quoteListService');
 const quoteSectionService = require('../services/quoteSectionService');
@@ -18,6 +18,7 @@ const quoteFinanceService = require('../services/quoteFinanceService');
 const quoteCoreService = require('../services/quoteCoreService');
 const quoteFileService = require('../services/quoteFileService');
 const quoteFulfillmentService = require('../services/quoteFulfillmentService');
+const quotePullSheetService = require('../services/quotePullSheetService');
 const { requireModulePermission } = require('../lib/permissionMiddleware');
 const { ACCESS_MODIFY } = require('../lib/permissions');
 const DISCOUNT_TYPES = new Set(['none', 'percent', 'fixed']);
@@ -29,10 +30,12 @@ module.exports = function makeRouter(db, uploadsDir) {
 
   // GET /api/quotes — include computed total, amount_paid, remaining_balance, overpaid; optional filters
   // Query params: search (name/client), status, event_from, event_to, has_balance, venue, page, limit, sort_by, sort_dir
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
-      const result = quoteListService.listQuotes(db, req.query || {}, {
+      const result = await quoteListService.listQuotes(db, req.query || {}, {
         summarizeQuotesForList: quoteService.summarizeQuotesForList,
+        diagnostics: req.app?.locals?.diagnostics || null,
+        requestId: req.get('x-request-id') || null,
       });
       res.json(result);
     } catch (err) {
@@ -44,6 +47,15 @@ module.exports = function makeRouter(db, uploadsDir) {
   router.get('/summary', (req, res) => {
     try {
       res.json(quoteListService.buildQuoteSummary(db));
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/quotes/pull-sheet/aggregate?ids=1,2,3
+  router.get('/pull-sheet/aggregate', (req, res) => {
+    try {
+      res.json(quotePullSheetService.getAggregatePullSheet(db, req.query.ids, quoteSectionService));
     } catch (err) {
       res.status(err.statusCode || 500).json({ error: err.message });
     }
@@ -154,10 +166,23 @@ module.exports = function makeRouter(db, uploadsDir) {
     }
   });
 
-  // GET /api/quotes/:id
-  router.get('/:id', (req, res) => {
+  // GET /api/quotes/:id/pull-sheet
+  router.get('/:id/pull-sheet', (req, res) => {
     try {
-      res.json(quoteCoreService.getQuoteDetail(db, req.params.id, { quoteSectionService }));
+      res.json(quotePullSheetService.getPullSheet(db, req.params.id, quoteSectionService));
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/quotes/:id
+  router.get('/:id', async (req, res) => {
+    try {
+      res.json(await quoteCoreService.getQuoteDetail(db, req.params.id, {
+        quoteSectionService,
+        diagnostics: req.app?.locals?.diagnostics || null,
+        requestId: req.get('x-request-id') || null,
+      }));
     } catch (err) {
       res.status(err.statusCode || 500).json({ error: err.message });
     }
@@ -432,6 +457,7 @@ module.exports = function makeRouter(db, uploadsDir) {
       const result = quoteItemService.addQuoteItem(db, req.params.id, req.body || {}, {
         quoteSectionService,
         upsertItemStats,
+        recalculateItemSalesStats,
         buildQuoteItemSnapshot,
         logActivity,
         markUnsignedChangesIfApproved,
@@ -463,6 +489,7 @@ module.exports = function makeRouter(db, uploadsDir) {
         markUnsignedChangesIfApproved,
         req,
         discountTypes: DISCOUNT_TYPES,
+        recalculateItemSalesStats,
       });
       quoteFulfillmentService.syncFulfillmentForQuote(db, req.params.id);
       res.json(result);
@@ -479,6 +506,7 @@ module.exports = function makeRouter(db, uploadsDir) {
         logActivity,
         markUnsignedChangesIfApproved,
         req,
+        recalculateItemSalesStats,
       });
       quoteFulfillmentService.syncFulfillmentForQuote(db, req.params.id);
       res.json(result);

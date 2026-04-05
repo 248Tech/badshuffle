@@ -13,7 +13,7 @@ function parsePositiveInt(v, fallback) {
 const ORG_ID = 1;
 
 function addQuoteItem(db, quoteId, body, deps) {
-  const { quoteSectionService, upsertItemStats, buildQuoteItemSnapshot, logActivity, markUnsignedChangesIfApproved, req } = deps;
+  const { quoteSectionService, upsertItemStats, recalculateItemSalesStats, buildQuoteItemSnapshot, logActivity, markUnsignedChangesIfApproved, req } = deps;
   const { item_id, quantity = 1, label, sort_order = 0, hidden_from_quote, section_id } = body || {};
   if (!item_id) throw createError(400, 'item_id required');
 
@@ -44,6 +44,7 @@ function addQuoteItem(db, quoteId, body, deps) {
   ).run(quoteId, itemIdNum, qty, label || null, sortOrderVal, hidden, targetSectionId || null);
 
   upsertItemStats(db, itemIdNum, quote.guest_count || 0);
+  recalculateItemSalesStats(db, itemIdNum);
 
   const qitem = db.prepare('SELECT * FROM quote_items WHERE id = ?').get(result.lastInsertRowid);
   const title = (label || item.title || '').trim() || item.title || 'Item';
@@ -81,12 +82,12 @@ function reorderQuoteItems(db, quoteId, body) {
 }
 
 function updateQuoteItem(db, quoteId, qitemId, body, deps) {
-  const { buildQuoteItemSnapshot, logActivity, markUnsignedChangesIfApproved, req, discountTypes } = deps;
+  const { buildQuoteItemSnapshot, logActivity, markUnsignedChangesIfApproved, req, discountTypes, recalculateItemSalesStats } = deps;
   const quote = db.prepare('SELECT id FROM quotes WHERE id = ? AND org_id = ?').get(quoteId, ORG_ID);
   if (!quote) throw createError(404, 'Not found');
   const { quantity, label, sort_order, hidden_from_quote, unit_price_override, discount_type, discount_amount, description, notes, section_id } = body || {};
   const oldRow = db.prepare(`
-    SELECT qi.quantity, qi.label, qi.unit_price_override, i.title as item_title, i.unit_price
+    SELECT qi.item_id, qi.quantity, qi.label, qi.unit_price_override, qi.discount_type, qi.discount_amount, i.title as item_title, i.unit_price
     FROM quote_items qi
     JOIN items i ON i.id = qi.item_id
     WHERE qi.id = ? AND qi.quote_id = ?
@@ -97,6 +98,7 @@ function updateQuoteItem(db, quoteId, qitemId, body, deps) {
   if (qtyNum === 0) {
     const oldVal = buildQuoteItemSnapshot(oldRow);
     db.prepare('DELETE FROM quote_items WHERE id = ? AND quote_id = ?').run(qitemId, quoteId);
+    recalculateItemSalesStats(db, oldRow.item_id);
     logActivity(db, quoteId, 'item_removed', 'Removed line item (zero quantity)', oldVal, null, req);
     markUnsignedChangesIfApproved(db, quoteId);
     return { deleted: true };
@@ -141,7 +143,7 @@ function updateQuoteItem(db, quoteId, qitemId, body, deps) {
   );
 
   const qitem = db.prepare(`
-    SELECT qi.quantity, qi.label, i.title as item_title, i.unit_price
+    SELECT qi.item_id, qi.quantity, qi.label, qi.unit_price_override, qi.discount_type, qi.discount_amount, i.title as item_title, i.unit_price
     FROM quote_items qi
     JOIN items i ON i.id = qi.item_id
     WHERE qi.id = ? AND qi.quote_id = ?
@@ -152,22 +154,24 @@ function updateQuoteItem(db, quoteId, qitemId, body, deps) {
   if (oldVal !== newVal) {
     logActivity(db, quoteId, 'item_updated', 'Updated line item: ' + newTitle, oldVal, newVal, req);
   }
+  recalculateItemSalesStats(db, qitem.item_id);
   const qitemFull = db.prepare('SELECT * FROM quote_items WHERE id = ?').get(qitemId);
   return { qitem: qitemFull };
 }
 
 function deleteQuoteItem(db, quoteId, qitemId, deps) {
-  const { buildQuoteItemSnapshot, logActivity, markUnsignedChangesIfApproved, req } = deps;
+  const { buildQuoteItemSnapshot, logActivity, markUnsignedChangesIfApproved, req, recalculateItemSalesStats } = deps;
   const quote = db.prepare('SELECT id FROM quotes WHERE id = ? AND org_id = ?').get(quoteId, ORG_ID);
   if (!quote) throw createError(404, 'Not found');
   const oldRow = db.prepare(`
-    SELECT qi.quantity, qi.label, i.title as item_title, i.unit_price
+    SELECT qi.item_id, qi.quantity, qi.label, qi.unit_price_override, qi.discount_type, qi.discount_amount, i.title as item_title, i.unit_price
     FROM quote_items qi
     JOIN items i ON i.id = qi.item_id
     WHERE qi.id = ? AND qi.quote_id = ?
   `).get(qitemId, quoteId);
   const oldVal = buildQuoteItemSnapshot(oldRow);
   db.prepare('DELETE FROM quote_items WHERE id = ? AND quote_id = ?').run(qitemId, quoteId);
+  if (oldRow?.item_id) recalculateItemSalesStats(db, oldRow.item_id);
   if (oldVal) logActivity(db, quoteId, 'item_removed', 'Removed line item', oldVal, null, req);
   markUnsignedChangesIfApproved(db, quoteId);
   return { deleted: true };

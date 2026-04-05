@@ -67,8 +67,9 @@ export function useQuoteDetail(quoteId, { autoEdit = false } = {}) {
     editing && savedFormRef.current !== null && JSON.stringify(form) !== JSON.stringify(savedFormRef.current);
 
   const load = useCallback(() => {
+    const requestOptions = { dedupeKey: `quote:${quoteId}` };
     api
-      .getQuote(quoteId)
+      .getQuote(quoteId, requestOptions)
       .then((data) => {
         setQuote(data);
         setCustomItems(data.customItems || []);
@@ -91,7 +92,17 @@ export function useQuoteDetail(quoteId, { autoEdit = false } = {}) {
 
   useEffect(() => {
     if (!quoteId) return;
-    api.getQuoteAvailability(quoteId).then((d) => setAvailability(d.conflicts || {})).catch(() => {});
+    const controller = new AbortController();
+    api.getQuoteAvailability(quoteId, {
+      signal: controller.signal,
+      dedupeKey: `quote:${quoteId}:availability`,
+      cancelPrevious: true,
+    }).then((d) => {
+      if (!controller.signal.aborted) setAvailability(d.conflicts || {});
+    }).catch(() => {
+      if (!controller.signal.aborted) setAvailability({});
+    });
+    return () => controller.abort();
   }, [quoteId, quote?.items?.length]);
 
   const discardEdits = useCallback(() => {

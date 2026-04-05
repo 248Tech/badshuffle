@@ -1,13 +1,91 @@
 # TODO — Badshuffle Audit
 
-Last updated: 2026-03-25
+Last updated: 2026-03-31
 Current phase: Phase 2 — Code Audit
 
 ---
 
 ## In Progress
 
+- [ ] v0.0.12 Rust Engine Core
+  - turn multi-quote parity checks into repeatable fixture coverage or CI gates
+  - verify Node fallback and shadow-mode diagnostics against `/api/availability`
+  - decide whether the `SKIP_RUST_RELEASE_GUARD=1` escape hatch should remain available for local emergency packaging
+- [ ] Rust pricing engine
+  - add quote totals parity endpoint for legacy vs Rust pricing
+  - validate item discounts, logistics subtotal split, quote adjustments, tax, and total output
+  - route live quote totals through Rust behind `USE_RUST_PRICING` with shadow-mode diagnostics
+  - keep Rust scope explicitly limited to pricing + inventory until both are stable
 - [ ] Full codebase audit (assigned to Codex — see CODE_AUDIT_PLAN.md)
+- [ ] Quote assistant follow-through
+  - add assistant-specific settings UI (`ai_agent_provider`, `ai_agent_model`, `ai_agent_enabled`)
+  - extend tool registry with quote availability, fulfillment readiness, and quote message digest
+  - evaluate whether assistant transcript retention needs export/delete controls
+
+## Rust Roadmap
+
+- [ ] Pricing engine
+  - taxes, discounts, adjustments, delivery split, quote totals parity
+- [ ] Fulfillment reconciliation engine
+  - checkout/checkin math, missing items, mismatch detection
+- [ ] Logistics planning engine
+  - truck loads, stop sequencing, crew assignment constraints
+- [ ] Forecasting / utilization engine
+  - shortages, utilization trends, restock pressure
+- [ ] Recommendation scoring engine
+  - package completeness, related products, substitute scoring
+
+## Newly Shipped
+
+- [x] Rust engine core foundation
+  - Added `rust-core/` Cargo workspace with Axum API, inventory-engine, shared-types, db, config, telemetry, and events crates
+  - Added `POST /engine/inventory/check` plus health, readiness, and metrics endpoints
+  - Added Node feature-flag integration via `USE_RUST_INVENTORY` and `RUST_INVENTORY_SHADOW_MODE`
+  - Added AI coordination files for `v0.0.12 Rust Engine Core`
+- [x] Rust conflicts path
+  - Added Rust-side `conflicts` action and wired `GET /api/availability/conflicts` behind the same feature flags
+  - Added server-side Rust engine diagnostics endpoint at `/api/admin/diagnostics/rust-engine`
+  - Improved Rust reservation handling for unsigned quote changes to better match legacy behavior
+- [x] Rust parity tooling
+  - Added `server/services/rustInventoryParityService.js` for legacy-vs-Rust quote comparison
+  - Added `GET /api/admin/diagnostics/rust-engine/compare/:quoteId`
+  - Added CLI parity command: `node server/cli.js rust-compare-quote --quote-id <id>`
+- [x] Rust batch parity tooling
+  - Added `compareQuotes()` support for checking multiple live quotes in one run
+  - Added `GET /api/admin/diagnostics/rust-engine/compare?limit=...`
+  - Added CLI batch command: `node server/cli.js rust-compare-batch --limit 10`
+- [x] Rust item-level parity controls
+  - Added auto item-id selection per quote for parity runs via `includeItems`
+  - Added `itemLimitPerQuote` to keep batch compare runs bounded
+  - Added compact mismatch summaries so compare output highlights changed item ids instead of only dumping full payloads
+- [x] Rust parity report artifact
+  - Added `rust-parity-report` CLI flow to write `AI/reports/rust-parity-latest.md`
+  - Added root script `npm run rust:parity-report` with a standard batch preset
+  - Added JSON companion artifact `AI/reports/rust-parity-latest.json`
+- [x] Rust operator/admin visibility
+  - Added Rust engine status and parity snapshot cards to the Admin System tab
+  - Added combined local startup scripts for Node + Rust + client via `npm run dev:stack`
+- [x] Rust release guard
+  - Added `npm run check:rust:release` to start Rust if needed and run the standard parity report
+  - Wired the guard into the root `release` script so release cuts fail when parity fails
+- [x] Rust package guard
+  - Moved the parity guard onto the root `package` script so packaging and release share the same gate
+  - Added `SKIP_RUST_RELEASE_GUARD=1` escape hatch for intentional local override
+- [x] Rust release traceability
+  - Parity report now includes app version and execution context
+  - `postpackage` now copies the latest Rust parity markdown and JSON artifacts into `dist/release-checks/`
+  - `postpackage` now writes `dist/release-checks/manifest.json` summarizing version, parity state, and packaged artifacts
+- [x] Quote assistant foundation
+  - Added persistent quote-scoped assistant transcripts via `quote_agent_messages`
+  - Added read-only quote assistant API under `/api/ai/quotes/:id/assistant`
+  - Added provider abstraction with OpenAI + deterministic fallback
+  - Added Quote Detail `Assistant` tab in the client
+  - Added product-native tools for quote overview, financials, inventory pressure, activity digest, item recommendations, and client follow-up drafting
+  - See `AI/AGENT_ASSISTANT_PLAN.md`
+- [x] Upload compression controls
+  - Added settings toggles for image compression and auto-WebP conversion
+  - Skip compression for files under 200 KB so small uploads are not bloated
+  - Reduced encoder effort to speed up upload-time processing
 
 ---
 

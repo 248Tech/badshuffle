@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 function ConflictIcon() {
@@ -33,7 +33,7 @@ const BORDER_STYLES = {
   draft:    'border-l-border',
 };
 
-export default function QuoteCard({ quote, onDelete, onDuplicate, total, selectable, selected, onToggleSelect, hasConflict, selectOnCardClick = false }) {
+function QuoteCard({ quote, onDelete, onDuplicate, total, selectable, selected, onToggleSelect, hasConflict, selectOnCardClick = false }) {
   const navigate = useNavigate();
   const contractTotal = total != null ? total : (quote.contract_total ?? quote.total);
   const hasTotal = contractTotal != null && contractTotal > 0;
@@ -167,3 +167,5 @@ export default function QuoteCard({ quote, onDelete, onDuplicate, total, selecta
     </div>
   );
 }
+
+export default memo(QuoteCard);

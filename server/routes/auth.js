@@ -101,6 +101,8 @@ function serializeUserProfile(row) {
     phone: row.phone || '',
     photo_url: row.photo_url || '',
     bio: row.bio || '',
+    live_notifications_enabled: Number(row.live_notifications_enabled || 0),
+    live_notification_sound_enabled: Number(row.live_notification_sound_enabled || 0),
     created_at: row.created_at || null,
     permissions: row.permissions || null,
   };
@@ -372,6 +374,12 @@ module.exports = function authRouter(db) {
         phone: sanitizeOptionalText(req.body && req.body.phone, 40),
         photo_url: sanitizeOptionalText(req.body && req.body.photo_url, 255),
         bio: sanitizeOptionalText(req.body && req.body.bio, 2000),
+        live_notifications_enabled: req.body?.live_notifications_enabled !== undefined
+          ? (req.body.live_notifications_enabled ? 1 : 0)
+          : Number(current.live_notifications_enabled || 0),
+        live_notification_sound_enabled: req.body?.live_notification_sound_enabled !== undefined
+          ? (req.body.live_notification_sound_enabled ? 1 : 0)
+          : Number(current.live_notification_sound_enabled || 0),
       });
       const token = signToken(updated);
       res.json({ ...serializeUserProfile({

@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
 const fileService = require('../services/fileService');
+const notificationService = require('../services/notificationService');
 
 module.exports = function makeRouter(db, uploadsDir) {
   const router = express.Router();
@@ -29,6 +30,18 @@ module.exports = function makeRouter(db, uploadsDir) {
   router.post('/upload', upload.array('files', 20), async (req, res) => {
     try {
       const result = await fileService.uploadFiles(db, ORG_ID, req.files || [], req.user, uploadsDir);
+      if ((result.files || []).length > 0) {
+        notificationService.createNotification(db, {
+          type: 'file_uploaded',
+          title: 'File uploaded',
+          body: `${notificationService.buildActorLabel(req.user) || 'A team member'} uploaded ${(result.files || []).length} file${(result.files || []).length === 1 ? '' : 's'}`,
+          href: '/files',
+          entityType: 'file',
+          entityId: result.files?.[0]?.id || null,
+          actorUserId: req.user?.sub || req.user?.id || null,
+          actorLabel: notificationService.buildActorLabel(req.user),
+        });
+      }
       res.status(201).json(result);
     } catch (err) {
       res.status(err.statusCode || 500).json({ error: err.message });

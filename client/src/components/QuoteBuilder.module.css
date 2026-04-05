@@ -211,7 +211,27 @@
 .sectionTitleRow {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
+}
+.conflictSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.conflictSummarySafe {
+  color: var(--color-success-strong, #237a4b);
+}
+.conflictSummaryDanger {
+  color: var(--color-danger, #c53030);
+}
+.conflictSummaryIcon {
+  display: inline-flex;
+  flex-shrink: 0;
 }
 .addCustomBtn {
   width: 32px;

@@ -12,6 +12,7 @@ const {
 } = require('../db/queries/files');
 const {
   isImageMime,
+  MIN_COMPRESSION_BYTES,
   sanitizeQuality,
   flagEnabled,
   processImageUpload,
@@ -95,9 +96,16 @@ function detectMime(filePath) {
 
 function getCompressionSettings(db) {
   return {
+    compressionEnabled: flagEnabled(getSettingValue(db, 'image_compression_enabled', '1'), true),
+    autoWebpEnabled: flagEnabled(getSettingValue(db, 'image_auto_webp_enabled', '1'), true),
     webpQuality: sanitizeQuality(getSettingValue(db, 'image_webp_quality', '68'), 68),
     avifEnabled: flagEnabled(getSettingValue(db, 'image_avif_enabled', '0'), false),
   };
+}
+
+function shouldProcessImageUpload(file, compressionSettings) {
+  if (!compressionSettings.compressionEnabled) return false;
+  return Number(file && file.size) >= MIN_COMPRESSION_BYTES;
 }
 
 function listAllFiles(db, orgId) {
@@ -142,12 +150,14 @@ function insertImageFile(db, orgId, file, userId, processed) {
   return getFileSummaryById(db, fileId);
 }
 
-function insertBinaryFile(db, orgId, file, userId, storedMime) {
+function insertBinaryFile(db, orgId, file, userId, storedMime, options = {}) {
+  const isImage = options.isImage ? 1 : 0;
+  const sourceFormat = options.sourceFormat || storedMime;
   const result = db.prepare(
     `INSERT INTO files (
       org_id, original_name, stored_name, mime_type, size, uploaded_by, is_image, storage_mode, source_format, width, height
-    ) VALUES (?, ?, ?, ?, ?, ?, 0, 'legacy_single', ?, NULL, NULL)`
-  ).run(orgId, file.originalname, file.filename, storedMime, file.size, userId, storedMime);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'legacy_single', ?, NULL, NULL)`
+  ).run(orgId, file.originalname, file.filename, storedMime, file.size, userId, isImage, sourceFormat);
   return getFileSummaryById(db, result.lastInsertRowid);
 }
 
@@ -168,10 +178,15 @@ async function uploadFiles(db, orgId, files, user, uploadsDir) {
       }
       const storedMime = resolveStoredMime(file, detectedMime);
       if (isImageMime(storedMime)) {
-        const processed = await processImageUpload(file.path, uploadsDir, compressionSettings);
-        createdStoredNames.push(...processed.variants.map((variant) => variant.storedName));
-        inserted.push(insertImageFile(db, orgId, file, userId, processed));
-        try { fs.unlinkSync(file.path); } catch {}
+        if (shouldProcessImageUpload(file, compressionSettings)) {
+          const processed = await processImageUpload(file.path, uploadsDir, compressionSettings);
+          createdStoredNames.push(...processed.variants.map((variant) => variant.storedName));
+          inserted.push(insertImageFile(db, orgId, file, userId, processed));
+          try { fs.unlinkSync(file.path); } catch {}
+        } else {
+          inserted.push(insertBinaryFile(db, orgId, file, userId, storedMime, { isImage: true, sourceFormat: storedMime }));
+          createdStoredNames.push(file.filename);
+        }
       } else {
         inserted.push(insertBinaryFile(db, orgId, file, userId, storedMime));
         createdStoredNames.push(file.filename);
@@ -262,6 +277,11 @@ async function compressFile(db, orgId, fileId, uploadsDir) {
   const file = getFileById(db, fileId, orgId);
   if (!file) throw createError(404, 'Not found');
   if (!Number(file.is_image)) throw createError(400, 'Only images can be compressed');
+  const compressionSettings = getCompressionSettings(db);
+  if (!compressionSettings.compressionEnabled) throw createError(400, 'Image compression is disabled in settings');
+  if (Number(file.size) < MIN_COMPRESSION_BYTES) {
+    throw createError(400, 'Files under 200 KB are left uncompressed');
+  }
   if (file.storage_mode !== 'image_variants') throw createError(400, 'File format not supported for re-compression');
 
   const srcPath = path.join(uploadsDir, file.stored_name);
@@ -272,7 +292,6 @@ async function compressFile(db, orgId, fileId, uploadsDir) {
   const tmpPath = path.join(uploadsDir, tmpName);
   fs.copyFileSync(srcPath, tmpPath);
 
-  const compressionSettings = getCompressionSettings(db);
   let processed;
   try {
     processed = await processImageUpload(tmpPath, uploadsDir, compressionSettings);

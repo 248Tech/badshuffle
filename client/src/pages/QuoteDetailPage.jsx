@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useOutletContext } from 'react-router-dom';
 import { useNavigationBlocker } from '../hooks/useNavigationBlocker.js';
 import { useQuoteDetail } from '../hooks/useQuoteDetail.js';
@@ -23,6 +23,8 @@ const QuoteBillingPanel = lazy(() => import('./quote-detail/QuoteBillingPanel.js
 const QuoteFilesPanel = lazy(() => import('./quote-detail/QuoteFilesPanel.jsx'));
 const QuoteLogsPanel = lazy(() => import('./quote-detail/QuoteLogsPanel.jsx'));
 const QuoteFulfillmentPanel = lazy(() => import('./quote-detail/QuoteFulfillmentPanel.jsx'));
+const QuotePullSheetPanel = lazy(() => import('./quote-detail/QuotePullSheetPanel.jsx'));
+const QuoteAssistantPanel = lazy(() => import('../components/QuoteAssistantPanel.jsx'));
 const ItemDetailDrawer = lazy(() => import('../components/ItemDetailDrawer.jsx'));
 const ImageLightbox = lazy(() => import('../components/ImageLightbox.jsx'));
 
@@ -49,7 +51,10 @@ export default function QuoteDetailPage() {
   const controller = useQuoteDetail(id, { autoEdit: !!(location.state?.autoEdit) });
   const { quote, customItems, sections, settings, loading, editing, form, saving, adjustments, availability } = controller;
   const { setQuote, setCustomItems, setAdjustments, setEditing, setForm } = controller;
-  const eventTypes = String(settings.quote_event_types || '').split('\n').map((v) => v.trim()).filter(Boolean);
+  const eventTypes = useMemo(
+    () => String(settings.quote_event_types || '').split('\n').map((v) => v.trim()).filter(Boolean),
+    [settings.quote_event_types]
+  );
   const [showAI, setShowAI] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [venueEditing, setVenueEditing] = useState(false);
@@ -70,7 +75,10 @@ export default function QuoteDetailPage() {
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customForm, setCustomForm] = useState({ title: '', unit_price: '', quantity: '1', taxable: true, photo_url: '' });
   // Contract (in edit-quote settings)
-  const [detailTab, setDetailTab] = useState(() => window.innerWidth <= 640 ? 'items' : 'quote');
+  const [detailTab, setDetailTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') || (window.innerWidth <= 640 ? 'items' : 'quote');
+  });
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const quoteExportRef = useRef(null);
   const [contract, setContract] = useState(null);
@@ -94,6 +102,7 @@ export default function QuoteDetailPage() {
   // Logs tab
   const [activity, setActivity] = useState([]);
   const [fulfillment, setFulfillment] = useState(null);
+  const [pullSheet, setPullSheet] = useState(null);
   // Availability
   // Adjustments
   // Quote messages (for sales team view)
@@ -150,11 +159,45 @@ export default function QuoteDetailPage() {
   // ─────────────────────────────────────────────────────────────────────────
   const load = controller.load;
   useEffect(() => {
-    if (!id) return;
-    api.getQuoteFiles(id).then(d => setQuoteFiles(d.files || [])).catch(() => setQuoteFiles([]));
-    api.getQuoteContract(id).then(d => setContract(d.contract)).catch(() => {});
-    api.getMessages({ quote_id: id }).then(d => setQuoteMessages((d.messages || []).slice().reverse())).catch(() => {});
-  }, [id]);
+    if (!id || !canReadFiles || (!showFilePicker && detailTab !== 'files')) return;
+    const controller = new AbortController();
+    api.getQuoteFiles(id, {
+      signal: controller.signal,
+      dedupeKey: `quote:${id}:files`,
+      cancelPrevious: true,
+    }).then(d => {
+      if (!controller.signal.aborted) setQuoteFiles(d.files || []);
+    }).catch(() => {
+      if (!controller.signal.aborted) setQuoteFiles([]);
+    });
+    return () => controller.abort();
+  }, [id, canReadFiles, detailTab, showFilePicker]);
+
+  useEffect(() => {
+    if (!id || (!editing && detailTab !== 'quote' && detailTab !== 'billing')) return;
+    const controller = new AbortController();
+    api.getQuoteContract(id, {
+      signal: controller.signal,
+      dedupeKey: `quote:${id}:contract`,
+      cancelPrevious: true,
+    }).then(d => {
+      if (!controller.signal.aborted) setContract(d.contract);
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [id, detailTab, editing]);
+
+  useEffect(() => {
+    if (!id || !canReadMessages || (!showMessagesModal && detailTab !== 'quote')) return;
+    const controller = new AbortController();
+    api.getMessages({ quote_id: id }, {
+      signal: controller.signal,
+      dedupeKey: `quote:${id}:messages`,
+      cancelPrevious: true,
+    }).then(d => {
+      if (!controller.signal.aborted) setQuoteMessages((d.messages || []).slice().reverse());
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [id, canReadMessages, detailTab, showMessagesModal]);
 
   useEffect(() => {
     if (!quote) return;
@@ -215,7 +258,7 @@ export default function QuoteDetailPage() {
     api.getRentalTerms()
       .then(d => setRentalTermsList(d.terms || []))
       .catch(() => {});
-  }, [editing, id]);
+  }, [editing, id, toast]);
 
   useEffect(() => {
     if (detailTab !== 'billing' || !id) return;
@@ -236,6 +279,34 @@ export default function QuoteDetailPage() {
     if (detailTab !== 'fulfillment' || !id || !canSeeFulfillment) return;
     api.getQuoteFulfillment(id).then((data) => setFulfillment(data)).catch(() => setFulfillment(null));
   }, [detailTab, id, canSeeFulfillment]);
+
+  useEffect(() => {
+    if (detailTab !== 'pull-sheet' || !id) return;
+    const controller = new AbortController();
+    api.getQuotePullSheet(id, {
+      signal: controller.signal,
+      dedupeKey: `quote:${id}:pull-sheet`,
+      cancelPrevious: true,
+    }).then((data) => {
+      if (!controller.signal.aborted) setPullSheet(data);
+    }).catch(() => {
+      if (!controller.signal.aborted) setPullSheet(null);
+    });
+    return () => controller.abort();
+  }, [detailTab, id]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (detailTab === 'quote' || detailTab === 'items') params.delete('tab');
+    else params.set('tab', detailTab);
+    const nextSearch = params.toString();
+    const currentSearch = location.search.replace(/^\?/, '');
+    if (nextSearch === currentSearch) return;
+    navigate({
+      pathname: location.pathname,
+      search: nextSearch ? `?${nextSearch}` : '',
+    }, { replace: true });
+  }, [detailTab, location.pathname, location.search, navigate]);
 
   const handleSaveContract = async (e) => {
     e?.preventDefault();
@@ -775,10 +846,12 @@ export default function QuoteDetailPage() {
             <div className={styles.tabsWrap}>
               <div className={styles.tabs}>
                 <button type="button" className={`${styles.tab} ${styles.mobileItemsTab} ${detailTab === 'items' ? styles.tabActive : ''}`} onClick={() => setDetailTab('items')}>Items{(quote.items || []).length > 0 ? ` (${(quote.items || []).length})` : ''}</button>
+                <button type="button" className={`${styles.tab} ${detailTab === 'pull-sheet' ? styles.tabActive : ''}`} onClick={() => setDetailTab('pull-sheet')}>Pull Sheet</button>
                 {canSeeFulfillment && <button type="button" className={`${styles.tab} ${detailTab === 'fulfillment' ? styles.tabActive : ''}`} onClick={() => setDetailTab('fulfillment')}>Fulfillment</button>}
                 {canReadBilling && <button type="button" className={`${styles.tab} ${detailTab === 'billing' ? styles.tabActive : ''}`} onClick={() => setDetailTab('billing')}>Billing</button>}
                 {canReadFiles && <button type="button" className={`${styles.tab} ${detailTab === 'files' ? styles.tabActive : ''}`} onClick={() => setDetailTab('files')}>Files {quoteFiles.length > 0 ? `(${quoteFiles.length})` : ''}</button>}
                 <button type="button" className={`${styles.tab} ${detailTab === 'logs' ? styles.tabActive : ''}`} onClick={() => setDetailTab('logs')}>Logs</button>
+                <button type="button" className={`${styles.tab} ${detailTab === 'assistant' ? styles.tabActive : ''}`} onClick={() => setDetailTab('assistant')}>Assistant</button>
                 <button type="button" className={`${styles.tab} ${detailTab === 'quote' ? styles.tabActive : ''}`} onClick={() => setDetailTab('quote')}>Details</button>
               </div>
             </div>
@@ -1650,6 +1723,23 @@ export default function QuoteDetailPage() {
               </div>}
             </>
           )}
+          {detailTab === 'pull-sheet' && (
+            <Suspense fallback={<DeferredPanelFallback label="Loading pull sheet…" />}>
+              <QuotePullSheetPanel
+                pullSheet={pullSheet}
+                onCopyLink={async () => {
+                  const href = pullSheet?.pull_sheet?.href ? `${window.location.origin}${pullSheet.pull_sheet.href}` : '';
+                  if (!href) return;
+                  try {
+                    await navigator.clipboard.writeText(href);
+                    toast.success('Pull-sheet link copied');
+                  } catch {
+                    toast.error('Unable to copy pull-sheet link');
+                  }
+                }}
+              />
+            </Suspense>
+          )}
           {detailTab === 'fulfillment' && canSeeFulfillment && (
             <Suspense fallback={<DeferredPanelFallback label="Loading fulfillment…" />}>
               <QuoteFulfillmentPanel
@@ -1706,6 +1796,11 @@ export default function QuoteDetailPage() {
           {detailTab === 'logs' && (
             <Suspense fallback={<DeferredPanelFallback label="Loading logs…" />}>
               <QuoteLogsPanel activity={activity} />
+            </Suspense>
+          )}
+          {detailTab === 'assistant' && (
+            <Suspense fallback={<DeferredPanelFallback label="Loading assistant…" />}>
+              <QuoteAssistantPanel quoteId={id} quote={quote} />
             </Suspense>
           )}
         </>

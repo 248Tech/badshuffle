@@ -1,6 +1,10 @@
 const { getQuoteById, requireQuoteById } = require('../db/queries/quotes');
 const quoteRepository = require('../db/repositories/quoteRepository');
 const { syncQuoteMapCache } = require('./mapboxGeocodeService');
+const notificationService = require('./notificationService');
+const quotePricingEngineService = require('./quotePricingEngineService');
+const directoryContactsService = require('./directoryContactsService');
+const quotePatternMemoryService = require('./quotePatternMemoryService');
 
 function createError(statusCode, message) {
   const error = new Error(message);
@@ -21,14 +25,30 @@ function getQuoteActivity(db, quoteId) {
   return { activity: quoteRepository.listQuoteActivityEntries(db, quoteId) };
 }
 
-function getQuoteDetail(db, quoteId, deps) {
+async function getQuoteDetail(db, quoteId, deps) {
   const { quoteSectionService } = deps;
   requireQuoteById(db, quoteId, 'Not found', ORG_ID);
   const sections = quoteSectionService.ensureSections(db, quoteId);
   const snapshot = quoteRepository.getQuoteDetailSnapshot(db, quoteId, ORG_ID);
+  const totals = await quotePricingEngineService.computeQuoteTotals(db, snapshot.quote, snapshot.quote.tax_rate, {
+    diagnostics: deps.diagnostics,
+    requestId: deps.requestId,
+    route: deps.route || 'quote-detail',
+    loadQuote: () => snapshot.quote,
+  });
+  const remaining_balance = Number(totals.total || 0) - Number(snapshot.amount_paid || 0);
 
   return {
     ...snapshot.quote,
+    total: totals.total,
+    contract_total: totals.total,
+    subtotal: totals.subtotal,
+    delivery_total: totals.deliveryTotal,
+    custom_subtotal: totals.customSubtotal,
+    adjustments_total: totals.adjTotal,
+    taxable_amount: totals.taxableAmount,
+    tax: totals.tax,
+    rate: totals.rate,
     items: snapshot.items,
     customItems: snapshot.customItems,
     adjustments: snapshot.adjustments,
@@ -37,6 +57,8 @@ function getQuoteDetail(db, quoteId, deps) {
     signed_quote_total: snapshot.signed_quote_total,
     signed_remaining_balance: snapshot.signed_remaining_balance,
     amount_paid: snapshot.amount_paid,
+    remaining_balance,
+    overpaid: remaining_balance < 0,
     is_expired: snapshot.is_expired,
   };
 }
@@ -104,11 +126,24 @@ async function createQuote(db, body, deps) {
   );
 
   quoteSectionService.ensureSections(db, result.lastInsertRowid);
+  directoryContactsService.syncQuoteDirectoryLinks(db, result.lastInsertRowid);
+  quotePatternMemoryService.upsertMemoryRecord(db, result.lastInsertRowid, 'quote_created');
   await syncQuoteMapCache(db, result.lastInsertRowid);
   if (logActivity) {
     logActivity(db, result.lastInsertRowid, 'quote_created', 'Project created', null, null, req);
   }
-  return { quote: getQuoteById(db, result.lastInsertRowid, ORG_ID) };
+  const quote = getQuoteById(db, result.lastInsertRowid, ORG_ID);
+  notificationService.createNotification(db, {
+    type: 'quote_created',
+    title: 'Project created',
+    body: `${quote.name || 'Untitled project'} was created`,
+    href: `/quotes/${quote.id}`,
+    entityType: 'quote',
+    entityId: quote.id,
+    actorUserId: req?.user?.sub || null,
+    actorLabel: notificationService.buildActorLabel(req?.user),
+  });
+  return { quote };
 }
 
 async function updateQuote(db, quoteId, body, deps) {
@@ -242,6 +277,8 @@ async function updateQuote(db, quoteId, body, deps) {
     }
   }
 
+  directoryContactsService.syncQuoteDirectoryLinks(db, quoteId);
+  quotePatternMemoryService.upsertMemoryRecord(db, quoteId, 'quote_updated');
   await syncQuoteMapCache(db, quoteId);
   logActivity(db, quoteId, 'quote_updated', 'Project details updated', null, null, req);
   return { quote: getQuoteById(db, quoteId, ORG_ID) };

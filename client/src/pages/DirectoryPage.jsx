@@ -38,6 +38,35 @@ export default function DirectoryPage() {
           </div>
           <span className={styles.cardArrow} aria-hidden="true">→</span>
         </button>
+        <button type="button" className={`card ${styles.card}`} onClick={() => navigate('/clients')}>
+          <div className={styles.cardIcon}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="9" cy="8" r="4"/>
+              <path d="M2 20c0-4 3.5-6 7-6s7 2 7 6"/>
+              <path d="M18 7h4"/>
+              <path d="M20 5v4"/>
+            </svg>
+          </div>
+          <div className={styles.cardBody}>
+            <h2 className={styles.cardTitle}>Clients</h2>
+            <p className={styles.cardDesc}>See client contact details and the projects they have booked with you.</p>
+          </div>
+          <span className={styles.cardArrow} aria-hidden="true">→</span>
+        </button>
+        <button type="button" className={`card ${styles.card}`} onClick={() => navigate('/venues')}>
+          <div className={styles.cardIcon}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 21V5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5V21"/>
+              <path d="M8 21v-6h8v6"/>
+              <path d="M8 8h.01M12 8h.01M16 8h.01M8 12h.01M12 12h.01M16 12h.01"/>
+            </svg>
+          </div>
+          <div className={styles.cardBody}>
+            <h2 className={styles.cardTitle}>Venues</h2>
+            <p className={styles.cardDesc}>Manage venue contacts, addresses, and past orders for each location.</p>
+          </div>
+          <span className={styles.cardArrow} aria-hidden="true">→</span>
+        </button>
         <button type="button" className={`card ${styles.card}`} onClick={() => navigate('/vendors')}>
           <div className={styles.cardIcon}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

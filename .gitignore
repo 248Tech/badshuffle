@@ -11,3 +11,6 @@ badshuffle.lock
 uploads/*
 .claude/
 .aider*
+logs/
+onyx-local/
+rust-core/target/

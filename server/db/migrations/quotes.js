@@ -1,4 +1,4 @@
-const QUOTE_MIGRATION_VERSION = '3';
+const QUOTE_MIGRATION_VERSION = '7';
 
 const QUOTE_TABLE_STATEMENTS = [
   `
@@ -217,6 +217,86 @@ const QUOTE_TABLE_STATEMENTS = [
       created_at        TEXT DEFAULT (datetime('now'))
     )
   `,
+  `
+    CREATE TABLE IF NOT EXISTS quote_pull_sheets (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      quote_id   INTEGER NOT NULL UNIQUE REFERENCES quotes(id) ON DELETE CASCADE,
+      scan_code  TEXT    NOT NULL UNIQUE,
+      created_at TEXT    DEFAULT (datetime('now')),
+      updated_at TEXT    DEFAULT (datetime('now'))
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS quote_agent_messages (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      quote_id      INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+      role          TEXT NOT NULL,
+      content       TEXT NOT NULL,
+      metadata_json TEXT,
+      created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      user_email    TEXT,
+      created_at    TEXT DEFAULT (datetime('now'))
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS clients (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id      INTEGER NOT NULL DEFAULT 1,
+      first_name  TEXT,
+      last_name   TEXT,
+      email       TEXT,
+      phone       TEXT,
+      address     TEXT,
+      notes       TEXT,
+      created_at  TEXT DEFAULT (datetime('now')),
+      updated_at  TEXT DEFAULT (datetime('now'))
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS venues (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id      INTEGER NOT NULL DEFAULT 1,
+      name        TEXT,
+      email       TEXT,
+      phone       TEXT,
+      address     TEXT,
+      contact     TEXT,
+      notes       TEXT,
+      created_at  TEXT DEFAULT (datetime('now')),
+      updated_at  TEXT DEFAULT (datetime('now'))
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS quote_pattern_memories (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id        INTEGER NOT NULL DEFAULT 1,
+      quote_id      INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+      quote_name    TEXT,
+      status        TEXT,
+      event_type    TEXT,
+      guest_count   INTEGER DEFAULT 0,
+      event_date    TEXT,
+      venue_name    TEXT,
+      client_name   TEXT,
+      total         REAL DEFAULT 0,
+      summary       TEXT,
+      features_json TEXT,
+      tags_json     TEXT,
+      sync_reason   TEXT,
+      created_at    TEXT DEFAULT (datetime('now')),
+      updated_at    TEXT DEFAULT (datetime('now')),
+      last_synced_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(org_id, quote_id)
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS quote_pattern_memory_tags (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      memory_id   INTEGER NOT NULL REFERENCES quote_pattern_memories(id) ON DELETE CASCADE,
+      tag         TEXT NOT NULL,
+      created_at  TEXT DEFAULT (datetime('now'))
+    )
+  `,
 ];
 
 const QUOTE_COLUMN_STATEMENTS = [
@@ -270,6 +350,8 @@ const QUOTE_COLUMN_STATEMENTS = [
   'ALTER TABLE quotes ADD COLUMN map_geocoded_at TEXT',
   'ALTER TABLE quotes ADD COLUMN map_geocode_status TEXT',
   "ALTER TABLE quote_fulfillment_items ADD COLUMN checked_in_qty INTEGER DEFAULT 0",
+  "ALTER TABLE quotes ADD COLUMN client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL",
+  "ALTER TABLE quotes ADD COLUMN venue_id INTEGER REFERENCES venues(id) ON DELETE SET NULL",
 ];
 
 const QUOTE_POST_STATEMENTS = [
@@ -287,6 +369,17 @@ const QUOTE_POST_STATEMENTS = [
   'CREATE INDEX IF NOT EXISTS idx_quote_fulfillment_items_quote_id ON quote_fulfillment_items(quote_id)',
   'CREATE INDEX IF NOT EXISTS idx_quote_fulfillment_items_item_id ON quote_fulfillment_items(item_id)',
   'CREATE INDEX IF NOT EXISTS idx_quote_fulfillment_notes_quote_id ON quote_fulfillment_notes(quote_id)',
+  'CREATE INDEX IF NOT EXISTS idx_quotes_client_id ON quotes(client_id)',
+  'CREATE INDEX IF NOT EXISTS idx_quotes_venue_id ON quotes(venue_id)',
+  'CREATE INDEX IF NOT EXISTS idx_clients_org_id ON clients(org_id)',
+  'CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email)',
+  'CREATE INDEX IF NOT EXISTS idx_venues_org_id ON venues(org_id)',
+  'CREATE INDEX IF NOT EXISTS idx_venues_name ON venues(name)',
+  'CREATE INDEX IF NOT EXISTS idx_quote_pattern_memories_quote_id ON quote_pattern_memories(quote_id)',
+  'CREATE INDEX IF NOT EXISTS idx_quote_pattern_memories_event_type ON quote_pattern_memories(event_type)',
+  'CREATE INDEX IF NOT EXISTS idx_quote_pattern_memories_last_synced_at ON quote_pattern_memories(last_synced_at DESC)',
+  'CREATE INDEX IF NOT EXISTS idx_quote_pattern_memory_tags_memory_id ON quote_pattern_memory_tags(memory_id)',
+  'CREATE INDEX IF NOT EXISTS idx_quote_pattern_memory_tags_tag ON quote_pattern_memory_tags(tag)',
 ];
 
 module.exports = {

@@ -9,12 +9,13 @@ function pathToLabel(path) {
   if (!path || path === '/') return 'Dashboard';
   const p = path.replace(/^\//, '');
   const map = {
-    dashboard: 'Dashboard', inventory: 'Inventory', quotes: 'Projects',
+    dashboard: 'Dashboard', inventory: 'Inventory', quotes: 'Projects', 'team-chat': 'Team Chat',
     maps: 'Maps', team: 'Team', profile: 'Profile',
-    billing: 'Billing', leads: 'Leads', files: 'Files', messages: 'Messages',
+    billing: 'Billing', leads: 'Leads', clients: 'Clients', venues: 'Venues', files: 'Files', messages: 'Messages',
     stats: 'Stats', extension: 'Extension', admin: 'Admin', templates: 'Templates',
     settings: 'Settings', directory: 'Directory', vendors: 'Vendors',
-    'inventory-settings': 'Inventory Settings', 'message-settings': 'Message Settings',
+    'inventory-settings': 'Inventory Settings', 'inventory/set-aside': 'Set Aside', 'message-settings': 'Message Settings',
+    'settings/appearance': 'Appearance', 'settings/notifications': 'Notifications', 'team/groups': 'Groups', help: 'Help',
   };
   if (map[p]) return map[p];
   if (p.startsWith('inventory/')) return 'Item';
@@ -42,8 +43,11 @@ const ICONS = {
   quotes: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="1" width="12" height="14" rx="1"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>,
   billing: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 7h14"/><path d="M4 11h2M9 11h3"/></svg>,
   leads: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5"/></svg>,
+  clients: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="6" cy="5" r="2.5"/><path d="M1.5 13c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4"/><path d="M11 4h3M12.5 2.5v3"/></svg>,
+  venues: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 14V3.5A1.5 1.5 0 014 2h8a1.5 1.5 0 011.5 1.5V14"/><path d="M6 14V9.5h4V14"/><path d="M5 5.5h.01M8 5.5h.01M11 5.5h.01"/></svg>,
   files: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3.5A1.5 1.5 0 013.5 2H7l2 2h3.5A1.5 1.5 0 0114 5.5v7A1.5 1.5 0 0112.5 14h-9A1.5 1.5 0 012 12.5v-9z"/></svg>,
   messages: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9.5a5 5 0 01-5 5H3l-1.5 1.5v-7A5 5 0 017 4h2a5 5 0 015 5v.5z"/></svg>,
+  teamchat: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 4.5A2.5 2.5 0 015 2h6a2.5 2.5 0 012.5 2.5v3A2.5 2.5 0 0111 10H7l-3.5 3v-3H5A2.5 2.5 0 012.5 7.5v-3z"/></svg>,
   stats: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 13l3.5-5 3 3 2.5-4 3 4"/><path d="M2 13h12"/></svg>,
   extension: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><path d="M9 11.5h5M11.5 9v5"/></svg>,
   vendors: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 4h14l-1.5 7H2.5L1 4z"/><path d="M1 4L2 1h12l1 3"/><circle cx="5" cy="14" r="1"/><circle cx="11" cy="14" r="1"/></svg>,
@@ -52,18 +56,20 @@ const ICONS = {
   settings: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>,
   profile: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.1 2.7-5 6-5s6 1.9 6 5"/></svg>,
   directory: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3.5A1.5 1.5 0 013.5 2h4L9 3.5H12.5A1.5 1.5 0 0114 5v7a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9z"/><circle cx="8" cy="8" r="1.5"/><path d="M5.5 11c0-1.38 1.12-2 2.5-2s2.5.62 2.5 2"/></svg>,
+  help: <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="6"/><path d="M6.6 6.1A1.8 1.8 0 119 7.6c-.7.3-1.2.9-1.2 1.7"/><circle cx="8" cy="11.9" r=".6" fill="currentColor" stroke="none"/></svg>,
 };
 
 const NAV_GROUPS = [
   { id: 'dashboard', label: 'Dashboard', icon: ICONS.dashboard, to: '/dashboard', module: 'dashboard', children: [{ to: '/stats', label: 'Stats', icon: ICONS.stats, module: 'dashboard' }] },
   { id: 'projects', label: 'Projects', icon: ICONS.quotes, to: '/quotes', module: 'projects' },
   { id: 'maps', label: 'Maps', icon: ICONS.maps, to: '/maps', module: 'maps' },
-  { id: 'messages', label: 'Messages', icon: ICONS.messages, module: 'messages', children: [{ to: '/messages', label: 'Inbox', icon: ICONS.messages, module: 'messages' }, { to: '/templates', label: 'Templates', icon: ICONS.templates, module: 'messages', minimum: 'modify' }, { to: '/message-settings', label: 'Message Settings', icon: ICONS.settings, module: 'settings', minimum: 'modify' }] },
-  { id: 'directory', label: 'Directory', icon: ICONS.directory, to: '/directory', module: 'directory', children: [{ to: '/team', label: 'Team', icon: ICONS.admin, module: 'directory' }, { to: '/leads', label: 'Leads', icon: ICONS.leads, module: 'directory' }, { to: '/vendors', label: 'Vendors', icon: ICONS.vendors, module: 'directory' }] },
-  { id: 'inventory', label: 'Inventory', icon: ICONS.inventory, to: '/inventory', module: 'inventory', children: [{ to: '/inventory-settings', label: 'Inventory Settings', icon: ICONS.settings, module: 'inventory', minimum: 'modify' }] },
+  { id: 'messages', label: 'Messages', icon: ICONS.messages, module: 'messages', children: [{ to: '/messages', label: 'Inbox', icon: ICONS.messages, module: 'messages' }, { to: '/team-chat', label: 'Team Chat', icon: ICONS.teamchat, module: 'messages' }, { to: '/templates', label: 'Templates', icon: ICONS.templates, module: 'messages', minimum: 'modify' }, { to: '/message-settings', label: 'Message Settings', icon: ICONS.settings, module: 'settings', minimum: 'modify' }] },
+  { id: 'directory', label: 'Directory', icon: ICONS.directory, to: '/directory', module: 'directory', children: [{ to: '/leads', label: 'Leads', icon: ICONS.leads, module: 'directory' }, { to: '/clients', label: 'Clients', icon: ICONS.clients, module: 'directory' }, { to: '/venues', label: 'Venues', icon: ICONS.venues, module: 'directory' }, { to: '/vendors', label: 'Vendors', icon: ICONS.vendors, module: 'directory' }] },
+  { id: 'team', label: 'Team', icon: ICONS.admin, to: '/team', module: 'directory', children: [{ to: '/team/groups', label: 'Groups', icon: ICONS.directory, module: 'directory' }] },
+  { id: 'inventory', label: 'Inventory', icon: ICONS.inventory, to: '/inventory', module: 'inventory', children: [{ to: '/inventory/set-aside', label: 'Set Aside', icon: ICONS.files, module: 'inventory' }, { to: '/inventory-settings', label: 'Inventory Settings', icon: ICONS.settings, module: 'inventory', minimum: 'modify' }] },
   { id: 'files', label: 'Files', icon: ICONS.files, to: '/files', module: 'files' },
   { id: 'billing', label: 'Billing', icon: ICONS.billing, to: '/billing', module: 'billing' },
-  { id: 'settings', label: 'Settings', icon: ICONS.settings, to: '/settings', module: 'settings', children: [{ to: '/admin', label: 'Admin', icon: ICONS.admin, module: 'admin' }, { to: '/import', label: 'Import', icon: ICONS.import, module: 'settings', minimum: 'modify' }, { to: '/extension', label: 'Extension', icon: ICONS.extension, module: 'settings' }] },
+  { id: 'settings', label: 'Settings', icon: ICONS.settings, to: '/settings', module: 'settings', children: [{ to: '/help', label: 'Help', icon: ICONS.help, module: 'settings' }, { to: '/settings/appearance', label: 'Appearance', icon: ICONS.settings, module: 'settings' }, { to: '/settings/notifications', label: 'Notifications', icon: ICONS.messages, module: 'settings', minimum: 'modify' }, { to: '/admin', label: 'Admin', icon: ICONS.admin, module: 'admin' }, { to: '/import', label: 'Import', icon: ICONS.import, module: 'settings', minimum: 'modify' }, { to: '/extension', label: 'Extension', icon: ICONS.extension, module: 'settings' }] },
 ];
 
 function canSee(item, authUser) {
@@ -124,6 +130,7 @@ export default function Sidebar({ authUser = null, mobileOpen = false, onMobileC
 
   useEffect(() => {
     const load = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       api.presence.list().then(d => setOnline(d.online || [])).catch(() => setOnline([]));
       if (hasPermission(authUser?.permissions, 'messages', 'read')) {
         api.getUnreadCount().then(d => setUnreadCount(d.count || 0)).catch(() => {});
@@ -132,7 +139,7 @@ export default function Sidebar({ authUser = null, mobileOpen = false, onMobileC
       }
     };
     load();
-    const id = setInterval(load, 25000);
+    const id = setInterval(load, 45000);
     return () => clearInterval(id);
   }, [authUser]);
 

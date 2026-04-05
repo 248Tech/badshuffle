@@ -1,4 +1,6 @@
 const express = require('express');
+const notificationService = require('../services/notificationService');
+const teamChatService = require('../services/teamChatService');
 const {
   listMessages,
   getMessageById,
@@ -152,10 +154,38 @@ module.exports = function makeRouter(db) {
         messageType: msgType,
         richPayloadJson: richJson,
       });
+      notificationService.createNotification(db, {
+        type: 'message_sent',
+        title: 'Message sent',
+        body: `${quote.name || 'Untitled project'}${quote.client_email ? ` · ${quote.client_email}` : ''}`,
+        href: `/messages`,
+        entityType: 'quote',
+        entityId: quote.id,
+        actorUserId: req.user?.sub || req.user?.id || null,
+        actorLabel: notificationService.buildActorLabel(req.user),
+      });
       const messages = listMessagesForQuote(db, quote.id, 'ASC');
       res.json({ ok: true, messages });
     } catch (e) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  router.get('/quotes/:quoteId/ai', async (req, res) => {
+    try {
+      const result = await teamChatService.listQuoteAiMessages(db, req.params.quoteId, req.user);
+      res.json(result);
+    } catch (e) {
+      res.status(e.statusCode || 500).json({ error: e.message });
+    }
+  });
+
+  router.post('/quotes/:quoteId/ai', async (req, res) => {
+    try {
+      const result = await teamChatService.sendQuoteAiMessage(db, req.params.quoteId, req.body || {}, req.user);
+      res.json(result);
+    } catch (e) {
+      res.status(e.statusCode || 500).json({ error: e.message });
     }
   });
 

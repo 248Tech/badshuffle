@@ -28,6 +28,8 @@ const FILTERS = [
   { label: 'Documents', value: 'docs' },
 ];
 
+const MIN_COMPRESS_BYTES = 200 * 1024;
+
 export default function FilesPage() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -223,6 +225,12 @@ export default function FilesPage() {
 
   const thClass = 'px-3 py-2.5 text-left font-semibold text-text-muted text-[13px] border-b border-border bg-bg-elevated';
   const tdClass = 'px-3 py-2.5 border-b border-border text-[14px]';
+  const canRecompressInspectFile = Boolean(
+    inspectFile &&
+    isImage(inspectFile) &&
+    inspectFile.storage_mode === 'image_variants' &&
+    Number(inspectFile.size) >= MIN_COMPRESS_BYTES
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -719,9 +727,13 @@ export default function FilesPage() {
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
-                    disabled={compressing}
+                    disabled={compressing || !canRecompressInspectFile}
                     onClick={handleCompress}
-                    title="Re-compress image and regenerate WebP variants"
+                    title={
+                      canRecompressInspectFile
+                        ? 'Re-compress image and regenerate optimized variants'
+                        : 'Only processed images at least 200 KB can be re-compressed'
+                    }
                   >
                     {compressing ? <><span className="spinner" /> Compressing…</> : 'Compress'}
                   </button>

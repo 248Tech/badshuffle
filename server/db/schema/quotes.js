@@ -1,4 +1,4 @@
-const QUOTE_SCHEMA_VERSION = '1';
+const QUOTE_SCHEMA_VERSION = '2';
 
 const QUOTE_SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS quotes (
@@ -18,6 +18,14 @@ const QUOTE_SCHEMA_SQL = `
     quantity   INTEGER DEFAULT 1,
     label      TEXT,
     sort_order INTEGER DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS quote_pull_sheets (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    quote_id   INTEGER NOT NULL UNIQUE REFERENCES quotes(id) ON DELETE CASCADE,
+    scan_code  TEXT    NOT NULL UNIQUE,
+    created_at TEXT    DEFAULT (datetime('now')),
+    updated_at TEXT    DEFAULT (datetime('now'))
   );
 `;
 

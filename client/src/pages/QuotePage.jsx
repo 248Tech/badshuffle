@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, isAbortError } from '../api.js';
 import QuoteCard from '../components/QuoteCard.jsx';
@@ -15,6 +15,37 @@ const STATUS_BADGE_STYLE = {
   confirmed: { background: 'color-mix(in srgb, var(--color-discount) 12%, var(--color-bg))', color: 'var(--color-discount)' },
   closed:    { background: 'var(--color-surface)', color: 'var(--color-text-muted)' },
 };
+
+const QUOTE_LIST_COLUMN_KEY = 'quote-list-columns-v1';
+const DEFAULT_LIST_COLUMNS = [
+  { key: 'name', label: 'Name', required: true },
+  { key: 'client', label: 'Client' },
+  { key: 'status', label: 'Status' },
+  { key: 'event_date', label: 'Event date' },
+  { key: 'guests', label: 'Guests' },
+  { key: 'total', label: 'Total' },
+  { key: 'balance', label: 'Balance' },
+];
+
+function sanitizeListColumns(value) {
+  const known = new Map(DEFAULT_LIST_COLUMNS.map((column) => [column.key, column]));
+  const requested = Array.isArray(value) ? value : [];
+  const next = requested
+    .filter((column) => column && known.has(column.key))
+    .map((column) => ({
+      key: column.key,
+      visible: column.key === 'name' ? true : column.visible !== false,
+    }));
+  for (const column of DEFAULT_LIST_COLUMNS) {
+    if (!next.some((entry) => entry.key === column.key)) {
+      next.push({ key: column.key, visible: column.required ? true : true });
+    }
+  }
+  return next.map((column) => ({
+    ...column,
+    visible: known.get(column.key)?.required ? true : column.visible !== false,
+  }));
+}
 
 function parseSortBy(value) {
   const [rawField = 'created', rawDir = 'desc'] = String(value || 'created_desc').split('_');
@@ -45,6 +76,7 @@ export default function QuotePage() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [viewMode, setViewMode] = useState('tiles');
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [showColumnsPanel, setShowColumnsPanel] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [batchActioning, setBatchActioning] = useState(false);
   const [filters, setFilters] = useState({
@@ -58,8 +90,16 @@ export default function QuotePage() {
   const [sortBy, setSortBy] = useState('created_desc');
   const [page, setPage] = useState(1);
   const [totalQuotes, setTotalQuotes] = useState(0);
+  const [listColumns, setListColumns] = useState(() => {
+    try {
+      return sanitizeListColumns(JSON.parse(window.localStorage.getItem(QUOTE_LIST_COLUMN_KEY) || 'null'));
+    } catch {
+      return sanitizeListColumns(null);
+    }
+  });
   const pageSize = 24;
   const debouncedSearch = useDebouncedValue(filters.search, 300);
+  const columnsPanelRef = useRef(null);
 
   const buildQuoteParams = useCallback((pageOverride = page) => {
     const sort = parseSortBy(sortBy);
@@ -125,6 +165,23 @@ export default function QuotePage() {
   useEffect(() => {
     setSelectedIds(new Set());
   }, [page, viewMode]);
+
+  useEffect(() => {
+    window.localStorage.setItem(QUOTE_LIST_COLUMN_KEY, JSON.stringify(listColumns));
+  }, [listColumns]);
+
+  useEffect(() => {
+    if (!showColumnsPanel) return undefined;
+    const handlePointerDown = (event) => {
+      if (!columnsPanelRef.current?.contains(event.target)) {
+        setShowColumnsPanel(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [showColumnsPanel]);
 
   const hasActiveFilters = filters.search || filters.status || filters.event_from || filters.event_to || filters.has_balance;
   const clearFilters = () => setFilters({ search: '', status: '', event_from: '', event_to: '', has_balance: false });
@@ -276,6 +333,12 @@ export default function QuotePage() {
     setConfirmDelete(ids.length === 1 ? first : { id: 'batch', name: `${ids.length} selected projects`, _batchIds: ids });
   };
 
+  const openPullSheetExport = (mode = 'aggregate') => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    navigate(`/quotes/pull-sheets/export?mode=${mode}&ids=${ids.join(',')}`);
+  };
+
   const handleDeleteConfirmBatch = async () => {
     const batch = confirmDelete?._batchIds;
     if (!batch?.length) return handleDeleteConfirm();
@@ -296,8 +359,119 @@ export default function QuotePage() {
   const selectedCount = selectedIds.size;
   const totalPages = Math.max(1, Math.ceil(totalQuotes / pageSize));
   const allVisibleSelected = quotes.length > 0 && quotes.every((q) => selectedIds.has(q.id));
+  const visibleListColumns = useMemo(() => {
+    const defs = new Map(DEFAULT_LIST_COLUMNS.map((column) => [column.key, column]));
+    return listColumns
+      .filter((column) => column.visible)
+      .map((column) => defs.get(column.key))
+      .filter(Boolean);
+  }, [listColumns]);
 
   const sel = 'px-2.5 py-1.5 text-[13px] border border-border rounded-md bg-bg text-text cursor-pointer focus:outline-none focus:border-primary';
+
+  const toggleListColumn = (key) => {
+    setListColumns((prev) => {
+      const next = prev.map((column) => {
+        if (column.key !== key) return column;
+        if (DEFAULT_LIST_COLUMNS.find((item) => item.key === key)?.required) {
+          return { ...column, visible: true };
+        }
+        return { ...column, visible: !column.visible };
+      });
+      if (!next.some((column) => column.visible)) {
+        return prev;
+      }
+      return next;
+    });
+  };
+
+  const moveListColumn = (key, direction) => {
+    setListColumns((prev) => {
+      const index = prev.findIndex((column) => column.key === key);
+      const targetIndex = index + direction;
+      if (index === -1 || targetIndex < 0 || targetIndex >= prev.length) {
+        return prev;
+      }
+      const next = [...prev];
+      const [column] = next.splice(index, 1);
+      next.splice(targetIndex, 0, column);
+      return next;
+    });
+  };
+
+  const renderListCell = (quote, columnKey) => {
+    const eventDate = quote.event_date
+      ? new Date(quote.event_date + 'T00:00:00').toLocaleDateString()
+      : '—';
+    const clientName = [quote.client_first_name, quote.client_last_name].filter(Boolean).join(' ');
+    if (columnKey === 'name') {
+      return (
+        <td className="px-3 py-2.5 whitespace-nowrap">
+          {quoteIdsWithConflict.has(quote.id) && (
+            <span className="inline-flex items-center mr-1.5 align-middle" title="Inventory conflict">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#c00" stroke="#8b0000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" />
+                <line x1="12" y1="8" x2="12" y2="13" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+                <circle cx="12" cy="16.5" r="1.1" fill="#fff" stroke="none" />
+              </svg>
+            </span>
+          )}
+          <button type="button" className="link" onClick={() => navigate(`/quotes/${quote.id}`)}>
+            {quote.name}
+          </button>
+        </td>
+      );
+    }
+    if (columnKey === 'client') {
+      return (
+        <td className="px-3 py-2.5 text-[13px] text-text-muted whitespace-nowrap">
+          {clientName || <span className="opacity-40">—</span>}
+        </td>
+      );
+    }
+    if (columnKey === 'status') {
+      return (
+        <td className="px-3 py-2.5">
+          <span
+            className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+            style={STATUS_BADGE_STYLE[quote.status || 'draft'] || STATUS_BADGE_STYLE.draft}
+          >
+            {quote.status === 'approved' ? 'SIGNED' : (quote.status || 'draft').toUpperCase()}
+          </span>
+        </td>
+      );
+    }
+    if (columnKey === 'event_date') {
+      return <td className="px-3 py-2.5 whitespace-nowrap">{eventDate}</td>;
+    }
+    if (columnKey === 'guests') {
+      return <td className="px-3 py-2.5 whitespace-nowrap">{quote.guest_count > 0 ? quote.guest_count : '—'}</td>;
+    }
+    if (columnKey === 'total') {
+      return (
+        <td className="px-3 py-2.5 whitespace-nowrap">
+          {(quote.has_unsigned_changes && quote.signed_quote_total != null)
+            ? `$${Number(quote.signed_quote_total).toFixed(2)}`
+            : (quote.total != null && quote.total > 0 ? `$${Number(quote.total).toFixed(2)}` : '—')}
+        </td>
+      );
+    }
+    if (columnKey === 'balance') {
+      return (
+        <td className="px-3 py-2.5 whitespace-nowrap">
+          {(quote.has_unsigned_changes || quote.status === 'approved' || quote.status === 'confirmed' || quote.status === 'closed') && (quote.total != null || quote.signed_quote_total != null) ? (
+            (() => {
+              const bal = quote.has_unsigned_changes && quote.signed_remaining_balance != null ? quote.signed_remaining_balance : (quote.remaining_balance ?? quote.total);
+              return bal < 0
+                ? <span className="font-medium" style={{ color: 'var(--color-warning-strong)' }}>Overpaid ${Math.abs(bal).toFixed(2)}</span>
+                : <span className="font-medium" style={{ color: 'var(--color-danger)' }}>${Number(bal).toFixed(2)}</span>;
+            })()
+          ) : '—'}
+        </td>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -326,6 +500,71 @@ export default function QuotePage() {
             <option value="tiles">Tiles</option>
             <option value="list">List</option>
           </select>
+          <div className="relative hidden sm:block" ref={columnsPanelRef}>
+            <button
+              type="button"
+              className={`${sel} ${viewMode === 'list' ? '' : 'opacity-50'}`}
+              onClick={() => {
+                if (viewMode !== 'list') return;
+                setShowColumnsPanel((open) => !open);
+              }}
+              aria-expanded={showColumnsPanel}
+              disabled={viewMode !== 'list'}
+            >
+              Columns
+            </button>
+            {showColumnsPanel && viewMode === 'list' && (
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-[280px] rounded-xl border border-border bg-bg shadow-lg p-3">
+                <div className="flex items-start justify-between gap-3 mb-2.5">
+                  <div>
+                    <h3 className="text-[13px] font-semibold text-text">Project columns</h3>
+                    <p className="text-[12px] text-text-muted">Show, hide, and reorder the list view.</p>
+                  </div>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setListColumns(sanitizeListColumns(null))}>
+                    Reset
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {listColumns.map((column, index) => {
+                    const meta = DEFAULT_LIST_COLUMNS.find((entry) => entry.key === column.key);
+                    return (
+                      <div key={column.key} className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-2">
+                        <label className="flex items-center gap-2 min-w-0 flex-1 text-[13px] text-text">
+                          <input
+                            type="checkbox"
+                            checked={column.visible}
+                            disabled={meta?.required}
+                            onChange={() => toggleListColumn(column.key)}
+                          />
+                          <span className="truncate">{meta?.label || column.key}</span>
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => moveListColumn(column.key, -1)}
+                            disabled={index === 0}
+                            aria-label={`Move ${meta?.label || column.key} left`}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => moveListColumn(column.key, 1)}
+                            disabled={index === listColumns.length - 1}
+                            aria-label={`Move ${meta?.label || column.key} right`}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
           <button type="button" className="btn btn-primary whitespace-nowrap" onClick={() => showNew ? resetNewForm() : setShowNew(true)}>
             {showNew ? 'Cancel' : '+ New'}
           </button>
@@ -422,6 +661,12 @@ export default function QuotePage() {
       {selectedCount > 0 && (
         <div className="flex items-center gap-3 px-3.5 py-2.5 bg-bg-elevated rounded-lg flex-wrap">
           <span className="text-[13px] text-text-muted">{selectedCount} selected</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => openPullSheetExport('aggregate')}>
+            Combined pull
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => openPullSheetExport('individual')}>
+            Export pull sheets
+          </button>
           <button type="button" className="btn btn-primary btn-sm" disabled={batchActioning} onClick={handleBatchDuplicate}>
             Duplicate
           </button>
@@ -638,22 +883,16 @@ export default function QuotePage() {
                     aria-label="Select all"
                   />
                 </th>
-                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Name</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Client</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Status</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Event date</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Guests</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Total</th>
-                <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]">Balance</th>
+                {visibleListColumns.map((column) => (
+                  <th key={column.key} className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px] whitespace-nowrap">
+                    {column.label}
+                  </th>
+                ))}
                 <th className="px-3 py-2.5 text-left font-semibold text-text-muted text-[13px]"></th>
               </tr>
             </thead>
             <tbody>
               {quotes.map(q => {
-                const eventDate = q.event_date
-                  ? new Date(q.event_date + 'T00:00:00').toLocaleDateString()
-                  : '—';
-                const clientName = [q.client_first_name, q.client_last_name].filter(Boolean).join(' ');
                 const isSelected = selectedIds.has(q.id);
                 return (
                   <tr
@@ -668,48 +907,11 @@ export default function QuotePage() {
                         aria-label={`Select ${q.name}`}
                       />
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      {quoteIdsWithConflict.has(q.id) && (
-                        <span className="inline-flex items-center mr-1.5 align-middle" title="Inventory conflict">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="#c00" stroke="#8b0000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" />
-                            <line x1="12" y1="8" x2="12" y2="13" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
-                            <circle cx="12" cy="16.5" r="1.1" fill="#fff" stroke="none" />
-                          </svg>
-                        </span>
-                      )}
-                      <button type="button" className="link" onClick={() => navigate(`/quotes/${q.id}`)}>
-                        {q.name}
-                      </button>
-                    </td>
-                    <td className="px-3 py-2.5 text-[13px] text-text-muted whitespace-nowrap">
-                      {clientName || <span className="opacity-40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span
-                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                        style={STATUS_BADGE_STYLE[q.status || 'draft'] || STATUS_BADGE_STYLE.draft}
-                      >
-                        {q.status === 'approved' ? 'SIGNED' : (q.status || 'draft').toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5">{eventDate}</td>
-                    <td className="px-3 py-2.5">{q.guest_count > 0 ? q.guest_count : '—'}</td>
-                    <td className="px-3 py-2.5">
-                      {(q.has_unsigned_changes && q.signed_quote_total != null)
-                        ? `$${Number(q.signed_quote_total).toFixed(2)}`
-                        : (q.total != null && q.total > 0 ? `$${Number(q.total).toFixed(2)}` : '—')}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {(q.has_unsigned_changes || q.status === 'approved' || q.status === 'confirmed' || q.status === 'closed') && (q.total != null || q.signed_quote_total != null) ? (
-                        (() => {
-                          const bal = q.has_unsigned_changes && q.signed_remaining_balance != null ? q.signed_remaining_balance : (q.remaining_balance ?? q.total);
-                          return bal < 0
-                            ? <span className="font-medium" style={{ color: 'var(--color-warning-strong)' }}>Overpaid ${Math.abs(bal).toFixed(2)}</span>
-                            : <span className="font-medium" style={{ color: 'var(--color-danger)' }}>${Number(bal).toFixed(2)}</span>;
-                        })()
-                      ) : '—'}
-                    </td>
+                    {visibleListColumns.map((column) => (
+                      <React.Fragment key={column.key}>
+                        {renderListCell(q, column.key)}
+                      </React.Fragment>
+                    ))}
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       <button type="button" className="btn btn-primary btn-sm mr-1" onClick={() => navigate(`/quotes/${q.id}`)}>Open</button>
                       <button type="button" className="btn btn-ghost btn-sm mr-1" onClick={() => handleDuplicateOne(q)}>Dup.</button>

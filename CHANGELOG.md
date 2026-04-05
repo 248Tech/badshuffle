@@ -15,6 +15,32 @@ All notable changes are documented here. The project uses [Semantic Versioning](
 - **0.0.9** - Security hardening and quote-workflow refactor release
 - **0.0.10** - Workflow expansion, public quote polish, and release-readiness release
 - **0.0.11** - Visibility, operations surfaces, and architecture-scaling release
+- **0.0.12** - Operations, AI platform, and engine release
+
+---
+
+## [0.0.12] - 2026-04-05
+
+### Added
+- **Rust engine workspace and rollout guardrails** - Added the full `rust-core/` workspace, Rust lifecycle controls, parity reporting, a release guard, and Node-facing integration seams for availability/conflicts and pricing.
+- **Quote Assistant and AI orchestration** - Added quote-scoped assistant workflows, provider/model routing, richer item description controls, and managed local AI support through Ollama and Onyx integration.
+- **Notifications, Team Chat, and Team Groups** - Added live notification routes/services/UI, notification settings, internal team chat, and grouped team-targeting workflows.
+- **Inventory operations tooling** - Added set-aside workflows, product scan codes, serial numbers, barcode rendering, pull sheets, aggregate pull export, stronger stats, and expanded mobile/desktop inventory controls.
+- **Operator support surfaces** - Added Help, Appearance settings, Clients, Venues, notification settings, team chat, aggregate pull export, and scan redirect pages.
+- **Release notes for 0.0.12** - Added `RELEASE_NOTES_0.0.12.md` for release publishing and repository-facing version context.
+
+### Changed
+- **Public repo presentation** - README, badges, release links, and release-facing docs now reflect the `0.0.12` feature set and shipping story.
+- **Inventory UX and search behavior** - Inventory now supports loose/exact search modes, ranked matching, denser control over layout, mobile-safe one-column mode, and more operational AI edit flows.
+- **Quote/project operator flow** - Quote detail now includes pull sheets and assistant workflows, the project list has column management and combined pull export, and quote-builder conflict visibility is clearer.
+- **Admin/runtime management** - Admin > System now exposes richer runtime controls for Rust, Onyx, and Ollama instead of treating those subsystems as mostly hidden infrastructure.
+- **Settings architecture** - Settings now has deeper AI provider/model control, appearance-specific settings, notification placement/icon controls, and team-chat fallback options.
+
+### Fixed
+- **Startup and request noise** - Dev startup now waits for API readiness more cleanly, and high-churn client requests were reduced with deduping/abort behavior on key flows.
+- **Notification dismissal behavior** - Notification dismissals now persist correctly, mobile swipe interactions are faster, and tray placement/visibility issues were corrected.
+- **Inventory usability regressions** - Inventory scrolling, mobile row controls, search filtering, and product-card interaction issues were corrected while keeping the recent performance work.
+- **Onyx failure handling** - Team chat and quote-thread AI no longer hard-fail on common Onyx runtime/config errors and can fall back to the configured assistant path when enabled.
 
 ---
 

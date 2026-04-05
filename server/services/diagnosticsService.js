@@ -42,6 +42,30 @@ function writeJsonLine(logDir, filename, payload) {
   }
 }
 
+function redactHeaders(headers = {}) {
+  const out = {};
+  const allowed = ['host', 'user-agent', 'referer', 'origin', 'content-type', 'content-length'];
+  allowed.forEach((key) => {
+    if (headers[key] !== undefined) out[key] = headers[key];
+  });
+  return out;
+}
+
+function summarizeBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  const summary = {};
+  Object.keys(body).slice(0, 25).forEach((key) => {
+    const value = body[key];
+    if (value == null) summary[key] = null;
+    else if (typeof value === 'string') summary[key] = value.length > 120 ? `${value.slice(0, 120)}…` : value;
+    else if (typeof value === 'number' || typeof value === 'boolean') summary[key] = value;
+    else if (Array.isArray(value)) summary[key] = `[array:${value.length}]`;
+    else if (typeof value === 'object') summary[key] = '[object]';
+    else summary[key] = `[${typeof value}]`;
+  });
+  return summary;
+}
+
 function captureProcessSnapshot(extra) {
   return {
     ts: new Date().toISOString(),
@@ -70,8 +94,14 @@ function createRequestRecorder(maxEntries) {
         ts: new Date().toISOString(),
         method: req.method,
         url: req.originalUrl || req.url,
+        path: req.path || null,
         ip: req.ip || req.connection?.remoteAddress || null,
         userId: req.user && (req.user.id || req.user.sub) || null,
+        userEmail: req.user && req.user.email || null,
+        params: req.params || null,
+        query: req.query || null,
+        body: summarizeBody(req.body),
+        headers: redactHeaders(req.headers || {}),
         status: null,
         durationMs: null,
       };
@@ -126,6 +156,18 @@ function initDiagnostics(db, app) {
     writeJsonLine(logDir, 'precrash.log', payload);
   }
 
+  function recordErrorTrail(kind, data) {
+    const payload = captureProcessSnapshot({
+      kind,
+      errorTrail: {
+        at: new Date().toISOString(),
+        ...data,
+      },
+      recentRequests: recorder.getSnapshot(),
+    });
+    writeJsonLine(logDir, 'errors.log', payload);
+  }
+
   function writeCrashDump(kind, err) {
     const payload = captureProcessSnapshot({
       kind,
@@ -145,6 +187,7 @@ function initDiagnostics(db, app) {
     enabled: true,
     logDir,
     recordPreCrashContext,
+    recordErrorTrail,
     writeCrashDump,
     getRecentRequests: recorder.getSnapshot,
     release() {
@@ -156,4 +199,3 @@ function initDiagnostics(db, app) {
 module.exports = {
   initDiagnostics,
 };
-

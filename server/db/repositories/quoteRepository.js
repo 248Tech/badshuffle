@@ -70,11 +70,11 @@ function listQuoteActivityEntries(db, quoteId) {
 
 function getQuoteItems(db, quoteId) {
   return db.prepare(`
-    SELECT qi.id as qitem_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote, qi.section_id,
+    SELECT qi.id as qitem_id, qi.item_id, qi.quantity, qi.label, qi.sort_order, qi.hidden_from_quote, qi.section_id,
            qi.unit_price_override, qi.discount_type, qi.discount_amount,
            qi.description as qi_description, qi.notes as qi_notes,
-           i.id, i.title, i.photo_url, i.source, i.hidden,
-           i.unit_price, i.taxable, i.category, i.labor_hours, i.is_subrental
+           i.id, i.title, i.photo_url, i.source, i.hidden, i.scan_code, i.internal_notes,
+           i.unit_price, i.taxable, i.category, i.labor_hours, i.is_subrental, i.quantity_in_stock, i.item_type
     FROM quote_items qi
     JOIN items i ON i.id = qi.item_id
     WHERE qi.quote_id = ?

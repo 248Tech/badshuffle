@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-04-05T14:13:45.623Z",
+  "version": "0.0.12",
+  "context": "release-guard",
+  "run_config": {
+    "quote_ids": [
+      4
+    ],
+    "include_items": true,
+    "item_limit_per_quote": 5,
+    "batch_limit": 5
+  },
+  "totals": {
+    "quotes_checked": 1,
+    "summary_mismatches": 0,
+    "item_mismatches": 0,
+    "errors": 0
+  },
+  "comparisons": [
+    {
+      "quote_id": 4,
+      "section_id": null,
+      "item_ids": [
+        26,
+        40,
+        843,
+        946
+      ],
+      "include_items": true,
+      "summary_match": true,
+      "items_match": true,
+      "error": null,
+      "summary_compact": null,
+      "items_compact": null
+    }
+  ]
+}

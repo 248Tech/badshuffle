@@ -4,6 +4,7 @@ const routeLoaders = {
   '/dashboard': () => import('../pages/DashboardPage.jsx'),
   '/maps': () => import('../pages/MapsPage.jsx'),
   '/inventory': () => import('../pages/InventoryPage.jsx'),
+  '/inventory/set-aside': () => import('../pages/SetAsidePage.jsx'),
   '/inventory-settings': () => import('../pages/InventorySettingsPage.jsx'),
   '/import': () => import('../pages/ImportPage.jsx'),
   '/quotes': () => import('../pages/QuotePage.jsx'),
@@ -19,14 +20,17 @@ const routeLoaders = {
   '/settings': () => import('../pages/SettingsPage.jsx'),
   '/directory': () => import('../pages/DirectoryPage.jsx'),
   '/team': () => import('../pages/TeamPage.jsx'),
+  '/team/groups': () => import('../pages/TeamGroupsPage.jsx'),
   '/profile': () => import('../pages/ProfilePage.jsx'),
   '/message-settings': () => import('../pages/MessageSettingsPage.jsx'),
+  '/settings/notifications': () => import('../pages/NotificationSettingsPage.jsx'),
   '/catalog': () => import('../pages/PublicCatalogPage.jsx'),
 };
 
 function normalizeRoute(pathname) {
   if (!pathname) return null;
   if (pathname.startsWith('/inventory/')) return '/inventory';
+  if (pathname.startsWith('/team/')) return '/team';
   if (pathname.startsWith('/quotes/')) return '/quotes';
   if (pathname.startsWith('/quote/public/')) return null;
   if (pathname.startsWith('/catalog/item/')) return '/catalog';

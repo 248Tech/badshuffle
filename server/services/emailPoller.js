@@ -1,6 +1,7 @@
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
 const { decrypt } = require('../lib/crypto');
+const notificationService = require('./notificationService');
 
 async function pollOnce(db) {
   const s = {};
@@ -59,6 +60,14 @@ async function pollOnce(db) {
             console.error('[emailPoller] Failed to record lead reply event:', e.message);
           }
         }
+        notificationService.createNotification(db, {
+          type: 'message_received',
+          title: 'Message received',
+          body: `${outbound.quote_name || 'Untitled project'}${parsed.from?.text ? ` · ${parsed.from.text}` : ''}`,
+          href: '/messages',
+          entityType: 'quote',
+          entityId: outbound.quote_id || null,
+        });
         ingested++;
       }
     } finally {

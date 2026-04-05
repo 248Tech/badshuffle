@@ -1,9 +1,20 @@
 const express = require('express');
 const { getSettingValue } = require('../db/queries/settings');
 const quoteFulfillmentService = require('../services/quoteFulfillmentService');
+const rustEngineClient = require('../services/rustEngineClient');
 
 module.exports = function makeRouter(db) {
   const router = express.Router();
+
+  function recordRustDiagnostic(req, kind, data) {
+    try {
+      req.app?.locals?.diagnostics?.recordErrorTrail?.(kind, {
+        route: req.originalUrl || req.url,
+        userId: req.user?.id || req.user?.sub || null,
+        ...data,
+      });
+    } catch (error) {}
+  }
 
   function getRangeFromSource(source) {
     const dates = [];
@@ -44,6 +55,18 @@ module.exports = function makeRouter(db) {
     const map = new Map();
     rows.forEach((row) => map.set(Number(row.id), row));
     return map;
+  }
+
+  function getActiveSetAsideQuantities(itemIds) {
+    if (!itemIds.length) return new Map();
+    const rows = db.prepare(`
+      SELECT item_id, COALESCE(SUM(quantity), 0) AS quantity
+      FROM item_set_asides
+      WHERE resolved_at IS NULL
+        AND item_id IN (${itemIds.map(() => '?').join(',')})
+      GROUP BY item_id
+    `).all(...itemIds);
+    return new Map(rows.map((row) => [Number(row.item_id), Number(row.quantity || 0)]));
   }
 
   function loadCurrentItemEntries(quoteIds, itemIds) {
@@ -237,13 +260,32 @@ module.exports = function makeRouter(db) {
     return { quote, range: getRangeFromSource(quote) };
   }
 
-  router.get('/quote/:quoteId/items', (req, res) => {
+  router.get('/quote/:quoteId/items', async (req, res) => {
     const quoteId = parseInt(req.params.quoteId, 10);
     const sectionId = req.query.section_id != null ? parseInt(req.query.section_id, 10) : null;
     if (isNaN(quoteId)) return res.status(400).json({ error: 'Invalid quoteId' });
     const rawIds = req.query.ids;
     const itemIds = rawIds ? String(rawIds).split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n)) : [];
     if (itemIds.length === 0) return res.json({});
+    const rustEnabled = rustEngineClient.isRustInventoryEnabled();
+    const rustShadow = rustEngineClient.isRustInventoryShadowMode();
+
+    if (rustEnabled && !rustShadow) {
+      try {
+        const rustPayload = await rustEngineClient.checkQuoteItems({ quoteId, itemIds, sectionId });
+        const rustResult = rustEngineClient.normalizeCheckResult(rustPayload);
+        if (rustResult) return res.json(rustResult);
+      } catch (error) {
+        console.error('[availability] rust quote item check failed, falling back to legacy:', error && error.message);
+        recordRustDiagnostic(req, 'rust-inventory-fallback', {
+          mode: 'quote_items',
+          quoteId,
+          itemIds,
+          sectionId,
+          error: error?.message || String(error),
+        });
+      }
+    }
 
     const { quote: targetQuote, range: targetRange } = getTargetRangeForQuote(quoteId, sectionId);
     if (!targetQuote) return res.status(404).json({ error: 'Not found' });
@@ -254,11 +296,13 @@ module.exports = function makeRouter(db) {
       FROM items
       WHERE id IN (${itemPlaceholders})
     `).all(...itemIds);
+    const setAsideMap = getActiveSetAsideQuantities(itemIds);
 
     if (!targetRange) {
       const out = {};
       itemRows.forEach((row) => {
-        out[row.id] = { stock: row.quantity_in_stock || 0, reserved_qty: 0, potential_qty: 0 };
+        const setAsideQty = Number(setAsideMap.get(Number(row.id)) || 0);
+        out[row.id] = { stock: Math.max(0, (row.quantity_in_stock || 0) - setAsideQty), reserved_qty: 0, potential_qty: 0, set_aside_qty: setAsideQty };
       });
       return res.json(out);
     }
@@ -285,18 +329,62 @@ module.exports = function makeRouter(db) {
         potentialQty += sumOverlappingQuantity(entries.potential, row.id, targetRange);
       });
       result[row.id] = {
-        stock: row.quantity_in_stock || 0,
+        stock: Math.max(0, (row.quantity_in_stock || 0) - Number(setAsideMap.get(Number(row.id)) || 0)),
         reserved_qty: reservedQty,
         potential_qty: potentialQty,
+        set_aside_qty: Number(setAsideMap.get(Number(row.id)) || 0),
       };
     });
+
+    if (rustShadow) {
+      try {
+        const rustPayload = await rustEngineClient.checkQuoteItems({ quoteId, itemIds, sectionId });
+        const rustResult = rustEngineClient.normalizeCheckResult(rustPayload);
+        if (JSON.stringify(rustResult) !== JSON.stringify(result)) {
+          recordRustDiagnostic(req, 'rust-inventory-mismatch', {
+            mode: 'quote_items',
+            quoteId,
+            itemIds,
+            sectionId,
+            legacy: result,
+            rust: rustResult,
+          });
+        }
+      } catch (error) {
+        console.error('[availability] rust quote item shadow check failed:', error && error.message);
+        recordRustDiagnostic(req, 'rust-inventory-shadow-error', {
+          mode: 'quote_items',
+          quoteId,
+          itemIds,
+          sectionId,
+          error: error?.message || String(error),
+        });
+      }
+    }
 
     res.json(result);
   });
 
-  router.get('/quote/:quoteId', (req, res) => {
+  router.get('/quote/:quoteId', async (req, res) => {
     const quoteId = parseInt(req.params.quoteId, 10);
     if (isNaN(quoteId)) return res.status(400).json({ error: 'Invalid quoteId' });
+    const rustEnabled = rustEngineClient.isRustInventoryEnabled();
+    const rustShadow = rustEngineClient.isRustInventoryShadowMode();
+
+    if (rustEnabled && !rustShadow) {
+      try {
+        const rustPayload = await rustEngineClient.checkQuoteSummary({ quoteId });
+        const rustResult = rustEngineClient.normalizeCheckResult(rustPayload);
+        if (rustResult) return res.json(rustResult);
+      } catch (error) {
+        console.error('[availability] rust quote summary failed, falling back to legacy:', error && error.message);
+        recordRustDiagnostic(req, 'rust-inventory-fallback', {
+          mode: 'quote_summary',
+          quoteId,
+          error: error?.message || String(error),
+        });
+      }
+    }
 
     const targetQuote = db.prepare(`
       SELECT q.*, c.signed_at
@@ -330,6 +418,7 @@ module.exports = function makeRouter(db) {
 
     const countOos = getOosSetting();
     const itemIds = Array.from(new Set(targetItems.map((item) => Number(item.item_id))));
+    const setAsideMap = getActiveSetAsideQuantities(itemIds);
     const itemPlaceholders = itemIds.map(() => '?').join(',');
 
     const otherQuotes = db.prepare(`
@@ -347,7 +436,8 @@ module.exports = function makeRouter(db) {
 
     itemIds.forEach((itemId) => {
       const rows = targetItems.filter((item) => Number(item.item_id) === Number(itemId));
-      const stock = Number(rows[0]?.quantity_in_stock || 0);
+      const setAsideQty = Number(setAsideMap.get(Number(itemId)) || 0);
+      const stock = Math.max(0, Number(rows[0]?.quantity_in_stock || 0) - setAsideQty);
       const myQty = rows.reduce((total, row) => total + Number(row.quantity || 1), 0);
 
       if (countOos && stock === 0) {
@@ -377,13 +467,54 @@ module.exports = function makeRouter(db) {
       if (reservedQty + myQty > stock) status = 'reserved';
       else if (reservedQty + potentialQty + myQty > stock) status = 'potential';
 
-      conflicts[itemId] = { status, reserved_qty: reservedQty, potential_qty: potentialQty, stock, my_qty: myQty };
+      conflicts[itemId] = { status, reserved_qty: reservedQty, potential_qty: potentialQty, stock, my_qty: myQty, set_aside_qty: setAsideQty };
     });
 
-    res.json({ hasRange: true, conflicts });
+    const legacyResult = { hasRange: true, conflicts };
+
+    if (rustShadow) {
+      try {
+        const rustPayload = await rustEngineClient.checkQuoteSummary({ quoteId });
+        const rustResult = rustEngineClient.normalizeCheckResult(rustPayload);
+        if (JSON.stringify(rustResult) !== JSON.stringify(legacyResult)) {
+          recordRustDiagnostic(req, 'rust-inventory-mismatch', {
+            mode: 'quote_summary',
+            quoteId,
+            legacy: legacyResult,
+            rust: rustResult,
+          });
+        }
+      } catch (error) {
+        console.error('[availability] rust quote summary shadow check failed:', error && error.message);
+        recordRustDiagnostic(req, 'rust-inventory-shadow-error', {
+          mode: 'quote_summary',
+          quoteId,
+          error: error?.message || String(error),
+        });
+      }
+    }
+
+    res.json(legacyResult);
   });
 
-  router.get('/conflicts', (req, res) => {
+  router.get('/conflicts', async (req, res) => {
+    const rustEnabled = rustEngineClient.isRustInventoryEnabled();
+    const rustShadow = rustEngineClient.isRustInventoryShadowMode();
+
+    if (rustEnabled && !rustShadow) {
+      try {
+        const rustPayload = await rustEngineClient.checkConflicts();
+        const rustResult = rustEngineClient.normalizeCheckResult(rustPayload);
+        if (rustResult) return res.json(rustResult);
+      } catch (error) {
+        console.error('[availability] rust conflicts check failed, falling back to legacy:', error && error.message);
+        recordRustDiagnostic(req, 'rust-inventory-fallback', {
+          mode: 'conflicts',
+          error: error?.message || String(error),
+        });
+      }
+    }
+
     const countOos = getOosSetting();
 
     const allQuotes = db.prepare(`
@@ -406,6 +537,7 @@ module.exports = function makeRouter(db) {
     `).all(...quoteIds);
 
     const itemIds = Array.from(new Set(allItems.map((row) => Number(row.item_id))));
+    const setAsideMap = getActiveSetAsideQuantities(itemIds);
     const reservationEntries = buildQuoteReservationEntries(allQuotes, itemIds);
     const sectionMap = getQuoteSectionsMap(quoteIds);
     const qItemMap = {};
@@ -432,7 +564,8 @@ module.exports = function makeRouter(db) {
       const itemConflicts = [];
 
       items.forEach((item) => {
-        const stock = item.quantity_in_stock || 0;
+        const setAsideQty = Number(setAsideMap.get(Number(item.item_id)) || 0);
+        const stock = Math.max(0, (item.quantity_in_stock || 0) - setAsideQty);
         const myQty = item.quantity || 1;
 
         if (countOos && stock === 0) {
@@ -472,6 +605,7 @@ module.exports = function makeRouter(db) {
             stock,
             reserved_qty: reservedQty,
             potential_qty: potentialQty,
+            set_aside_qty: setAsideQty,
             shortage: Math.max(0, reservedQty + myQty - stock),
           });
         }
@@ -500,7 +634,29 @@ module.exports = function makeRouter(db) {
       return (a.event_date || '9999').localeCompare(b.event_date || '9999');
     });
 
-    res.json({ conflicts: results });
+    const legacyResult = { conflicts: results };
+
+    if (rustShadow) {
+      try {
+        const rustPayload = await rustEngineClient.checkConflicts();
+        const rustResult = rustEngineClient.normalizeCheckResult(rustPayload);
+        if (JSON.stringify(rustResult) !== JSON.stringify(legacyResult)) {
+          recordRustDiagnostic(req, 'rust-inventory-mismatch', {
+            mode: 'conflicts',
+            legacy: legacyResult,
+            rust: rustResult,
+          });
+        }
+      } catch (error) {
+        console.error('[availability] rust conflicts shadow check failed:', error && error.message);
+        recordRustDiagnostic(req, 'rust-inventory-shadow-error', {
+          mode: 'conflicts',
+          error: error?.message || String(error),
+        });
+      }
+    }
+
+    res.json(legacyResult);
   });
 
   // GET /api/availability/subrentals

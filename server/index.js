@@ -22,18 +22,23 @@ const requireAuth = require('./lib/authMiddleware');
 const requireAdmin = require('./lib/adminMiddleware');
 const requireOperator = require('./lib/operatorMiddleware');
 const { requireModulePermission } = require('./lib/permissionMiddleware');
-const { ACCESS_READ } = require('./lib/permissions');
+const { ACCESS_READ, ACCESS_MODIFY } = require('./lib/permissions');
 const authRouter = require('./routes/auth');
 const singleInstance = require('./services/singleInstance');
 const updateCheck = require('./services/updateCheck');
 const quoteService = require('./services/quoteService');
 const fileService = require('./services/fileService');
+const notificationService = require('./services/notificationService');
+const rustEngineLifecycleService = require('./services/rustEngineLifecycleService');
+const onyxLifecycleService = require('./services/onyxLifecycleService');
+const localModelLifecycleService = require('./services/localModelLifecycleService');
 const jwt = require('jsonwebtoken');
 const { verifyFileServe, getSignedFileServePath } = require('./lib/fileServeAuth');
 const { safeFilename } = require('./lib/safeFilename');
 const { getSettingValue } = require('./db/queries/settings');
 const { initDiagnostics } = require('./services/diagnosticsService');
 let emailPoller;
+let notificationSweepTimer = null;
 try {
   emailPoller = require('./services/emailPoller');
 } catch (e) {
@@ -108,20 +113,71 @@ async function start() {
   const db = await initDb();
   console.log('Database initialized');
 
-  // Diagnostics / health logging (crash dumps, pre-crash context, periodic health writes)
-  const diagnostics = initDiagnostics(db, express());
-
   // Single-instance guard — kill any prior Badshuffle server if autokill is enabled
   const autokillEnabled = getSettingValue(db, 'autokill_enabled', '1') !== '0';
   await singleInstance.acquire(autokillEnabled);
 
+  try {
+    const rustAutoStart = await rustEngineLifecycleService.autoStartIfEnabled(db);
+    if (rustAutoStart?.started) {
+      console.log(`[rust-engine] started on app boot (pid ${rustAutoStart.tracked_pid || 'unknown'})`);
+    } else if (rustAutoStart?.skipped) {
+      console.log(`[rust-engine] startup skipped: ${rustAutoStart.reason}`);
+    } else if (rustAutoStart && rustAutoStart.ok === false) {
+      console.warn(`[rust-engine] auto-start failed: ${rustAutoStart.error || 'unknown error'}`);
+    }
+  } catch (error) {
+    console.warn(`[rust-engine] auto-start check failed: ${error?.message || String(error)}`);
+  }
+
+
+  try {
+    const onyxAutoStart = await onyxLifecycleService.autoStartIfEnabled(db);
+    if (onyxAutoStart?.started) {
+      console.log('[onyx] managed local runtime started on app boot');
+    } else if (onyxAutoStart?.skipped) {
+      console.log(`[onyx] startup skipped: ${onyxAutoStart.reason}`);
+    } else if (onyxAutoStart && onyxAutoStart.ok === false) {
+      console.warn(`[onyx] auto-start failed: ${onyxAutoStart.error || 'unknown error'}`);
+    }
+  } catch (error) {
+    console.warn(`[onyx] auto-start check failed: ${error?.message || String(error)}`);
+  }
+
+  try {
+    const localModelAutoStart = await localModelLifecycleService.maybeAutoStart(db);
+    if (localModelAutoStart?.started) {
+      console.log('[local-ai] managed Ollama runtime started on app boot');
+    } else if (localModelAutoStart?.skipped) {
+      console.log(`[local-ai] startup skipped: ${localModelAutoStart.reason}`);
+    } else if (localModelAutoStart && localModelAutoStart.ok === false) {
+      console.warn(`[local-ai] auto-start failed: ${localModelAutoStart.error || 'unknown error'}`);
+    }
+  } catch (error) {
+    console.warn(`[local-ai] auto-start check failed: ${error?.message || String(error)}`);
+  }
+
   // Ensure lock is released on exit
   function releaseLock() { singleInstance.release(); }
   process.on('exit',   releaseLock);
-  process.on('SIGTERM', function() { emailPoller.stopPolling(); releaseLock(); process.exit(0); });
-  process.on('SIGINT',  function() { emailPoller.stopPolling(); releaseLock(); process.exit(0); });
+  process.on('SIGTERM', function() {
+    emailPoller.stopPolling();
+    if (notificationSweepTimer) clearInterval(notificationSweepTimer);
+    releaseLock();
+    process.exit(0);
+  });
+  process.on('SIGINT',  function() {
+    emailPoller.stopPolling();
+    if (notificationSweepTimer) clearInterval(notificationSweepTimer);
+    releaseLock();
+    process.exit(0);
+  });
 
   const app = express();
+  // Diagnostics / health logging (crash dumps, pre-crash context, periodic health writes)
+  const diagnostics = initDiagnostics(db, app);
+  app.locals.diagnostics = diagnostics;
+  app.locals.db = db;
 
   app.use(cors({
     origin: (origin, cb) => {
@@ -174,6 +230,7 @@ async function start() {
   app.get('/api/health', (req, res) => res.json({ ok: true }));
   app.use('/api/extension', require('./routes/extension'));
   app.use('/api/proxy-image', require('./lib/imageProxy'));
+  app.use('/api/barcodes', require('./routes/barcodes')());
 
   // File serve — allowed with Bearer auth OR valid signed URL (for public quote images)
   app.get('/api/files/:id/serve', (req, res) => {
@@ -391,6 +448,14 @@ async function start() {
         String(body_text).trim(),
         quote.name || ''
       );
+      notificationService.createNotification(db, {
+        type: 'message_received',
+        title: 'Message received',
+        body: `${quote.name || 'Untitled project'}${from_name || from_email ? ` · ${from_name || from_email}` : ''}`,
+        href: '/messages',
+        entityType: 'quote',
+        entityId: quote.id,
+      });
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -398,20 +463,22 @@ async function start() {
   });
 
   // Public contract sign by token (no auth)
-  app.post('/api/quotes/contract/sign', (req, res) => {
+  app.post('/api/quotes/contract/sign', async (req, res) => {
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
     const token = (req.body && req.body.token) || '';
     const rl = rateLimit(`contractsign:${token}:${ip}`, { windowMs: 15 * 60_000, max: 10 });
     if (!rl.ok) return res.status(429).json({ error: 'Too many requests', retryAfter: rl.retryAfterSec });
 
     try {
-      const result = quoteService.signPublicContract({
+      const result = await quoteService.signPublicContract({
         db,
         uploadsDir: UPLOADS_DIR,
         token,
         signerName: (req.body && req.body.signer_name) || '',
         signerIp: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '',
         signerUserAgent: req.get('user-agent') || '',
+        diagnostics: req.app?.locals?.diagnostics || null,
+        requestId: req.get('x-request-id') || null,
       });
       res.json(result);
     } catch (err) {
@@ -428,11 +495,14 @@ async function start() {
   const requireProjectsRead = requireModulePermission(db, 'projects', ACCESS_READ);
   const requireFilesRead = requireModulePermission(db, 'files', ACCESS_READ);
   const requireMessagesRead = requireModulePermission(db, 'messages', ACCESS_READ);
+  app.use('/api/notifications', auth, require('./routes/notifications')(db));
   const requireBillingRead = requireModulePermission(db, 'billing', ACCESS_READ);
   const requireInventoryRead = requireModulePermission(db, 'inventory', ACCESS_READ);
   const requireDirectoryRead = requireModulePermission(db, 'directory', ACCESS_READ);
   const requireMapsRead = requireModulePermission(db, 'maps', ACCESS_READ);
   const requireSettingsRead = requireModulePermission(db, 'settings', ACCESS_READ);
+  const requireSettingsModify = requireModulePermission(db, 'settings', ACCESS_MODIFY);
+  app.use('/api/notification-settings', auth, requireSettingsModify, require('./routes/notificationSettings')(db));
 
   // API v1 — versioned, envelope responses at /api/v1
   const createV1Router = require('./api/v1');
@@ -444,6 +514,7 @@ async function start() {
   }));
 
   app.use('/api/files',       auth, requireFilesRead, require('./routes/files')(db, UPLOADS_DIR));
+  app.use('/api/scan',        auth, require('./routes/scan')(db));
   app.use('/api/items',       requireAuth(db, { allowExtension: true }), requireInventoryRead, require('./routes/items')(db));
   app.use('/api/sheets',      requireAuth(db, { allowExtension: true }), require('./routes/sheets')(db));
   app.use('/api/quotes',      auth, requireProjectsRead, require('./routes/quotes')(db, UPLOADS_DIR));
@@ -455,10 +526,13 @@ async function start() {
   app.use('/api/templates',   auth, requireOperatorDb, require('./routes/templates')(db));
   app.use('/api/leads',       auth, requireDirectoryRead, require('./routes/leads')(db));
   app.use('/api/messages',    auth, requireMessagesRead, require('./routes/messages')(db));
+  app.use('/api/team-chat',   auth, requireMessagesRead, require('./routes/teamChat')(db));
   app.use('/api/admin',       auth, requireAdminRead, require('./routes/admin')(db));
   app.use('/api/billing',     auth, requireBillingRead, require('./routes/billing')(db));
   app.use('/api/presence',      auth, require('./routes/presence')(db));
   app.use('/api/team',          auth, requireDirectoryRead, require('./routes/team')(db));
+  app.use('/api/clients',       auth, requireDirectoryRead, require('./routes/clients')(db));
+  app.use('/api/venues',        auth, requireDirectoryRead, require('./routes/venues')(db));
   app.use('/api/vendors',       auth, requireOperatorDb, require('./routes/vendors')(db));
   app.use('/api/availability',  auth, require('./routes/availability')(db));
   app.use('/api/updates',       auth, requireOperatorDb, require('./routes/updates')(db));
@@ -482,6 +556,18 @@ async function start() {
         path: req && (req.originalUrl || req.url),
         method: req && req.method,
       });
+      diagnostics.recordErrorTrail('route-error', {
+        message: err && err.message,
+        stack: err && err.stack,
+        name: err && err.name,
+        path: req && (req.originalUrl || req.url),
+        method: req && req.method,
+        query: req && req.query,
+        params: req && req.params,
+        body: req && req.body && typeof req.body === 'object' ? Object.keys(req.body).slice(0, 50) : null,
+        userId: req && req.user && (req.user.id || req.user.sub) || null,
+        userEmail: req && req.user && req.user.email || null,
+      });
     }
     const verbose = getSettingValue(db, 'verbose_errors', '0') === '1';
     res.status(500).json({ error: verbose ? err.message : 'Internal server error' });
@@ -504,6 +590,13 @@ async function start() {
     console.log(`BadShuffle server running on http://localhost:${PORT}`);
     updateCheck.run(db).catch(function() {});
     emailPoller.startPolling(db, 5 * 60 * 1000);
+    notificationSweepTimer = setInterval(() => {
+      try {
+        notificationService.sweepOfflineUsers(db);
+      } catch (err) {
+        console.error('[notifications] offline sweep failed:', err && err.message ? err.message : err);
+      }
+    }, 30 * 1000);
   });
 
   // Process-level crash handlers — write crash dumps with recent context when enabled.

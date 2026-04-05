@@ -25,6 +25,23 @@ function formatLastSeen(value, isOnline) {
   return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
 }
 
+function formatDuration(ms) {
+  const totalMinutes = Math.max(0, Math.round(Number(ms || 0) / 60000));
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours < 24) return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return remHours ? `${days}d ${remHours}h` : `${days}d`;
+}
+
+function durationFromTimestamp(value) {
+  if (!value) return 0;
+  const timestamp = new Date(String(value).replace(' ', 'T') + 'Z').getTime();
+  return Number.isFinite(timestamp) ? Math.max(0, Date.now() - timestamp) : 0;
+}
+
 function formatEventDate(date) {
   if (!date) return '';
   return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
@@ -83,27 +100,33 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState({ members: [], range: null });
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError('');
-    api.team.overview()
-      .then((response) => {
+    async function load(showLoading = false) {
+      if (showLoading) setLoading(true);
+      setError('');
+      try {
+        const response = await api.team.overview();
         if (cancelled) return;
         setData({
           members: response.members || [],
           range: response.range || null,
         });
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!cancelled) setError(err.message || 'Could not load team');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      } finally {
+        if (!cancelled && showLoading) setLoading(false);
+      }
+    }
+    load(true);
+    const refreshId = setInterval(() => load(false), 30_000);
+    const tickId = setInterval(() => setTick((value) => value + 1), 30_000);
     return () => {
       cancelled = true;
+      clearInterval(refreshId);
+      clearInterval(tickId);
     };
   }, []);
 
@@ -133,6 +156,7 @@ export default function TeamPage() {
           </p>
         </div>
         <div className={styles.headerMeta}>
+          <Link to="/team/groups" className="btn btn-ghost btn-sm">Groups</Link>
           <div className={`card ${styles.summaryCard}`}>
             <span className={styles.summaryLabel}>Online now</span>
             <strong className={styles.summaryValue}>{summary.online}</strong>
@@ -197,6 +221,10 @@ export default function TeamPage() {
               <div className={styles.focusBlock}>
                 <span className={styles.sectionLabel}>Currently working on</span>
                 <div className={styles.focusValue}>{member.current_label || 'No recent activity'}</div>
+                <div className={styles.presenceMeta}>
+                  {member.is_online && member.online_since_at ? <span>Online for {formatDuration(durationFromTimestamp(member.online_since_at))}</span> : null}
+                  {member.last_active_at ? <span>Idle for {formatDuration(durationFromTimestamp(member.last_active_at))}</span> : null}
+                </div>
               </div>
 
               {member.phone || member.bio ? (

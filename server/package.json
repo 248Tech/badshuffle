@@ -23,6 +23,7 @@
   "dependencies": {
     "archiver": "^5.3.2",
     "bcryptjs": "^3.0.3",
+    "bwip-js": "^4.9.0",
     "cors": "^2.8.5",
     "cross-env": "^10.1.0",
     "dotenv": "^16.4.5",

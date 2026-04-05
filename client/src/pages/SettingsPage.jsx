@@ -1,17 +1,51 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { api, getToken } from '../api.js';
 import { useToast } from '../components/Toast.jsx';
 import styles from './SettingsPage.module.css';
+import { AI_PROVIDER_MODELS, AI_PROVIDER_OPTIONS, getDefaultModelForProvider } from '../lib/aiProviderOptions.js';
+
+function parseFeatureModelSetting(rawValue, fallbackProvider = 'claude') {
+  const normalized = String(rawValue || '').trim();
+  if (!normalized) {
+    return {
+      provider: fallbackProvider,
+      model: getDefaultModelForProvider(fallbackProvider),
+    };
+  }
+
+  if (normalized.includes(':')) {
+    const [providerPart, ...modelParts] = normalized.split(':');
+    const provider = String(providerPart || fallbackProvider).trim().toLowerCase() || fallbackProvider;
+    const model = modelParts.join(':').trim() || getDefaultModelForProvider(provider);
+    return { provider, model };
+  }
+
+  if (normalized === 'gpt4') {
+    return { provider: 'openai', model: getDefaultModelForProvider('openai') };
+  }
+
+  if (AI_PROVIDER_MODELS[normalized]) {
+    return {
+      provider: normalized,
+      model: getDefaultModelForProvider(normalized),
+    };
+  }
+
+  return {
+    provider: fallbackProvider,
+    model: normalized,
+  };
+}
+
+function serializeFeatureModelSetting(provider, model) {
+  const normalizedProvider = String(provider || 'claude').trim().toLowerCase() || 'claude';
+  const normalizedModel = String(model || '').trim() || getDefaultModelForProvider(normalizedProvider);
+  return `${normalizedProvider}:${normalizedModel}`;
+}
 
 export default function SettingsPage() {
   const toast = useToast();
-  const THEMES = [
-    { id: 'default',  label: 'Default',     primary: '#1a8fc1', accent: '#16b2a5', sidebar: '#0d3b52' },
-    { id: 'shadcn',   label: 'shadcn/ui',   primary: '#18181b', accent: '#52525b', sidebar: '#09090b' },
-    { id: 'material', label: 'Material UI', primary: '#1976d2', accent: '#9c27b0', sidebar: '#1565c0' },
-    { id: 'chakra',   label: 'Chakra UI',   primary: '#3182ce', accent: '#38b2ac', sidebar: '#2d3748' },
-    { id: 'noir',     label: 'Noir (Dark)', primary: '#60a5fa', accent: '#34d399', sidebar: '#050509' },
-  ];
 
   const [form, setForm] = useState({
     company_name: '',
@@ -23,7 +57,12 @@ export default function SettingsPage() {
     google_places_api_key: '',
     quote_event_types: '',
     quote_auto_append_city_title: '0',
+    presence_offline_after_minutes: '30',
+    app_timezone: 'America/New_York',
+    notification_tray_position: 'bottom_right',
     allowed_file_types: '',
+    image_compression_enabled: '1',
+    image_auto_webp_enabled: '1',
     image_webp_quality: '68',
     image_avif_enabled: '0',
     tax_rate: '0',
@@ -51,12 +90,40 @@ export default function SettingsPage() {
     recaptcha_site_key: '',
     recaptcha_secret_key: ''
   });
-  const [aiKeys, setAiKeys] = useState({ ai_claude_key: '', ai_openai_key: '', ai_gemini_key: '' });
+  const [aiKeys, setAiKeys] = useState({ ai_claude_key: '', ai_openai_key: '', ai_gemini_key: '', onyx_api_key: '' });
   const [aiFeatures, setAiFeatures] = useState({
     ai_suggest_enabled: '1', ai_suggest_model: 'claude',
     ai_pdf_import_enabled: '1', ai_pdf_import_model: 'claude',
     ai_email_draft_enabled: '0', ai_email_draft_model: 'claude',
     ai_description_enabled: '0', ai_description_model: 'claude',
+  });
+  const [aiAssistant, setAiAssistant] = useState({
+    ai_agent_enabled: '1',
+    ai_agent_provider: 'openai',
+    ai_agent_model: 'gpt-4o-mini',
+  });
+  const [localAi, setLocalAi] = useState({
+    ai_local_enabled: '0',
+    ai_local_mode: 'managed_ollama',
+    ai_local_autostart_enabled: '1',
+    ai_local_install_path: '',
+    ai_local_base_url: 'http://127.0.0.1:11434',
+    ai_local_default_model: 'llama3.2:3b',
+  });
+  const [localAiDiag, setLocalAiDiag] = useState(null);
+  const [onyx, setOnyx] = useState({
+    onyx_enabled: '0',
+    onyx_mode: 'managed_local',
+    onyx_local_enabled: '1',
+    onyx_local_autostart_enabled: '1',
+    onyx_local_install_path: '',
+    onyx_local_port: '3000',
+    onyx_external_enabled: '1',
+    onyx_base_url: '',
+    onyx_default_persona_id: '',
+    onyx_team_persona_id: '',
+    onyx_quote_persona_id: '',
+    team_chat_ai_fallback_enabled: '1',
   });
   const [quoteView, setQuoteView] = useState({
     quote_view_default: 'standard',
@@ -64,6 +131,8 @@ export default function SettingsPage() {
     quote_view_contract_enabled: '1',
   });
   const [advanced, setAdvanced] = useState({ verbose_errors: '0' });
+  const [encryptedSettingsScan, setEncryptedSettingsScan] = useState(null);
+  const [encryptedSettingsLoading, setEncryptedSettingsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingImap, setTestingImap] = useState(false);
@@ -76,9 +145,6 @@ export default function SettingsPage() {
   const [updateApplying, setUpdateApplying] = useState(false);
   const [updateStatus, setUpdateStatus]     = useState('');   // 'restarting' | ''
   const [updateError, setUpdateError]       = useState('');
-  const [logoUploading, setLogoUploading] = useState(false);
-  const [, setLogoServeEpoch] = useState(0);
-  const logoInputRef = React.useRef(null);
   const [systemCategories, setSystemCategories] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [compressionPreview, setCompressionPreview] = useState({ original: '', compressed: '' });
@@ -87,6 +153,7 @@ export default function SettingsPage() {
   useEffect(() => {
     api.getCategories().then(d => setSystemCategories(d.categories || [])).catch(() => setSystemCategories([]));
     api.getUpdateStatus().then(setUpdateInfo).catch(() => {});
+    api.admin.getLocalModelDiagnostics().then(setLocalAiDiag).catch(() => setLocalAiDiag(null));
   }, []);
 
   useEffect(() => {
@@ -102,7 +169,12 @@ export default function SettingsPage() {
           google_places_api_key: s.google_places_api_key || '',
           quote_event_types: s.quote_event_types || '',
           quote_auto_append_city_title: s.quote_auto_append_city_title || '0',
+          presence_offline_after_minutes: s.presence_offline_after_minutes || '30',
+          app_timezone: s.app_timezone || 'America/New_York',
+          notification_tray_position: s.notification_tray_position || 'bottom_right',
           allowed_file_types: s.allowed_file_types || '',
+          image_compression_enabled: s.image_compression_enabled !== undefined ? s.image_compression_enabled : '1',
+          image_auto_webp_enabled: s.image_auto_webp_enabled !== undefined ? s.image_auto_webp_enabled : '1',
           image_webp_quality: s.image_webp_quality || '68',
           image_avif_enabled: s.image_avif_enabled || '0',
           tax_rate: s.tax_rate || '0',
@@ -149,6 +221,21 @@ export default function SettingsPage() {
           ai_claude_key: s.ai_claude_key || '',
           ai_openai_key: s.ai_openai_key || '',
           ai_gemini_key: s.ai_gemini_key || '',
+          onyx_api_key: s.onyx_api_key || '',
+        });
+        setOnyx({
+          onyx_enabled: s.onyx_enabled || '0',
+          onyx_mode: s.onyx_mode || 'managed_local',
+          onyx_local_enabled: s.onyx_local_enabled !== undefined ? s.onyx_local_enabled : '1',
+          onyx_local_autostart_enabled: s.onyx_local_autostart_enabled !== undefined ? s.onyx_local_autostart_enabled : '1',
+          onyx_local_install_path: s.onyx_local_install_path || '',
+          onyx_local_port: s.onyx_local_port || '3000',
+          onyx_external_enabled: s.onyx_external_enabled !== undefined ? s.onyx_external_enabled : '1',
+          onyx_base_url: s.onyx_base_url || '',
+          onyx_default_persona_id: s.onyx_default_persona_id || '',
+          onyx_team_persona_id: s.onyx_team_persona_id || '',
+          onyx_quote_persona_id: s.onyx_quote_persona_id || '',
+          team_chat_ai_fallback_enabled: s.team_chat_ai_fallback_enabled !== undefined ? s.team_chat_ai_fallback_enabled : '1',
         });
         setAiFeatures({
           ai_suggest_enabled: s.ai_suggest_enabled || '1',
@@ -159,6 +246,19 @@ export default function SettingsPage() {
           ai_email_draft_model: s.ai_email_draft_model || 'claude',
           ai_description_enabled: s.ai_description_enabled || '0',
           ai_description_model: s.ai_description_model || 'claude',
+        });
+        setAiAssistant({
+          ai_agent_enabled: s.ai_agent_enabled !== undefined ? s.ai_agent_enabled : '1',
+          ai_agent_provider: s.ai_agent_provider || 'openai',
+          ai_agent_model: s.ai_agent_model || 'gpt-4o-mini',
+        });
+        setLocalAi({
+          ai_local_enabled: s.ai_local_enabled !== undefined ? s.ai_local_enabled : '0',
+          ai_local_mode: s.ai_local_mode || 'managed_ollama',
+          ai_local_autostart_enabled: s.ai_local_autostart_enabled !== undefined ? s.ai_local_autostart_enabled : '1',
+          ai_local_install_path: s.ai_local_install_path || '',
+          ai_local_base_url: s.ai_local_base_url || 'http://127.0.0.1:11434',
+          ai_local_default_model: s.ai_local_default_model || 'llama3.2:3b',
         });
         setQuoteView({
           quote_view_default: s.quote_view_default || 'standard',
@@ -172,25 +272,26 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    const cl = form.company_logo?.trim();
-    if (!cl || !/^\d+$/.test(cl)) return;
-    api.prefetchFileServeUrls([cl]).then(() => setLogoServeEpoch((e) => e + 1)).catch(() => {});
-  }, [form.company_logo]);
-
-  useEffect(() => {
     let cancelled = false;
     const quality = Number(form.image_webp_quality || 68);
+    const compressionEnabled = form.image_compression_enabled === '1';
+    const autoWebpEnabled = form.image_auto_webp_enabled === '1';
     const avifEnabled = form.image_avif_enabled === '1';
     setCompressionPreviewLoading(true);
-    Promise.all([
-      api.getImageCompressionPreview({ original: true }),
-      api.getImageCompressionPreview({ quality, format: avifEnabled ? 'avif' : 'webp', avif: avifEnabled }),
-    ])
-      .then(([originalBlob, compressedBlob]) => {
+    const originalRequest = api.getImageCompressionPreview({ original: true });
+    const optimizedRequest = compressionEnabled
+      ? api.getImageCompressionPreview({
+          quality,
+          format: avifEnabled ? 'avif' : (autoWebpEnabled ? 'webp' : 'png'),
+          avif: avifEnabled,
+        })
+      : originalRequest;
+    Promise.all([originalRequest, optimizedRequest])
+      .then(([originalBlob, optimizedBlob]) => {
         if (cancelled) return;
         const next = {
           original: URL.createObjectURL(originalBlob),
-          compressed: URL.createObjectURL(compressedBlob),
+          compressed: URL.createObjectURL(optimizedBlob),
         };
         setCompressionPreview((prev) => {
           if (prev.original) URL.revokeObjectURL(prev.original);
@@ -205,7 +306,7 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [form.image_webp_quality, form.image_avif_enabled]);
+  }, [form.image_compression_enabled, form.image_auto_webp_enabled, form.image_webp_quality, form.image_avif_enabled]);
 
   const handleCheckUpdates = async () => {
     setUpdateChecking(true);
@@ -255,18 +356,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleThemeChange = (themeId) => {
-    setForm(f => ({ ...f, ui_theme: themeId }));
-    if (themeId === 'default') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', themeId);
-  };
-
-  const handleScaleChange = (val) => {
-    const clamped = Math.min(150, Math.max(75, Number(val)));
-    setForm(f => ({ ...f, ui_scale: String(clamped) }));
-    document.documentElement.style.fontSize = (clamped / 100) * 14 + 'px';
-  };
-
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -283,11 +372,22 @@ export default function SettingsPage() {
         ai_claude_key_enc: aiKeys.ai_claude_key,
         ai_openai_key_enc: aiKeys.ai_openai_key,
         ai_gemini_key_enc: aiKeys.ai_gemini_key,
+        onyx_api_key_enc: aiKeys.onyx_api_key,
         ...aiFeatures,
+        ...aiAssistant,
+        ...localAi,
+        ...onyx,
         ...advanced,
       });
       localStorage.setItem('bs_theme', form.ui_theme || 'default');
       localStorage.setItem('bs_ui_scale', form.ui_scale || '100');
+      window.dispatchEvent(new CustomEvent('bs:settings-updated', {
+        detail: {
+          settings: {
+            notification_tray_position: form.notification_tray_position,
+          },
+        },
+      }));
       toast.success('Settings saved');
     } catch (e) {
       toast.error(e.message);
@@ -296,28 +396,63 @@ export default function SettingsPage() {
     }
   };
 
-  const handleLogoUpload = async (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file || !file.type.startsWith('image/')) {
-      toast.error('Please choose an image file (e.g. PNG, JPG)');
-      return;
-    }
-    setLogoUploading(true);
+  const handleAssistantProviderChange = (provider) => {
+    const normalizedProvider = String(provider || 'openai').trim().toLowerCase();
+    const providerModels = getModelOptionsForProvider(normalizedProvider);
+    const nextModel = providerModels[0]?.value || '';
+    setAiAssistant((current) => ({
+      ...current,
+      ai_agent_provider: normalizedProvider,
+      ai_agent_model: nextModel,
+    }));
+  };
+
+  const getModelOptionsForProvider = (provider) => {
+    const normalizedProvider = String(provider || '').trim().toLowerCase();
+    const baseOptions = [...(AI_PROVIDER_MODELS[normalizedProvider] || [])];
+    if (normalizedProvider !== 'local') return baseOptions;
+    const seen = new Set(baseOptions.map((entry) => entry.value));
+    (localAiDiag?.models || []).forEach((entry) => {
+      if (!entry?.name || seen.has(entry.name)) return;
+      seen.add(entry.name);
+      baseOptions.unshift({ value: entry.name, label: `${entry.name} (installed)` });
+    });
+    return baseOptions;
+  };
+
+  const assistantModelOptions = getModelOptionsForProvider(aiAssistant.ai_agent_provider);
+  const assistantModelKnown = assistantModelOptions.some((option) => option.value === aiAssistant.ai_agent_model);
+
+  const updateFeatureModelProvider = (featureKey, provider) => {
+    const normalizedProvider = String(provider || 'claude').trim().toLowerCase() || 'claude';
+    setAiFeatures((current) => ({
+      ...current,
+      [`${featureKey}_model`]: serializeFeatureModelSetting(normalizedProvider, getDefaultModelForProvider(normalizedProvider)),
+    }));
+  };
+
+  const updateFeatureModelValue = (featureKey, model, providerOverride = null) => {
+    setAiFeatures((current) => {
+      const currentSelection = parseFeatureModelSetting(current[`${featureKey}_model`], 'claude');
+      const provider = providerOverride || currentSelection.provider;
+      return {
+        ...current,
+        [`${featureKey}_model`]: serializeFeatureModelSetting(provider, model),
+      };
+    });
+  };
+
+  const handleScanEncryptedSettings = async () => {
+    setEncryptedSettingsLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('files', file);
-      const { files } = await api.uploadFiles(formData);
-      if (files && files[0]) {
-        const fid = String(files[0].id);
-        setForm(f => ({ ...f, company_logo: fid }));
-        api.prefetchFileServeUrls([fid]).catch(() => {});
-        toast.success('Logo uploaded. Save settings to apply.');
-      }
-    } catch (err) {
-      toast.error(err.message);
+      const result = await api.admin.getEncryptedSettingsDiagnostics();
+      setEncryptedSettingsScan(result);
+      if (result.ok) toast.success('Encrypted settings look healthy');
+      else toast.error('One or more encrypted settings rows are malformed');
+    } catch (e) {
+      toast.error(e.message);
     } finally {
-      setLogoUploading(false);
-      if (logoInputRef.current) logoInputRef.current.value = '';
+      setEncryptedSettingsLoading(false);
     }
   };
 
@@ -379,53 +514,14 @@ export default function SettingsPage() {
       <form onSubmit={handleSave}>
         <div className={`card ${styles.card}`}>
           <h3 className={styles.section}>Appearance</h3>
-          <p className={styles.hint} style={{ marginBottom: 14 }}>Choose a UI skin. Changes apply instantly as a live preview.</p>
-          <div className={styles.themeGrid}>
-            {THEMES.map(t => (
-              <button
-                key={t.id}
-                type="button"
-                className={`${styles.themeCard} ${form.ui_theme === t.id ? styles.themeCardSelected : ''}`}
-                onClick={() => handleThemeChange(t.id)}
-              >
-                <div className={styles.themeSwatches}>
-                  <span style={{ background: t.primary }} />
-                  <span style={{ background: t.accent }} />
-                  <span style={{ background: t.sidebar }} />
-                </div>
-                <span className={styles.themeName}>{t.label}</span>
-                {form.ui_theme === t.id && (
-                  <span className={styles.themeCheck}>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ marginTop: 20 }}>
-            <label htmlFor="s-ui-scale" style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', display: 'block', marginBottom: 8 }}>
-              UI Scale: {form.ui_scale}%
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: 320 }}>
-              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>75%</span>
-              <input
-                id="s-ui-scale"
-                type="range"
-                min="75"
-                max="150"
-                step="5"
-                value={form.ui_scale}
-                onChange={e => handleScaleChange(e.target.value)}
-                style={{ flex: 1 }}
-              />
-              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>150%</span>
+          <div className={styles.row}>
+            <div className="form-group" style={{ flex: '1 1 100%' }}>
+              <label>Appearance & cosmetic controls</label>
+              <p className={styles.hint} style={{ marginTop: 0 }}>
+                Theme, UI scale, company logo, notification tray position, bell styling, and map display defaults now live on a dedicated page.
+              </p>
+              <Link to="/settings/appearance" className="btn btn-ghost btn-sm">Open Appearance Settings</Link>
             </div>
-            <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 6 }}>
-              Adjusts text and element size across the app. Default: 100%.
-            </p>
           </div>
         </div>
 
@@ -460,50 +556,6 @@ export default function SettingsPage() {
                 placeholder="123 Main St, City, State ZIP"
               />
               <span className={styles.hint}>Used for &quot;Directions from company&quot; when viewing an address on a quote.</span>
-            </div>
-            <div className="form-group" style={{ flex: '1 1 100%' }}>
-              <label htmlFor="s-company-logo">Company Logo</label>
-              <div className={styles.logoRow}>
-                <input
-                  id="s-company-logo"
-                  type="url"
-                  value={/^\d+$/.test(form.company_logo) ? '' : form.company_logo}
-                  onChange={e => setForm(f => ({ ...f, company_logo: e.target.value }))}
-                  placeholder="https://example.com/logo.png or upload below"
-                  className={styles.logoUrlInput}
-                />
-                <span className={styles.logoOr}>or</span>
-                <label className={styles.uploadLabel}>
-                  <input
-                    ref={logoInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={handleLogoUpload}
-                    disabled={logoUploading}
-                    aria-hidden="true"
-                  />
-                  {logoUploading ? <span className="spinner" /> : 'Upload image'}
-                </label>
-              </div>
-              {form.company_logo && (
-                <div className={styles.logoPreviewWrap}>
-                  <img
-                    src={/^\d+$/.test(form.company_logo) ? `${window.location.origin}${api.fileServeUrl(form.company_logo, { variant: 'ui' })}` : form.company_logo}
-                    alt="Company logo preview"
-                    className={styles.logoPreview}
-                    onError={e => { e.target.style.display = 'none'; }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setForm(f => ({ ...f, company_logo: '' }))}
-                  >
-                    Clear logo
-                  </button>
-                </div>
-              )}
-              <span className={styles.hint}>URL or upload. Shown at the top of the client quote view.</span>
             </div>
           </div>
 
@@ -552,8 +604,66 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          <h3 className={styles.section}>Notifications & Presence</h3>
+          <div className={styles.row}>
+            <div className="form-group">
+              <label htmlFor="s-presence-offline-after">Offline after idle (minutes)</label>
+              <input
+                id="s-presence-offline-after"
+                type="number"
+                min="5"
+                max="240"
+                step="1"
+                value={form.presence_offline_after_minutes}
+                onChange={e => setForm(f => ({ ...f, presence_offline_after_minutes: e.target.value }))}
+              />
+              <span className={styles.hint}>
+                Team members are treated as offline after this many idle minutes without a keystroke or button press.
+              </span>
+            </div>
+            <div className="form-group">
+              <label htmlFor="s-app-timezone">Notification timezone</label>
+              <select
+                id="s-app-timezone"
+                value={form.app_timezone}
+                onChange={e => setForm(f => ({ ...f, app_timezone: e.target.value }))}
+              >
+                {['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'America/Phoenix', 'America/Anchorage', 'Pacific/Honolulu', 'Europe/London', 'Europe/Paris', 'UTC'].map((tz) => (
+                  <option key={tz} value={tz}>{tz}</option>
+                ))}
+              </select>
+              <span className={styles.hint}>Exact notification timestamps use this timezone across the app.</span>
+            </div>
+            <div className="form-group" style={{ alignSelf: 'end' }}>
+              <Link to="/settings/notifications" className="btn btn-ghost btn-sm">Open Notification Controls</Link>
+            </div>
+          </div>
+
           <h3 className={styles.section}>Image compression</h3>
           <div className={styles.row}>
+            <div className="form-group" style={{ flex: '1 1 220px', alignSelf: 'end' }}>
+              <label className={styles.checkRow}>
+                <input
+                  type="checkbox"
+                  checked={form.image_compression_enabled === '1'}
+                  onChange={e => setForm(f => ({ ...f, image_compression_enabled: e.target.checked ? '1' : '0' }))}
+                />
+                <span>Enable image compression</span>
+              </label>
+              <span className={styles.hint}>Only images at least 200 KB are processed. Smaller uploads stay untouched so they do not grow.</span>
+            </div>
+            <div className="form-group" style={{ flex: '1 1 220px', alignSelf: 'end' }}>
+              <label className={styles.checkRow}>
+                <input
+                  type="checkbox"
+                  checked={form.image_auto_webp_enabled === '1'}
+                  disabled={form.image_compression_enabled !== '1'}
+                  onChange={e => setForm(f => ({ ...f, image_auto_webp_enabled: e.target.checked ? '1' : '0' }))}
+                />
+                <span>Auto-convert pictures to WebP</span>
+              </label>
+              <span className={styles.hint}>When disabled, processed images keep a browser-friendly source format instead of being converted to WebP.</span>
+            </div>
             <div className="form-group" style={{ flex: '1 1 260px' }}>
               <label htmlFor="s-image-webp-quality">WebP quality: {form.image_webp_quality}</label>
               <input
@@ -563,15 +673,17 @@ export default function SettingsPage() {
                 max="90"
                 step="1"
                 value={form.image_webp_quality}
+                disabled={form.image_compression_enabled !== '1'}
                 onChange={e => setForm(f => ({ ...f, image_webp_quality: e.target.value }))}
               />
-              <span className={styles.hint}>New image uploads are auto-converted to WebP and compressed aggressively. Lower values reduce size further.</span>
+              <span className={styles.hint}>Lower values reduce file size further. Compression now uses a faster encoding profile to speed up uploads.</span>
             </div>
             <div className="form-group" style={{ flex: '1 1 220px', alignSelf: 'end' }}>
               <label className={styles.checkRow}>
                 <input
                   type="checkbox"
                   checked={form.image_avif_enabled === '1'}
+                  disabled={form.image_compression_enabled !== '1'}
                   onChange={e => setForm(f => ({ ...f, image_avif_enabled: e.target.checked ? '1' : '0' }))}
                 />
                 <span>Also generate AVIF variants</span>
@@ -588,7 +700,11 @@ export default function SettingsPage() {
                 </p>
               </div>
               <span className={styles.previewBadge}>
-                {form.image_avif_enabled === '1' ? 'AVIF + WebP' : 'WebP only'}
+                {form.image_compression_enabled !== '1'
+                  ? 'Compression off'
+                  : form.image_avif_enabled === '1'
+                    ? (form.image_auto_webp_enabled === '1' ? 'AVIF + WebP' : 'AVIF + source format')
+                    : (form.image_auto_webp_enabled === '1' ? 'WebP only' : 'Source format')}
               </span>
             </div>
             <div className={styles.compressionPreviewGrid}>
@@ -604,8 +720,8 @@ export default function SettingsPage() {
               </div>
               <div className={styles.previewPanel}>
                 <span className={styles.previewLabel}>
-                  Compressed preview
-                  {compressionPreviewLoading ? ' (updating...)' : ` (${form.image_avif_enabled === '1' ? 'AVIF preferred' : 'WebP'})`}
+                  {form.image_compression_enabled === '1' ? 'Processed preview' : 'Unchanged upload preview'}
+                  {compressionPreviewLoading ? ' (updating...)' : ` (${form.image_compression_enabled === '1' ? (form.image_avif_enabled === '1' ? 'AVIF preferred' : (form.image_auto_webp_enabled === '1' ? 'WebP' : 'source format')) : 'original file'})`}
                 </span>
                 <div className={styles.previewImageFrame}>
                   {compressionPreview.compressed ? (
@@ -617,7 +733,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <p className={styles.hint} style={{ marginTop: 12 }}>
-              New uploads generate <strong>thumb</strong>, <strong>ui</strong>, and <strong>large</strong> variants for fast grids, normal app views, and larger detail displays.
+              Processed uploads generate <strong>thumb</strong>, <strong>ui</strong>, and <strong>large</strong> variants for fast grids, normal app views, and larger detail displays.
             </p>
           </div>
         </div>
@@ -651,20 +767,6 @@ export default function SettingsPage() {
                 autoComplete="off"
               />
               <span className={styles.hint}>Public token only. Leave blank to hide the map; Google Maps links will still work.</span>
-            </div>
-          </div>
-          <div className={styles.row} style={{ marginTop: 12 }}>
-            <div className="form-group" style={{ flex: '1 1 200px' }}>
-              <label htmlFor="s-map-style">Open map dialog as</label>
-              <select
-                id="s-map-style"
-                value={form.map_default_style || 'map'}
-                onChange={e => setForm(f => ({ ...f, map_default_style: e.target.value }))}
-              >
-                <option value="map">Map</option>
-                <option value="sat">Satellite</option>
-              </select>
-              <span className={styles.hint}>Default style when opening the address map from a quote.</span>
             </div>
           </div>
         </div>
@@ -1063,40 +1165,334 @@ export default function SettingsPage() {
 
           <h3 className={styles.section} style={{ marginTop: 8 }}>Feature Toggles</h3>
           <div className={styles.aiFeatureTable}>
+            <div className={styles.aiFeatureRow}>
+              <div className={styles.aiFeatureInfo}>
+                <label className={styles.aiFeatureLabel}>
+                  <input
+                    type="checkbox"
+                    checked={aiAssistant.ai_agent_enabled === '1'}
+                    onChange={e => setAiAssistant((current) => ({ ...current, ai_agent_enabled: e.target.checked ? '1' : '0' }))}
+                  />
+                  BadShuffle AI Assistant
+                </label>
+                <span className={styles.hint}>
+                  Main provider and model used by the assistant stack. Inventory AI writing uses this when AI Assistant is enabled.
+                </span>
+              </div>
+              <div className={styles.aiAssistantControls}>
+                <div className={styles.aiModelSelect}>
+                  <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Provider</label>
+                  <select
+                    value={aiAssistant.ai_agent_provider}
+                    onChange={e => handleAssistantProviderChange(e.target.value)}
+                    disabled={aiAssistant.ai_agent_enabled !== '1'}
+                  >
+                    {AI_PROVIDER_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.aiModelSelect}>
+                  <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Model</label>
+                  <select
+                    value={aiAssistant.ai_agent_model}
+                    onChange={e => setAiAssistant((current) => ({ ...current, ai_agent_model: e.target.value }))}
+                    disabled={aiAssistant.ai_agent_enabled !== '1'}
+                  >
+                    {!assistantModelKnown && aiAssistant.ai_agent_model && (
+                      <option value={aiAssistant.ai_agent_model}>{`${aiAssistant.ai_agent_model} (custom)`}</option>
+                    )}
+                    {assistantModelOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.aiModelSelect}>
+                  <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Custom model override</label>
+                  <input
+                    type="text"
+                    value={aiAssistant.ai_agent_model}
+                    onChange={e => setAiAssistant((current) => ({ ...current, ai_agent_model: e.target.value }))}
+                    disabled={aiAssistant.ai_agent_enabled !== '1'}
+                    placeholder="Enter any provider-supported model id"
+                  />
+                </div>
+              </div>
+            </div>
             {[
               { key: 'ai_suggest', label: 'AI Quote Suggestions', desc: 'Recommends items to add based on event type and guest count.' },
               { key: 'ai_pdf_import', label: 'PDF Quote Import', desc: 'Extracts line items from uploaded PDF quotes.' },
               { key: 'ai_email_draft', label: 'AI Email Drafts', desc: 'Drafts follow-up and confirmation emails.' },
               { key: 'ai_description', label: 'AI Item Descriptions', desc: 'Generates item descriptions in inventory.' },
-            ].map(({ key, label, desc }) => (
-              <div key={key} className={styles.aiFeatureRow}>
-                <div className={styles.aiFeatureInfo}>
-                  <label className={styles.aiFeatureLabel}>
-                    <input
-                      type="checkbox"
-                      checked={aiFeatures[`${key}_enabled`] === '1'}
-                      onChange={e => setAiFeatures(f => ({ ...f, [`${key}_enabled`]: e.target.checked ? '1' : '0' }))}
-                    />
-                    {label}
-                  </label>
-                  <span className={styles.hint}>{desc}</span>
+            ].map(({ key, label, desc }) => {
+              const featureSelection = parseFeatureModelSetting(aiFeatures[`${key}_model`], 'claude');
+              const featureModelOptions = getModelOptionsForProvider(featureSelection.provider);
+              const featureModelKnown = featureModelOptions.some((option) => option.value === featureSelection.model);
+              return (
+                <div key={key} className={styles.aiFeatureRow}>
+                  <div className={styles.aiFeatureInfo}>
+                    <label className={styles.aiFeatureLabel}>
+                      <input
+                        type="checkbox"
+                        checked={aiFeatures[`${key}_enabled`] === '1'}
+                        onChange={e => setAiFeatures(f => ({ ...f, [`${key}_enabled`]: e.target.checked ? '1' : '0' }))}
+                      />
+                      {label}
+                    </label>
+                    <span className={styles.hint}>{desc}</span>
+                  </div>
+                  <div className={styles.aiAssistantControls}>
+                    <div className={styles.aiModelSelect}>
+                      <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Provider</label>
+                      <select
+                        value={featureSelection.provider}
+                        onChange={e => updateFeatureModelProvider(key, e.target.value)}
+                        disabled={aiFeatures[`${key}_enabled`] !== '1'}
+                      >
+                        {AI_PROVIDER_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className={styles.aiModelSelect}>
+                      <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Model</label>
+                      <select
+                        value={featureSelection.model}
+                        onChange={e => updateFeatureModelValue(key, e.target.value, featureSelection.provider)}
+                        disabled={aiFeatures[`${key}_enabled`] !== '1'}
+                      >
+                        {!featureModelKnown && featureSelection.model && (
+                          <option value={featureSelection.model}>{`${featureSelection.model} (custom)`}</option>
+                        )}
+                        {featureModelOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className={styles.aiModelSelect}>
+                      <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Custom model override</label>
+                      <input
+                        type="text"
+                        value={featureSelection.model}
+                        onChange={e => updateFeatureModelValue(key, e.target.value, featureSelection.provider)}
+                        disabled={aiFeatures[`${key}_enabled`] !== '1'}
+                        placeholder="Enter any provider-supported model id"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </div>
+
+          <h3 className={styles.section} style={{ marginTop: 18 }}>Local AI Runtime</h3>
+          <div className={styles.aiFeatureTable}>
+            <div className={styles.aiFeatureRow}>
+              <div className={styles.aiFeatureInfo}>
+                <label className={styles.aiFeatureLabel}>
+                  <input
+                    type="checkbox"
+                    checked={localAi.ai_local_enabled === '1'}
+                    onChange={e => setLocalAi((current) => ({ ...current, ai_local_enabled: e.target.checked ? '1' : '0' }))}
+                  />
+                  Enable local AI runtime
+                </label>
+                <span className={styles.hint}>
+                  Uses a managed local Ollama runtime for on-device AI. Select `Local` in any provider selector above to use installed local models.
+                </span>
+              </div>
+              <div className={styles.aiAssistantControls}>
+                <div className={styles.aiModelSelect}>
+                  <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Runtime</label>
+                  <select
+                    value={localAi.ai_local_mode}
+                    onChange={e => setLocalAi((current) => ({ ...current, ai_local_mode: e.target.value }))}
+                    disabled={localAi.ai_local_enabled !== '1'}
+                  >
+                    <option value="managed_ollama">Managed Ollama</option>
+                  </select>
                 </div>
                 <div className={styles.aiModelSelect}>
-                  <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Model</label>
+                  <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Default local model</label>
                   <select
-                    value={aiFeatures[`${key}_model`]}
-                    onChange={e => setAiFeatures(f => ({ ...f, [`${key}_model`]: e.target.value }))}
-                    disabled={aiFeatures[`${key}_enabled`] !== '1'}
+                    value={localAi.ai_local_default_model}
+                    onChange={e => setLocalAi((current) => ({ ...current, ai_local_default_model: e.target.value }))}
+                    disabled={localAi.ai_local_enabled !== '1'}
                   >
-                    <option value="claude">Claude (Anthropic)</option>
-                    <option value="gpt4">GPT-4 (OpenAI)</option>
-                    <option value="gemini">Gemini (Google)</option>
+                    {getModelOptionsForProvider('local').map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.aiModelSelect}>
+                  <label style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 4, display: 'block' }}>Admin controls</label>
+                  <Link to="/admin" className="btn btn-ghost btn-sm">Open Admin &gt; System</Link>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.row}>
+              <div className="form-group">
+                <label>Local runtime base URL</label>
+                <input
+                  value={localAi.ai_local_base_url}
+                  onChange={e => setLocalAi((current) => ({ ...current, ai_local_base_url: e.target.value }))}
+                  placeholder="http://127.0.0.1:11434"
+                />
+              </div>
+              <div className="form-group">
+                <label>Managed install path</label>
+                <input
+                  value={localAi.ai_local_install_path}
+                  onChange={e => setLocalAi((current) => ({ ...current, ai_local_install_path: e.target.value }))}
+                  placeholder="/path/to/local-model-runtime"
+                />
+              </div>
+              <div className="form-group">
+                <label>Autostart</label>
+                <select
+                  value={localAi.ai_local_autostart_enabled}
+                  onChange={e => setLocalAi((current) => ({ ...current, ai_local_autostart_enabled: e.target.value }))}
+                >
+                  <option value="1">Enabled</option>
+                  <option value="0">Disabled</option>
+                </select>
+              </div>
+            </div>
+
+            <div className={styles.hint} style={{ marginTop: 8 }}>
+              Runtime status: {localAiDiag?.health?.ok ? 'Healthy' : 'Offline'}{localAiDiag?.models?.length ? ` · Installed models: ${localAiDiag.models.map((entry) => entry.name).join(', ')}` : ' · No local models detected yet'}
+            </div>
+          </div>
+
+          <h3 className={styles.section} style={{ marginTop: 18 }}>Onyx Integration</h3>
+          <div className={styles.aiFeatureTable}>
+            <div className={styles.aiFeatureRow}>
+              <div className={styles.aiFeatureInfo}>
+                <label className={styles.aiFeatureLabel}>
+                  <input
+                    type="checkbox"
+                    checked={onyx.onyx_enabled === '1'}
+                    onChange={e => setOnyx((prev) => ({ ...prev, onyx_enabled: e.target.checked ? '1' : '0' }))}
+                  />
+                  Enable Onyx team chat and quote AI
+                </label>
+                <span className={styles.hint}>BadShuffle will route chat through either an app-managed local Onyx companion or an external Onyx server. Current Onyx chat APIs require a token for BadShuffle requests.</span>
+              </div>
+            </div>
+            <div className={styles.aiFeatureRow}>
+              <div className={styles.aiFeatureInfo}>
+                <label className={styles.aiFeatureLabel}>
+                  <input
+                    type="checkbox"
+                    checked={onyx.team_chat_ai_fallback_enabled === '1'}
+                    onChange={e => setOnyx((prev) => ({ ...prev, team_chat_ai_fallback_enabled: e.target.checked ? '1' : '0' }))}
+                  />
+                  Fallback to BadShuffle AI Assistant when Onyx is unavailable
+                </label>
+                <span className={styles.hint}>
+                  If Onyx is down, not configured, or rejects requests, team chat will use the provider and model selected in BadShuffle AI Assistant above instead of returning an unavailable error.
+                </span>
+              </div>
+            </div>
+            <div className={styles.row}>
+              <div className="form-group">
+                <label>Onyx Mode</label>
+                <select value={onyx.onyx_mode} onChange={e => setOnyx((prev) => ({ ...prev, onyx_mode: e.target.value }))}>
+                  <option value="managed_local">Managed local companion</option>
+                  <option value="external">External Onyx server</option>
+                  <option value="auto">Auto-detect local, else external</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Onyx API Key</label>
+                <input
+                  type="password"
+                  value={aiKeys.onyx_api_key}
+                  onChange={e => setAiKeys((prev) => ({ ...prev, onyx_api_key: e.target.value }))}
+                  placeholder="Bearer token or API key from your Onyx instance"
+                  autoComplete="off"
+                />
+                <div className={styles.hint}>
+                  Required for BadShuffle team chat and quote AI. Create a token in Onyx and paste it here. This is separate from the model-provider keys configured inside Onyx.
+                </div>
+              </div>
+            </div>
+            <div className={styles.row}>
+              <div className="form-group">
+                <label>
+                  <input type="checkbox" checked={onyx.onyx_local_enabled === '1'} onChange={e => setOnyx((prev) => ({ ...prev, onyx_local_enabled: e.target.checked ? '1' : '0' }))} />
+                  {' '}Allow managed local Onyx
+                </label>
+                <div className={styles.hint}>When enabled, BadShuffle can install, start, and detect a local Onyx companion service.</div>
+              </div>
+              <div className="form-group">
+                <label>
+                  <input type="checkbox" checked={onyx.onyx_external_enabled === '1'} onChange={e => setOnyx((prev) => ({ ...prev, onyx_external_enabled: e.target.checked ? '1' : '0' }))} />
+                  {' '}Allow external Onyx
+                </label>
+                <div className={styles.hint}>Keep this enabled if you want to manually point BadShuffle at a separately hosted Onyx instance.</div>
+              </div>
+            </div>
+            {(onyx.onyx_mode === 'managed_local' || onyx.onyx_mode === 'auto') && (
+              <div className={styles.row}>
+                <div className="form-group">
+                  <label>Managed Install Path</label>
+                  <input
+                    value={onyx.onyx_local_install_path}
+                    onChange={e => setOnyx((prev) => ({ ...prev, onyx_local_install_path: e.target.value }))}
+                    placeholder="/path/to/badshuffle/onyx-local"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Managed Local Port</label>
+                  <input
+                    value={onyx.onyx_local_port}
+                    onChange={e => setOnyx((prev) => ({ ...prev, onyx_local_port: e.target.value }))}
+                    placeholder="3000"
+                  />
+                </div>
+              </div>
+            )}
+            {(onyx.onyx_mode === 'managed_local' || onyx.onyx_mode === 'auto') && (
+              <div className={styles.row}>
+                <div className="form-group">
+                  <label>Managed Local Autostart</label>
+                  <select value={onyx.onyx_local_autostart_enabled} onChange={e => setOnyx((prev) => ({ ...prev, onyx_local_autostart_enabled: e.target.value }))}>
+                    <option value="1">Enabled</option>
+                    <option value="0">Disabled</option>
                   </select>
                 </div>
               </div>
-            ))}
+            )}
+            {(onyx.onyx_mode === 'external' || onyx.onyx_mode === 'auto') && (
+              <div className={styles.row}>
+                <div className="form-group">
+                  <label>External Onyx Base URL</label>
+                  <input
+                    value={onyx.onyx_base_url}
+                    onChange={e => setOnyx((prev) => ({ ...prev, onyx_base_url: e.target.value }))}
+                    placeholder="https://onyx.example.com"
+                  />
+                </div>
+              </div>
+            )}
+            <div className={styles.row}>
+              <div className="form-group">
+                <label>Default Persona ID</label>
+                <input value={onyx.onyx_default_persona_id} onChange={e => setOnyx((prev) => ({ ...prev, onyx_default_persona_id: e.target.value }))} placeholder="1" />
+              </div>
+              <div className="form-group">
+                <label>Team Chat Persona ID</label>
+                <input value={onyx.onyx_team_persona_id} onChange={e => setOnyx((prev) => ({ ...prev, onyx_team_persona_id: e.target.value }))} placeholder="2" />
+              </div>
+              <div className="form-group">
+                <label>Quote Chat Persona ID</label>
+                <input value={onyx.onyx_quote_persona_id} onChange={e => setOnyx((prev) => ({ ...prev, onyx_quote_persona_id: e.target.value }))} placeholder="3" />
+              </div>
+            </div>
           </div>
-        </div>
 
         {/* ── Updates ─────────────────────────────────────────────────── */}
         <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>
@@ -1205,6 +1601,29 @@ export default function SettingsPage() {
           <p className={styles.hint} style={{ marginTop: 6 }}>
             When enabled, internal error messages are shown on error screens and returned in API error responses. Useful for debugging; disable in production.
           </p>
+          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={handleScanEncryptedSettings} disabled={encryptedSettingsLoading}>
+                {encryptedSettingsLoading ? 'Scanning…' : 'Scan Encrypted Settings'}
+              </button>
+              <span className={styles.hint}>Checks SMTP, IMAP, and AI key rows for bad decrypt data.</span>
+            </div>
+            {encryptedSettingsScan ? (
+              <div className="border border-border rounded-xl p-3 bg-surface">
+                <div className={styles.hint} style={{ marginBottom: 8 }}>
+                  {encryptedSettingsScan.ok ? 'All encrypted settings rows decrypted successfully.' : 'Malformed encrypted rows found:'}
+                </div>
+                <div className="flex flex-col gap-2">
+                  {(encryptedSettingsScan.rows || []).map((row) => (
+                    <div key={row.key} className="text-sm flex items-center justify-between gap-3 flex-wrap">
+                      <strong>{row.key}</strong>
+                      <span>{!row.has_value ? 'empty' : row.valid ? 'ok' : row.error || 'bad decrypt'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className={`card ${styles.card}`} style={{ marginTop: 16 }}>

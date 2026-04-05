@@ -1,5 +1,6 @@
 const { getQuoteById, requireQuoteById } = require('../db/queries/quotes');
 const { getActorEmail } = require('../db/queries/users');
+const notificationService = require('./notificationService');
 
 const ORG_ID = 1;
 
@@ -27,6 +28,38 @@ function getFulfillmentStatus(row) {
   if (checkedIn <= 0) return 'out';
   if (checkedIn >= quantity) return 'returned';
   return 'partial';
+}
+
+function ensureFulfillmentStarted(db, quoteId, actor) {
+  const existing = db.prepare(`
+    SELECT id
+    FROM quote_fulfillment_events
+    WHERE quote_id = ?
+      AND event_type = 'started'
+    LIMIT 1
+  `).get(quoteId);
+  if (existing) return false;
+  const quote = requireQuoteById(db, quoteId, 'Not found', ORG_ID);
+  db.prepare(`
+    INSERT INTO quote_fulfillment_events (quote_id, fulfillment_item_id, event_type, quantity, note, created_by, user_email)
+    VALUES (?, NULL, 'started', 0, ?, ?, ?)
+  `).run(
+    quoteId,
+    'Work started',
+    actor?.sub || actor?.id || null,
+    getActorEmail(db, actor, null)
+  );
+  notificationService.createNotification(db, {
+    type: 'fulfillment_started',
+    title: 'Begin work on quote',
+    body: `${quote.name || 'Untitled project'} entered fulfillment work`,
+    href: `/quotes/${quoteId}`,
+    entityType: 'quote',
+    entityId: quoteId,
+    actorUserId: actor?.sub || actor?.id || null,
+    actorLabel: notificationService.buildActorLabel(actor),
+  });
+  return true;
 }
 
 function syncFulfillmentForQuote(db, quoteId) {
@@ -199,6 +232,7 @@ function checkInFulfillmentItem(db, quoteId, fulfillmentItemId, body, actor) {
   const nextCheckedIn = Math.min(Number(row.quantity || 0), Number(row.checked_in_qty || 0) + qty);
   const actorEmail = getActorEmail(db, actor, null);
   const note = String(body?.note || '').trim().slice(0, 1000) || null;
+  ensureFulfillmentStarted(db, quoteId, actor);
 
   const tx = db.transaction(() => {
     db.prepare(`
@@ -223,6 +257,7 @@ function addFulfillmentNote(db, quoteId, body, actor) {
   const note = String(body?.body || '').trim();
   if (!note) throw createError(400, 'Note is required');
   if (note.length > 4000) throw createError(400, 'Note too long');
+  ensureFulfillmentStarted(db, quoteId, actor);
   db.prepare(`
     INSERT INTO quote_fulfillment_notes (quote_id, body, created_by, user_email)
     VALUES (?, ?, ?, ?)

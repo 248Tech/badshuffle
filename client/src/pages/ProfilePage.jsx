@@ -13,6 +13,8 @@ function emptyForm() {
     email: '',
     photo_url: '',
     bio: '',
+    live_notifications_enabled: true,
+    live_notification_sound_enabled: false,
   };
 }
 
@@ -26,6 +28,8 @@ function toForm(user) {
     email: user?.email || '',
     photo_url: user?.photo_url || '',
     bio: user?.bio || '',
+    live_notifications_enabled: Number(user?.live_notifications_enabled || 0) === 1,
+    live_notification_sound_enabled: Number(user?.live_notification_sound_enabled || 0) === 1,
   };
 }
 
@@ -274,6 +278,31 @@ export default function ProfilePage() {
                 placeholder="A short internal bio for your team."
               />
             </label>
+
+            <div className={styles.field}>
+              <span className={styles.label}>Live Notifications</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
+                <input
+                  type="checkbox"
+                  checked={form.live_notifications_enabled}
+                  onChange={(e) => setForm((current) => ({ ...current, live_notifications_enabled: e.target.checked }))}
+                />
+                Enable Xbox-style live alerts
+              </label>
+            </div>
+
+            <div className={styles.field}>
+              <span className={styles.label}>Notification Sound</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, opacity: form.live_notifications_enabled ? 1 : 0.55 }}>
+                <input
+                  type="checkbox"
+                  checked={form.live_notification_sound_enabled}
+                  disabled={!form.live_notifications_enabled}
+                  onChange={(e) => setForm((current) => ({ ...current, live_notification_sound_enabled: e.target.checked }))}
+                />
+                Play alert sound
+              </label>
+            </div>
           </div>
 
           <div className={styles.actions}>

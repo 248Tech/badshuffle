@@ -20,7 +20,10 @@ export default function QuoteBuilder({
   onOpenDrawer,
   onOpenLightbox,
 }) {
-  const normalizedSections = sections.length > 0 ? sections : [{ id: 'default', title: 'Quote Items' }];
+  const normalizedSections = React.useMemo(
+    () => (sections.length > 0 ? sections : [{ id: 'default', title: 'Quote Items' }]),
+    [sections]
+  );
   const defaultSectionId = normalizedSections[0]?.id;
   const [pickerSectionId, setPickerSectionId] = React.useState(defaultSectionId);
   const [mobileTab, setMobileTab] = React.useState('items');
@@ -65,6 +68,16 @@ export default function QuoteBuilder({
   };
 
   const totalItemCount = (items || []).length;
+  const sectionItemsMap = React.useMemo(() => {
+    const map = new Map();
+    for (const section of normalizedSections) map.set(String(section.id), []);
+    for (const item of items || []) {
+      const key = String(item.section_id || defaultSectionId);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(item);
+    }
+    return map;
+  }, [items, normalizedSections, defaultSectionId]);
 
   return (
     <div className={styles.builder}>
@@ -104,7 +117,7 @@ export default function QuoteBuilder({
       {/* Items panel: sections + adjustments */}
       <div className={mobileTab === 'add' ? styles.mobileHidden : undefined}>
         {normalizedSections.map((section, index) => {
-          const sectionItems = (items || []).filter((item) => String(item.section_id || defaultSectionId) === String(section.id));
+          const sectionItems = sectionItemsMap.get(String(section.id)) || [];
           return (
             <div key={section.id} className={styles.sectionCard}>
               <div className={styles.sectionHeaderRow}>
@@ -175,7 +188,7 @@ export default function QuoteBuilder({
           quoteId={quoteId}
           items={items}
           sectionId={pickerSectionId}
-          onItemsChange={(added) => { onItemsChange(added); setMobileTab('items'); }}
+          onItemsChange={onItemsChange}
           onAddCustomItem={onAddCustomItem}
           settings={settings}
         />

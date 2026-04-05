@@ -1,5 +1,6 @@
 const { requireQuoteById } = require('../db/queries/quotes');
 const quoteFulfillmentService = require('./quoteFulfillmentService');
+const notificationService = require('./notificationService');
 const ORG_ID = 1;
 
 function createError(statusCode, message) {
@@ -25,11 +26,19 @@ function confirmQuote({ db, quoteId, actor, quoteService }) {
     description: 'Quote confirmed — inventory reserved',
   });
   quoteFulfillmentService.syncFulfillmentForQuote(db, quoteId);
+  notificationService.createNotification(db, {
+    type: 'quote_confirmed',
+    title: 'Project confirmed',
+    body: `${result.quote?.name || 'Untitled project'} is confirmed and inventory is reserved`,
+    href: `/quotes/${quoteId}`,
+    entityType: 'quote',
+    entityId: quoteId,
+  });
   return result;
 }
 
 function closeQuote({ db, quoteId, actor, quoteService }) {
-  return quoteService.transitionQuoteStatus({
+  const result = quoteService.transitionQuoteStatus({
     db,
     quoteId,
     fromStatuses: 'confirmed',
@@ -37,6 +46,15 @@ function closeQuote({ db, quoteId, actor, quoteService }) {
     actor,
     description: 'Quote closed — inventory released, damage charges enabled',
   });
+  notificationService.createNotification(db, {
+    type: 'project_lost',
+    title: 'Project cancelled',
+    body: `${result.quote?.name || 'Untitled project'} was cancelled`,
+    href: `/quotes/${quoteId}`,
+    entityType: 'quote',
+    entityId: quoteId,
+  });
+  return result;
 }
 
 function approveQuote({ db, quoteId, actor, quoteService }) {

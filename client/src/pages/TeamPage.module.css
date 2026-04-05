@@ -226,6 +226,15 @@
   line-height: 1.35;
 }
 
+.presenceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
 .detailBlock {
   display: flex;
   flex-direction: column;

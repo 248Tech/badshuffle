@@ -82,6 +82,8 @@ function getUserProfileById(db, userId) {
       phone,
       photo_url,
       bio,
+      live_notifications_enabled,
+      live_notification_sound_enabled,
       created_at
     FROM users
     WHERE id = ?
@@ -105,6 +107,8 @@ function getUserByEmail(db, email) {
       phone,
       photo_url,
       bio,
+      live_notifications_enabled,
+      live_notification_sound_enabled,
       created_at
     FROM users
     WHERE email = ?
@@ -124,7 +128,9 @@ function updateUserProfile(db, userId, fields) {
       display_name = ?,
       phone = ?,
       photo_url = ?,
-      bio = ?
+      bio = ?,
+      live_notifications_enabled = ?,
+      live_notification_sound_enabled = ?
     WHERE id = ?
   `).run(
     fields.email,
@@ -135,6 +141,8 @@ function updateUserProfile(db, userId, fields) {
     fields.phone,
     fields.photo_url,
     fields.bio,
+    fields.live_notifications_enabled,
+    fields.live_notification_sound_enabled,
     userId
   );
   return getUserProfileById(db, userId);

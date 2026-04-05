@@ -1,0 +1,12 @@
+[package]
+name = "inventory-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+db = { path = "../db" }
+rusqlite.workspace = true
+serde.workspace = true
+shared-types = { path = "../shared-types" }

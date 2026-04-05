@@ -10,7 +10,7 @@ function createError(statusCode, message) {
   return error;
 }
 
-function listQuotes(db, query = {}, deps) {
+async function listQuotes(db, query = {}, deps) {
   const { summarizeQuotesForList } = deps;
   const defaultTaxRate = quoteRepository.getDefaultTaxRate(db);
   const search = (query.search || '').trim();
@@ -71,11 +71,19 @@ function listQuotes(db, query = {}, deps) {
     const orderSql = ` ORDER BY ${orderColumn} ${sortDir}, id ${sortDir}`;
     const offset = (page - 1) * limit;
     quotes = quoteRepository.listQuotesByWhere(db, where, baseParams, orderSql, limit, offset);
-    quotes = summarizeQuotesForList(db, quotes, defaultTaxRate);
+    quotes = await summarizeQuotesForList(db, quotes, defaultTaxRate, {
+      diagnostics: deps.diagnostics,
+      requestId: deps.requestId,
+      route: 'quote-list',
+    });
     total = dbTotal;
   } else {
     quotes = quoteRepository.listQuotesByWhere(db, where, baseParams);
-    quotes = summarizeQuotesForList(db, quotes, defaultTaxRate);
+    quotes = await summarizeQuotesForList(db, quotes, defaultTaxRate, {
+      diagnostics: deps.diagnostics,
+      requestId: deps.requestId,
+      route: 'quote-list',
+    });
 
     if (has_balance) {
       quotes = quotes.filter((q) => {

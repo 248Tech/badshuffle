@@ -11,6 +11,7 @@ export default function InventorySettingsPage() {
     inventory_default_view: 'grid',
     inventory_items_per_page: '48',
     inventory_show_source: '0',
+    inventory_multi_select_enabled: '0',
   });
 
   useEffect(() => {
@@ -19,6 +20,7 @@ export default function InventorySettingsPage() {
         inventory_default_view: s.inventory_default_view || 'grid',
         inventory_items_per_page: s.inventory_items_per_page || '48',
         inventory_show_source: s.inventory_show_source || '0',
+        inventory_multi_select_enabled: s.inventory_multi_select_enabled || '0',
       });
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -80,6 +82,18 @@ export default function InventorySettingsPage() {
                 <span>Show source badge on items</span>
               </label>
               <p className={styles.hint}>Display the Chrome Extension puzzle-piece badge on imported items.</p>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.toggleLabel}>
+                <input
+                  type="checkbox"
+                  checked={form.inventory_multi_select_enabled === '1'}
+                  onChange={e => set('inventory_multi_select_enabled', e.target.checked ? '1' : '0')}
+                />
+                <span>Enable multi-select in Inventory</span>
+              </label>
+              <p className={styles.hint}>Show selection controls on inventory items so you can batch-run AI edits on multiple products.</p>
             </div>
           </div>
         </div>

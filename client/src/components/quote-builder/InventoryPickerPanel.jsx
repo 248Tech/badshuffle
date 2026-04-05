@@ -144,7 +144,7 @@ export default function InventoryPickerPanel({
   ]);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     const params = {
       hidden: '0',
       limit: pageSize,
@@ -156,19 +156,19 @@ export default function InventoryPickerPanel({
     if (cat) params.category = cat;
 
     api
-      .getItems(params)
+      .getItems(params, { signal: controller.signal, dedupeKey: 'quote-builder:inventory', cancelPrevious: true })
       .then((d) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setInventory(d.items || []);
         setInventoryTotal(d.total ?? 0);
       })
       .catch(() => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setInventory([]);
         setInventoryTotal(0);
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [quoteId, pickerPage, pageSize, debouncedSearch, selectedCategory, items?.length]);
 

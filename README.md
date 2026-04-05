@@ -1,9 +1,9 @@
-# BadShuffle v0.0.11
+# BadShuffle v0.0.12
 
-![Release](https://img.shields.io/badge/release-0.0.11-0a7ea4)
+![Release](https://img.shields.io/badge/release-0.0.12-0a7ea4)
 ![Status](https://img.shields.io/badge/status-pre--release-c79200)
 ![Product](https://img.shields.io/badge/product-self--hosted%20event%20rental%20software-1f6feb)
-![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite-1f6feb)
+![Stack](https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20SQLite%20%7C%20Rust-1f6feb)
 ![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Windows%20EXE-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-111111)
 
@@ -11,7 +11,7 @@ BadShuffle is a self-hosted event rental software platform for inventory managem
 
 **SEO keywords:** self-hosted event rental software, rental inventory management software, quote management system, client portal for rentals, public product catalog, event operations platform, React Express SQLite app.
 
-*Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history and [RELEASE_NOTES_0.0.11.md](RELEASE_NOTES_0.0.11.md) for the current release summary.*
+*Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history and [RELEASE_NOTES_0.0.12.md](RELEASE_NOTES_0.0.12.md) for the current release summary.*
 
 ---
 
@@ -22,29 +22,29 @@ BadShuffle is a self-hosted event rental software platform for inventory managem
 - **Complex operational domain** — Signed-vs-unsigned quote changes, inventory conflicts, rental sections, contract artifacts, quote-linked messaging, and public catalog SEO all target real event-rental problems.
 - **Portfolio-grade engineering signals** — Safe startup migrations, route-level code splitting, shared totals logic, audit-oriented signing artifacts, structured release notes, and handoff docs show maintainability discipline, not just feature velocity.
 
-## What’s New In v0.0.11
+## What’s New In v0.0.12
 
-`v0.0.11` is the visibility-and-operations release. It expands BadShuffle with map-aware project views, early sales analytics, stronger team/profile surfaces, fulfillment workflows, permission-aware routing, and a more scalable backend structure for the quote domain.
+`v0.0.12` is the operations, AI, and engine release. It expands BadShuffle beyond the earlier visibility/dashboard work with real internal coordination tooling, deeper inventory operations, AI-assisted workflows, and a guarded Rust engine layer.
 
-- **Maps workspace** — Operators can view quotes/projects on a Mapbox-powered map with cached geocoding, status-aware pins, and direct navigation into project detail.
-- **Sales dashboard foundation** — New analytics endpoints and client feature modules support pipeline-style reporting by date range, staff, and status.
-- **Profile, team, and permissions** — User profiles, persistent presence, team workspace metrics, and module-level permissions move the app closer to a multi-user operations system.
-- **Fulfillment workflow foundation** — Confirmed projects now drive fulfillment rows, check-in actions, and internal fulfillment notes in project detail.
-- **Backend architecture cleanup** — Quote logic is being split from route handlers into focused services, repositories, queries, and schema/migration modules to reduce coupling.
-- **API and integration docs** — The repo now includes a dedicated `AI/Api/` documentation set for authentication, inventory, quotes, public catalog use, and e-commerce integration planning.
+- **Rust engine foundation** — Added a dedicated `rust-core/` workspace plus parity tooling, lifecycle controls, and guarded Node integration for inventory availability/conflicts and pricing.
+- **Quote Assistant + AI platform** — Added quote-scoped assistant workflows, shared AI provider/model controls, managed local Ollama support, and managed/external Onyx support for internal AI features.
+- **Team communication + notifications** — Added live notifications, notification settings, Team Groups, and Team Chat so operators can coordinate inside the product.
+- **Inventory operations upgrade** — Added set-aside workflows, stronger mobile/desktop inventory controls, AI batch editing, exact/loose search, serial numbers, QR-backed scan identity, and product sales totals.
+- **Pull sheets and internal picking** — Added quote pull sheets, aggregate pull exports for overlapping jobs, and scan-addressable internal pick views.
+- **Admin, help, and appearance** — Added deeper runtime controls in Admin, a guided Help page, and a dedicated Appearance settings page.
 
 ## Core Features
 
 - **Inventory management** — Searchable catalog with photos, categories, subrental support, vendor links, associations, and accessory relationships.
 - **Project workflow** — Event projects/quotes, custom items, price overrides, line-item discounts, adjustments, contract text, approvals, signatures, and public sharing.
-- **Availability awareness** — Quote conflict checks, oversold detection, subrental needs, and inventory-aware quote building.
+- **Availability awareness** — Quote conflict checks, oversold detection, subrental needs, inventory-aware quote building, and a guarded Rust availability engine path.
 - **Fulfillment + operations** — Fulfillment rows, item check-in, internal fulfillment notes, persistent staff presence, and a team workspace.
-- **Maps + analytics** — Quote geocoding, operator map views, and early sales pipeline reporting.
+- **Maps + analytics** — Quote geocoding, operator map views, sales pipeline reporting, and product sales/date-window statistics.
 - **Public-facing surfaces** — Client quote page, live quote messaging, SEO catalog pages, `robots.txt`, sitemap generation, and JSON-LD metadata.
 - **Comms and files** — SMTP send, IMAP reply capture, media library uploads, and quote-linked attachments.
-- **Operations + admin** — Module permissions, role-aware navigation, user approval/admin tools, update controls, SQLite backup/restore, and directory-style lead/vendor management.
+- **Operations + admin** — Module permissions, role-aware navigation, user approval/admin tools, update controls, SQLite backup/restore, notifications, team groups/chat, and directory-style client/vendor/venue management.
 - **Import and sync** — Google Sheets import plus a Chrome extension for syncing items from Goodshuffle Pro, with manual JSON fallback import.
-- **Optional AI** — Per-feature provider settings for OpenAI, Anthropic, and Gemini without making AI a hard dependency.
+- **Optional AI** — Per-feature provider settings for OpenAI, Anthropic, Gemini, managed local Ollama, and Onyx-backed internal workflows without making AI a hard dependency.
 
 ## Why An Employer Should Care
 
@@ -57,9 +57,10 @@ BadShuffle is a self-hosted event rental software platform for inventory managem
 ## Near-Term Roadmap
 
 - **Permission follow-through** — Finish moving remaining legacy route/page checks onto the shared permission system.
-- **Fulfillment depth** — Add partial returns, stronger project-edit behavior, and richer operational history around check-in/out.
+- **Fulfillment depth** — Extend pull sheets and fulfillment into deeper operational flows such as staged pull/return handling.
 - **Accessibility and responsiveness** — Finish the cross-theme QA, mobile pass, and keyboard/focus improvements still tracked in the AI docs.
 - **Compliance hardening** — Continue improving contract-signing evidence capture while separating technical auditability from formal legal compliance claims.
+- **Engine rollout hardening** — Keep Rust parity, pricing, and local AI runtime controls stable before widening those domains further.
 
 More context lives in [AI/TODO.md](AI/TODO.md), [AI/HANDOFF.md](AI/HANDOFF.md), and the coordination docs under [AI/].
 

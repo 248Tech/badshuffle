@@ -1,13 +1,6 @@
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
-
-const EditIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-  </svg>
-);
 const TrashIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
@@ -24,15 +17,25 @@ const PuzzleIcon = () => (
   </svg>
 );
 
-export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSource = true }) {
+function ItemCard({
+  item,
+  onEdit,
+  onDelete,
+  onAddToQuote,
+  showSource = true,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+}) {
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
 
   const isExtension = (item.source || 'manual') === 'extension';
   const hasPrice = item.unit_price > 0;
   const itemType = item.item_type || 'product';
+  const showSelectionCheckbox = selectable && itemType === 'product';
   const stockInfo = item.quantity_in_stock != null && item.quantity_in_stock > 0
-    ? `${item.quantity_in_stock} in stock${item.quantity_going_out > 0 ? ` / ${item.quantity_going_out} out` : ''}`
+    ? `${item.quantity_in_stock} in stock${item.quantity_going_out > 0 ? ` / ${item.quantity_going_out} out` : ''}${item.quantity_set_aside > 0 ? ` / ${item.quantity_set_aside} set aside` : ''}`
     : null;
 
   const goToItem = () => {
@@ -44,7 +47,9 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSou
   };
 
   return (
-    <div className={`group bg-bg border border-border rounded overflow-hidden transition-shadow duration-200 hover:shadow-md ${item.hidden ? 'opacity-50' : ''}`}>
+    <div className={`group bg-bg border rounded overflow-hidden transition-shadow duration-200 hover:shadow-md ${
+      selected ? 'border-primary ring-2 ring-primary/20 shadow-sm' : 'border-border'
+    } ${item.hidden ? 'opacity-50' : ''}`}>
       {/* Image + action overlay */}
       <div
         className="relative aspect-[4/3] bg-surface overflow-hidden cursor-pointer"
@@ -59,23 +64,45 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSou
           alt={item.photo_url && !imgError ? item.title : ''}
           className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
           loading="lazy"
+          decoding="async"
           onError={() => setImgError(true)}
           aria-hidden={!item.photo_url || imgError}
         />
 
         {/* Badges */}
+        {showSelectionCheckbox && (
+          <label
+            className={`absolute top-1.5 right-1.5 z-[1] flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold backdrop-blur-sm transition-colors cursor-pointer ${
+              selected
+                ? 'border-primary bg-primary text-white'
+                : 'border-white/70 bg-black/50 text-white hover:bg-black/65'
+            }`}
+            title={selected ? `Remove ${item.title} from selection` : `Select ${item.title}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={selected}
+              aria-label={selected ? `Deselect ${item.title}` : `Select ${item.title}`}
+              onChange={(e) => onToggleSelect?.(item, { shiftKey: e.shiftKey || e.nativeEvent?.shiftKey })}
+            />
+          </label>
+        )}
         {isExtension && showSource && (
           <span className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-[#fff4e0] text-[#8a5a00] rounded-full text-[10px] font-semibold px-1.5 py-0.5" title="Imported via Chrome Extension">
             <PuzzleIcon />
           </span>
         )}
         {item.category && (
-          <span className="absolute top-1.5 right-1.5 bg-black/55 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm">
+          <span
+            className="absolute bottom-1.5 left-1.5 max-w-[calc(100%-12px)] bg-black/55 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm overflow-hidden text-ellipsis whitespace-nowrap"
+            title={item.category}
+          >
             {item.category}
           </span>
         )}
         {itemType !== 'product' && (
-          <span className={`absolute bottom-1.5 left-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+          <span className={`absolute bottom-1.5 right-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
             itemType === 'group' ? 'bg-primary-subtle text-primary' : 'bg-success-subtle text-success-strong'
           }`}>
             {itemType === 'group' ? '⬡ Group' : '⊕ Accessory'}
@@ -97,17 +124,6 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSou
                 onClick={() => onAddToQuote(item)}
               >
                 <PlusIcon />
-              </button>
-            )}
-            {onEdit && (
-              <button
-                type="button"
-                className="flex items-center justify-center w-7 h-7 rounded bg-white/90 text-text-base hover:bg-white transition-colors border-none cursor-pointer"
-                title="Edit item"
-                aria-label={`Edit ${item.title}`}
-                onClick={() => onEdit(item)}
-              >
-                <EditIcon />
               </button>
             )}
           </div>
@@ -156,3 +172,5 @@ export default function ItemCard({ item, onEdit, onDelete, onAddToQuote, showSou
     </div>
   );
 }
+
+export default memo(ItemCard);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api, setToken } from '../api';
 import styles from './AuthPage.module.css';
 
@@ -9,6 +9,7 @@ function randomOneToTwelve() {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [[mathA, mathB], setMath] = useState(() => [randomOneToTwelve(), randomOneToTwelve()]);
@@ -106,7 +107,8 @@ export default function LoginPage() {
       }
       setMath([randomOneToTwelve(), randomOneToTwelve()]);
       setMathAnswer('');
-      navigate('/inventory', { replace: true });
+      const next = searchParams.get('next');
+      navigate(next || '/inventory', { replace: true });
     } catch (err) {
       setError(err.message);
       if (recaptchaRequired && window.grecaptcha && window.grecaptcha.reset && recaptchaWidgetIdRef.current != null) {

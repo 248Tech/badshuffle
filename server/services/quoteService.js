@@ -2,6 +2,11 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { logActivity } = require('../lib/quoteActivity');
+const notificationService = require('./notificationService');
+const { computeTotalsFromRows, computeQuoteTotalsLegacy } = require('./quotePricingCore');
+const quotePricingEngineService = require('./quotePricingEngineService');
+const directoryContactsService = require('./directoryContactsService');
+const quotePatternMemoryService = require('./quotePatternMemoryService');
 const ORG_ID = 1;
 
 function createHttpError(statusCode, message) {
@@ -16,63 +21,13 @@ function getQuoteOrThrow(db, quoteId) {
   return quote;
 }
 
-function computeTotalsFromRows(quote, items, customItems, adjustments, explicitTaxRate = null) {
-  let subtotal = 0;
-  let deliveryTotal = 0;
-  let customSubtotal = 0;
-  let taxableAmount = 0;
-
-  items.forEach((row) => {
-    if (row.hidden_from_quote) return;
-    let unitPrice = row.unit_price_override != null ? row.unit_price_override : (row.unit_price || 0);
-    if (row.discount_type === 'percent' && row.discount_amount > 0) unitPrice = unitPrice * (1 - row.discount_amount / 100);
-    if (row.discount_type === 'fixed' && row.discount_amount > 0) unitPrice = Math.max(0, unitPrice - row.discount_amount);
-    const line = unitPrice * (row.quantity || 1);
-    if ((row.category || '').toLowerCase().includes('logistics')) deliveryTotal += line;
-    else subtotal += line;
-    if (row.taxable) taxableAmount += line;
-  });
-
-  customItems.forEach((row) => {
-    const line = (row.quantity || 1) * (row.unit_price || 0);
-    customSubtotal += line;
-    if (row.taxable) taxableAmount += line;
-  });
-
-  const preTax = subtotal + deliveryTotal + customSubtotal;
-  let adjTotal = 0;
-  adjustments.forEach((adj) => {
-    const val = adj.value_type === 'percent' ? preTax * (Number(adj.amount || 0) / 100) : Number(adj.amount || 0);
-    adjTotal += adj.type === 'discount' ? -val : val;
-  });
-  const rate = explicitTaxRate != null ? Number(explicitTaxRate || 0) : Number(quote.tax_rate || 0);
-  const tax = rate > 0 ? taxableAmount * (rate / 100) : 0;
-  return {
-    subtotal,
-    deliveryTotal,
-    customSubtotal,
-    adjTotal,
-    tax,
-    rate,
-    total: preTax + adjTotal + tax,
-  };
-}
-
 function computeQuoteTotals(db, quoteId, explicitTaxRate = null) {
-  const quote = typeof quoteId === 'object' ? quoteId : getQuoteOrThrow(db, quoteId);
-  const items = db.prepare(`
-    SELECT qi.quantity, qi.hidden_from_quote, qi.unit_price_override, qi.discount_type, qi.discount_amount,
-           i.unit_price, i.taxable, i.category
-    FROM quote_items qi
-    JOIN items i ON i.id = qi.item_id
-    WHERE qi.quote_id = ?
-  `).all(quote.id);
-  const customItems = db.prepare('SELECT quantity, unit_price, taxable FROM quote_custom_items WHERE quote_id = ?').all(quote.id);
-  const adjustments = db.prepare('SELECT type, value_type, amount FROM quote_adjustments WHERE quote_id = ?').all(quote.id);
-  return computeTotalsFromRows(quote, items, customItems, adjustments, explicitTaxRate);
+  return computeQuoteTotalsLegacy(db, quoteId, explicitTaxRate, {
+    loadQuote: (database, requestedQuoteId) => getQuoteOrThrow(database, requestedQuoteId),
+  });
 }
 
-function summarizeQuotesForList(db, quotes, defaultTaxRate = 0) {
+async function summarizeQuotesForList(db, quotes, defaultTaxRate = 0, options = {}) {
   if (!Array.isArray(quotes) || quotes.length === 0) return [];
 
   const ids = quotes.map((quote) => quote.id);
@@ -127,14 +82,20 @@ function summarizeQuotesForList(db, quotes, defaultTaxRate = 0) {
   });
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  return quotes.map((quote) => {
-    const totals = computeTotalsFromRows(
+  return Promise.all(quotes.map(async (quote) => {
+    const fallbackTotals = computeTotalsFromRows(
       quote,
       itemsByQuote.get(quote.id) || [],
       customItemsByQuote.get(quote.id) || [],
       adjustmentsByQuote.get(quote.id) || [],
       quote.tax_rate != null ? quote.tax_rate : defaultTaxRate
     );
+    const totals = await quotePricingEngineService.computeQuoteTotals(db, quote, quote.tax_rate != null ? quote.tax_rate : defaultTaxRate, {
+      diagnostics: options.diagnostics,
+      requestId: options.requestId,
+      route: options.route || 'quote-summary-list',
+      loadQuote: () => quote,
+    }) || fallbackTotals;
     const total = totals.total;
     const amount_paid = amountPaidByQuote.get(quote.id) || 0;
     const remaining_balance = total - amount_paid;
@@ -155,7 +116,7 @@ function summarizeQuotesForList(db, quotes, defaultTaxRate = 0) {
       overpaid,
       is_expired,
     };
-  });
+  }));
 }
 
 function stripHtml(input) {
@@ -354,8 +315,8 @@ function normalizeAuditField(value, maxLength = 255) {
   return normalized.slice(0, maxLength);
 }
 
-function buildQuoteSnapshotHash({ db, quote, contractBody, signedAt, signerName }) {
-  const totals = computeQuoteTotals(db, quote);
+function buildQuoteSnapshotHash({ db, quote, contractBody, signedAt, signerName, totals = null }) {
+  const resolvedTotals = totals || computeQuoteTotals(db, quote);
   const adjustments = db.prepare(`
     SELECT label, type, value_type, amount
     FROM quote_adjustments
@@ -370,18 +331,18 @@ function buildQuoteSnapshotHash({ db, quote, contractBody, signedAt, signerName 
     signed_at: signedAt || null,
     signer_name: signerName || null,
     contract_body: stripHtml(contractBody || ''),
-    totals,
+    totals: resolvedTotals,
     adjustments,
     sections: buildQuoteSectionPresentationData(db, quote),
   };
   return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
-function createSignedContractArtifact({ db, uploadsDir, quote, contractBody, signerName, signerIp, signedAt, signedTotal }) {
+function createSignedContractArtifact({ db, uploadsDir, quote, contractBody, signerName, signerIp, signedAt, signedTotal, totals = null }) {
   if (!uploadsDir) return null;
   const textBody = stripHtml(contractBody || '');
   const sections = buildQuoteSectionPresentationData(db, quote);
-  const totals = computeQuoteTotals(db, quote);
+  const resolvedTotals = totals || computeQuoteTotals(db, quote);
   const sectionLines = sections.flatMap((section) => {
     const lines = [
       '',
@@ -409,11 +370,11 @@ function createSignedContractArtifact({ db, uploadsDir, quote, contractBody, sig
     ...sectionLines,
     '',
     'Quote Totals',
-    `Equipment subtotal: $${Number(totals.subtotal || 0).toFixed(2)}`,
-    `Delivery subtotal: $${Number(totals.deliveryTotal || 0).toFixed(2)}`,
-    `Custom items subtotal: $${Number(totals.customSubtotal || 0).toFixed(2)}`,
-    totals.adjTotal !== 0 ? `Adjustments: $${Number(totals.adjTotal || 0).toFixed(2)}` : null,
-    totals.rate > 0 ? `Tax (${Number(totals.rate || 0).toFixed(2)}%): $${Number(totals.tax || 0).toFixed(2)}` : null,
+    `Equipment subtotal: $${Number(resolvedTotals.subtotal || 0).toFixed(2)}`,
+    `Delivery subtotal: $${Number(resolvedTotals.deliveryTotal || 0).toFixed(2)}`,
+    `Custom items subtotal: $${Number(resolvedTotals.customSubtotal || 0).toFixed(2)}`,
+    resolvedTotals.adjTotal !== 0 ? `Adjustments: $${Number(resolvedTotals.adjTotal || 0).toFixed(2)}` : null,
+    resolvedTotals.rate > 0 ? `Tax (${Number(resolvedTotals.rate || 0).toFixed(2)}%): $${Number(resolvedTotals.tax || 0).toFixed(2)}` : null,
     '',
     'Signature',
     `Signed by: ${signerName || 'Client'}`,
@@ -490,7 +451,7 @@ function snapshotSignedQuoteItems({ db, quoteId, signatureEventId }) {
   });
 }
 
-function signPublicContract({ db, uploadsDir, token, signerName, signerIp, signerUserAgent }) {
+async function signPublicContract({ db, uploadsDir, token, signerName, signerIp, signerUserAgent, diagnostics = null, requestId = null }) {
   if (!token) throw createHttpError(400, 'token required');
   const quote = db.prepare('SELECT * FROM quotes WHERE public_token = ?').get(token);
   if (!quote) throw createHttpError(404, 'Not found');
@@ -508,7 +469,12 @@ function signPublicContract({ db, uploadsDir, token, signerName, signerIp, signe
   }
   const contract = db.prepare('SELECT * FROM contracts WHERE quote_id = ?').get(quote.id);
   const signedAt = new Date().toISOString();
-  const totals = computeQuoteTotals(db, quote);
+  const totals = await quotePricingEngineService.computeQuoteTotals(db, quote, quote.tax_rate, {
+    diagnostics,
+    requestId,
+    route: 'public-contract-sign',
+    loadQuote: (database, requestedQuoteId) => getQuoteOrThrow(database, requestedQuoteId),
+  });
   const signatureSvg = buildSignatureSvg({ signerName: normalizedSignerName, signedAt, signerIp: normalizedSignerIp });
   const signaturePayload = JSON.stringify({
     type: 'generated',
@@ -546,6 +512,7 @@ function signPublicContract({ db, uploadsDir, token, signerName, signerIp, signe
     contractBody: savedContract.body_html || '',
     signedAt,
     signerName: normalizedSignerName,
+    totals,
   });
   const fileId = createSignedContractArtifact({
     db,
@@ -556,6 +523,7 @@ function signPublicContract({ db, uploadsDir, token, signerName, signerIp, signe
     signerIp: normalizedSignerIp,
     signedAt,
     signedTotal: totals.total,
+    totals,
   });
   const signatureEvent = db.prepare(
     'INSERT INTO contract_signature_events (quote_id, contract_id, signer_name, signer_ip, signer_user_agent, signed_at, signed_quote_total, quote_snapshot_hash, file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -572,6 +540,15 @@ function signPublicContract({ db, uploadsDir, token, signerName, signerIp, signe
   );
   snapshotSignedQuoteItems({ db, quoteId: quote.id, signatureEventId: signatureEvent.lastInsertRowid });
   logActivity(db, quote.id, 'contract_signed', `Contract signed by ${normalizedSignerName}`, null, `$${totals.total.toFixed(2)}`, null);
+  quotePatternMemoryService.upsertMemoryRecord(db, freshQuote.id, 'quote_signed');
+  notificationService.createNotification(db, {
+    type: 'quote_signed',
+    title: 'Project signed',
+    body: `${freshQuote.name || 'Untitled project'} was signed by ${normalizedSignerName}`,
+    href: `/quotes/${freshQuote.id}`,
+    entityType: 'quote',
+    entityId: freshQuote.id,
+  });
   return {
     contract: savedContract,
     quote: freshQuote,
@@ -669,6 +646,17 @@ async function sendQuote({ db, uploadsDir, quoteId, actor, input = {} }) {
   } catch (e) {}
 
   const updated = db.prepare('SELECT * FROM quotes WHERE id = ? AND org_id = ?').get(quoteId, ORG_ID);
+  quotePatternMemoryService.upsertMemoryRecord(db, updated.id, 'quote_sent');
+  notificationService.createNotification(db, {
+    type: 'quote_sent',
+    title: 'Project sent',
+    body: `${updated.name || 'Untitled project'} was sent${toEmail ? ` to ${toEmail}` : ''}`,
+    href: `/quotes/${updated.id}`,
+    entityType: 'quote',
+    entityId: updated.id,
+    actorUserId: actor?.sub || actor?.id || null,
+    actorLabel: notificationService.buildActorLabel(actor),
+  });
   return { quote: updated, emailPreview };
 }
 
@@ -703,6 +691,7 @@ function duplicateQuote({ db, sourceQuoteId }) {
     quote.pickup_date || null
   );
   const newId = result.lastInsertRowid;
+  directoryContactsService.syncQuoteDirectoryLinks(db, newId);
 
   const oldSections = db.prepare(
     'SELECT * FROM quote_item_sections WHERE quote_id = ? ORDER BY sort_order ASC, id ASC'
@@ -792,6 +781,7 @@ function transitionQuoteStatus({ db, quoteId, fromStatuses, toStatus, actor, cle
   }
 
   const updated = db.prepare('SELECT * FROM quotes WHERE id = ? AND org_id = ?').get(quoteId, ORG_ID);
+  quotePatternMemoryService.upsertMemoryRecord(db, quoteId, `status:${toStatus}`);
   return { quote: updated };
 }
 

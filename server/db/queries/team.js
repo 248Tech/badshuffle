@@ -25,21 +25,25 @@ function listApprovedStaffUsers(db) {
 
 function upsertUserPresence(db, userId, currentPath, currentLabel, lastSeenAt) {
   db.prepare(`
-    INSERT INTO user_presence (user_id, current_path, current_label, last_seen_at, updated_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
+    INSERT INTO user_presence (
+      user_id, current_path, current_label, last_seen_at, last_active_at, online_since_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(user_id) DO UPDATE SET
       current_path = excluded.current_path,
       current_label = excluded.current_label,
       last_seen_at = excluded.last_seen_at,
+      last_active_at = excluded.last_active_at,
+      online_since_at = COALESCE(user_presence.online_since_at, excluded.online_since_at),
       updated_at = datetime('now')
-  `).run(userId, currentPath, currentLabel, lastSeenAt);
+  `).run(userId, currentPath, currentLabel, lastSeenAt, lastSeenAt, lastSeenAt);
 }
 
 function listPresenceRowsForUsers(db, userIds) {
   if (!Array.isArray(userIds) || userIds.length === 0) return [];
   const placeholders = userIds.map(() => '?').join(', ');
   return db.prepare(`
-    SELECT user_id, current_path, current_label, last_seen_at, updated_at
+    SELECT user_id, current_path, current_label, last_seen_at, last_active_at, online_since_at, online_notification_at, presence_state, updated_at
     FROM user_presence
     WHERE user_id IN (${placeholders})
   `).all(...userIds);

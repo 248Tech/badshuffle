@@ -192,15 +192,17 @@ module.exports = function createV1Router(db, opts) {
     res.json({ quote: updated });
   });
 
-  router.post('/quotes/contract/sign', (req, res) => {
+  router.post('/quotes/contract/sign', async (req, res) => {
     try {
-      const result = quoteService.signPublicContract({
+      const result = await quoteService.signPublicContract({
         db,
         uploadsDir: UPLOADS_DIR,
         token: (req.body && req.body.token) || '',
         signerName: (req.body && req.body.signer_name) || '',
         signerIp: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '',
         signerUserAgent: req.get('user-agent') || '',
+        diagnostics: req.app?.locals?.diagnostics || null,
+        requestId: req.get('x-request-id') || null,
       });
       res.json(result);
     } catch (err) {

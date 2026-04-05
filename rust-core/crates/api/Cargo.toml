@@ -1,0 +1,19 @@
+[package]
+name = "api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+config = { path = "../config" }
+db = { path = "../db" }
+inventory-engine = { path = "../inventory-engine" }
+pricing-engine = { path = "../pricing-engine" }
+serde.workspace = true
+serde_json.workspace = true
+shared-types = { path = "../shared-types" }
+telemetry = { path = "../telemetry" }
+tokio.workspace = true
+tracing.workspace = true

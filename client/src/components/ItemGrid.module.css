@@ -5,6 +5,50 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.toolbarMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.controlLabel {
+  white-space: nowrap;
+}
+
+.control select {
+  min-width: 72px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.selectionSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .search {
@@ -62,11 +106,37 @@
   .pagination { flex-direction: column; align-items: stretch; }
   .paginationControls { justify-content: center; }
   .virtualViewport { padding: 10px; }
+  .toolbar { align-items: flex-start; }
+  .toolbarMeta { align-items: flex-start; width: 100%; }
+  .controls { width: 100%; }
+  .control {
+    flex: 1 1 140px;
+    min-width: 0;
+    justify-content: space-between;
+  }
+  .control select {
+    width: 100%;
+    max-width: 120px;
+  }
+  .selectionSummary { justify-content: flex-start; }
 }
 
 @media (max-width: 480px) {
   .grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .virtualViewport { padding: 8px; }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .control {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .control select {
+    max-width: none;
+  }
 
   /* Compact card body — readable but tighter */
   .grid > * > div:last-child {
@@ -99,6 +169,44 @@
   .grid > * > div:first-child > span ~ span {
     font-size: 9px !important;
     padding: 1px 5px !important;
+  }
+
+  .singleColumnGrid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+  .singleColumnGrid > * > div:last-child {
+    padding: 10px 12px 12px !important;
+  }
+  .singleColumnGrid > * > div:last-child h3 {
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+    margin-bottom: 6px !important;
+    -webkit-line-clamp: 2 !important;
+  }
+  .singleColumnGrid > * > div:last-child p {
+    display: -webkit-box !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    margin-bottom: 10px !important;
+    -webkit-line-clamp: 3 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+  .singleColumnGrid > * > div:last-child > div {
+    gap: 8px !important;
+  }
+  .singleColumnGrid > * > div:last-child span {
+    font-size: 12px !important;
+  }
+  .singleColumnGrid > * > div:first-child > div > div button {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  .singleColumnGrid > * > div:first-child > span,
+  .singleColumnGrid > * > div:first-child > span ~ span {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
   }
 }
 

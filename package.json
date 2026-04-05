@@ -1,6 +1,6 @@
 {
   "name": "badshuffle",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "Self-hosted event rental software for quotes, inventory, client approvals, billing, messaging, files, and public catalog publishing.",
   "private": true,
   "license": "MIT",
@@ -25,10 +25,23 @@
     "public catalog"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev": "concurrently \"npm run dev --prefix server\" \"node scripts/wait-for-server.js && npm run dev --prefix client\"",
+    "dev:stack": "concurrently \"npm run dev --prefix server\" \"npm run dev:rust\" \"node scripts/wait-for-server.js && npm run dev --prefix client\"",
     "dev:docker": "docker compose -f docker-compose.dev.yml up --build",
-    "dev:host": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client -- --host\"",
+    "dev:host": "concurrently \"npm run dev --prefix server\" \"node scripts/wait-for-server.js && npm run dev --prefix client -- --host\"",
+    "dev:stack:host": "concurrently \"npm run dev --prefix server\" \"npm run dev:rust\" \"node scripts/wait-for-server.js && npm run dev --prefix client -- --host\"",
+    "dev:rust": "cargo run --manifest-path rust-core/Cargo.toml -p api",
+    "check:rust": "cargo check --manifest-path rust-core/Cargo.toml",
+    "check:rust:release": "node scripts/rust-release-guard.js",
     "create-admin": "node server/cli.js create-admin",
+    "onyx:detect": "node server/cli.js onyx-detect",
+    "onyx:install": "node server/cli.js onyx-install",
+    "onyx:start": "node server/cli.js onyx-start",
+    "onyx:stop": "node server/cli.js onyx-stop",
+    "onyx:restart": "node server/cli.js onyx-restart",
+    "rust:compare-batch": "node server/cli.js rust-compare-batch",
+    "rust:compare-quote": "node server/cli.js rust-compare-quote",
+    "rust:parity-report": "node server/cli.js rust-parity-report --limit 5 --include-items --item-limit-per-quote 5",
     "reset-password": "node server/cli.js reset-password",
     "reset-auth": "node server/cli.js reset-auth --yes",
     "wipe-database": "node server/cli.js wipe-database --yes --backup",
@@ -37,7 +50,7 @@
     "package:server": "pkg server/index.js --target node14-win-x64 --output dist/badshuffle-server.exe",
     "package:client": "pkg client/serve.js --target node14-win-x64 --output dist/badshuffle-client.exe",
     "package:updater": "pkg updater/index.js --target node14-win-x64 --output dist/badshuffle-updater.exe",
-    "package": "npm run build:client && npm run package:server && npm run package:client && npm run package:updater && node scripts/postpackage.js",
+    "package": "npm run check:rust:release && npm run build:client && npm run package:server && npm run package:client && npm run package:updater && node scripts/postpackage.js",
     "release": "npm run package && gh release create v%npm_package_version% dist/badshuffle-server.exe dist/badshuffle-client.exe dist/badshuffle-updater.exe dist/www.zip dist/badshuffle-extension.zip --title v%npm_package_version% --notes \"\""
   },
   "devDependencies": {

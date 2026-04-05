@@ -12,6 +12,8 @@
   right: 0;
   width: min(680px, 100vw);
   height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   background: var(--color-bg);
   border-left: 1px solid var(--color-border);
   box-shadow: -16px 0 40px rgba(15, 23, 42, 0.16);
@@ -51,6 +53,7 @@
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  padding-bottom: 28px;
   overscroll-behavior: contain;
 }
 
@@ -64,13 +67,656 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 14px 20px;
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-surface) 82%, var(--color-bg));
+  flex-shrink: 0;
+}
+
+.identityCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-surface) 86%, var(--color-bg));
+}
+
+.identityHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.identityEyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.identityTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.identityGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 176px;
+  gap: 16px;
+  align-items: start;
+}
+
+.identityFields {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.identityStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 4px 0 2px;
+}
+
+.identityStat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-bg) 84%, white);
+}
+
+.identityStat span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.identityStat strong {
+  font-size: 16px;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+.identityActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.identityPreview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 176px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.identityPreview img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.identityPreviewFallback {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.aiBatchBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.38);
+  backdrop-filter: blur(6px);
+  z-index: 150;
+}
+
+.aiBatchModal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(1120px, calc(100vw - 32px));
+  max-height: min(88vh, 980px);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--color-primary) 16%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 86%, var(--color-bg)), var(--color-bg));
+  border: 1px solid color-mix(in srgb, var(--color-border) 84%, transparent);
+  border-radius: 22px;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+  z-index: 151;
+  display: flex;
+  flex-direction: column;
+}
+
+.aiBatchHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 88%, var(--color-bg)), transparent);
+}
+
+.aiBatchHeaderCopy {
+  min-width: 0;
+}
+
+.aiBatchHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.aiBatchEyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.aiBatchTitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.aiBatchSubtitle {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  max-width: 58ch;
+}
+
+.aiBatchStatusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.aiBatchStatusActive {
+  background: color-mix(in srgb, var(--color-primary) 16%, white);
+  color: var(--color-primary);
+}
+
+.aiBatchStatusIdle {
+  background: color-mix(in srgb, var(--color-surface) 90%, white);
+  color: var(--color-text-muted);
+}
+
+.aiBatchBody {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 20px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.aiBatchControlsCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-bg) 82%, white);
+}
+
+.aiBatchControlsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.aiBatchControlsHint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.aiBatchControlsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.aiBatchControl,
+.aiBatchTextareaControl {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aiBatchControl span,
+.aiBatchTextareaControl span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.aiBatchControl select,
+.aiBatchTextareaControl textarea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.aiBatchControl select {
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.aiBatchTextareaControl textarea {
+  min-height: 72px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.aiBatchConfiguratorActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.aiInlineControls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.aiInlineControl {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aiInlineControl span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.aiInlineControl select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  padding: 0 10px;
+}
+
+.aiBatchSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.aiBatchMetric {
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-bg) 70%, white);
+}
+
+.aiBatchMetricLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.aiBatchBarWrap {
+  height: 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-border) 74%, transparent);
+  overflow: hidden;
+}
+
+.aiBatchBar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 64%, white));
+  transition: width 180ms ease;
+}
+
+.aiBatchProgressCard {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-bg) 80%, white);
+}
+
+.aiBatchProgressTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.aiBatchNow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.aiBatchPercent {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.aiBatchStage {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.aiBatchCurrentItem {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.aiBatchSteps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.aiBatchStep {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-bg) 82%, white);
+}
+
+.aiBatchStepDone {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, white);
+}
+
+.aiBatchColumn {
+  min-width: 0;
+}
+
+.aiBatchColumnTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 8px;
+}
+
+.aiBatchList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.aiBatchResultsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.aiBatchListItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-bg) 84%, white);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.aiBatchListItem strong {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.aiBatchItemHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.aiBatchItemTitleWrap {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.aiBatchItemMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.aiBatchMetaPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface) 84%, white);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.aiBatchRevertedPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-success, #15803d) 14%, white);
+  color: var(--color-success-strong, #166534);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.aiBatchDiff {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.aiBatchDiffBlock {
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface) 70%, white);
+}
+
+.aiBatchDiffLabel {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.aiBatchDiffBlock p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text);
+  white-space: pre-wrap;
+}
+
+.aiBatchActions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 6px;
+}
+
+.aiBatchIssuesFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.aiBatchIssuesList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aiBatchIssueItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-danger, #dc2626) 24%, var(--color-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-danger, #dc2626) 4%, white);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.aiBatchIssueItem strong {
+  color: var(--color-text);
+}
+
+.aiBatchEmpty {
+  padding: 14px 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-bg) 76%, white);
 }
 
 @media (max-width: 760px) {
+  .aiBatchModal {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+
+  .aiBatchHeader {
+    padding: 16px 16px 12px;
+    flex-direction: column;
+  }
+
+  .aiBatchBody {
+    padding: 16px;
+  }
+
+  .aiBatchSummary,
+  .aiBatchControlsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .aiBatchConfiguratorActions {
+    flex-direction: column-reverse;
+  }
+
+  .aiInlineControls {
+    grid-template-columns: 1fr;
+  }
+
+  .aiBatchHeaderActions,
+  .aiBatchProgressTop,
+  .aiBatchItemHeader {
+    width: 100%;
+  }
+
+  .aiBatchHeaderActions,
+  .aiBatchItemHeader {
+    justify-content: space-between;
+  }
+
+  .aiBatchDiff {
+    grid-template-columns: 1fr;
+  }
+
+  .identityGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .identityStats {
+    grid-template-columns: 1fr;
+  }
+
+  .identityPreview {
+    max-width: 220px;
+  }
+
   .drawer {
     width: 100vw;
+  }
+
+  .drawerHeader {
+    padding: 16px 16px 14px;
+  }
+
+  .drawerBody {
+    padding: 16px;
+    padding-bottom: 24px;
+  }
+
+  .drawerFooter {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   }
 }

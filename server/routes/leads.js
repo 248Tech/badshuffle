@@ -1,5 +1,6 @@
 const express = require('express');
 const leadService = require('../services/leadService');
+const notificationService = require('../services/notificationService');
 
 module.exports = function makeRouter(db) {
   const router = express.Router();
@@ -25,7 +26,18 @@ module.exports = function makeRouter(db) {
   // POST /api/leads
   router.post('/', (req, res) => {
     try {
-      res.status(201).json(leadService.createLead(db, req.body || {}));
+      const result = leadService.createLead(db, req.body || {});
+      notificationService.createNotification(db, {
+        type: 'lead_created',
+        title: 'Lead created',
+        body: `${result.lead?.name || result.lead?.email || 'New lead'} was created`,
+        href: '/leads',
+        entityType: 'lead',
+        entityId: result.lead?.id || null,
+        actorUserId: req.user?.sub || req.user?.id || null,
+        actorLabel: notificationService.buildActorLabel(req.user),
+      });
+      res.status(201).json(result);
     } catch (err) {
       res.status(err.statusCode || 500).json({ error: err.message });
     }

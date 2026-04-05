@@ -76,6 +76,13 @@ class DB {
     const newRaw = new this._SQL.Database(buffer);
     this._raw.close();
     this._raw = newRaw;
+    this.pragma('foreign_keys = ON');
+    applyBaseSchema(this);
+    applyMigrations(this);
+    seedRolesAndPermissions(this);
+    promoteFirstUserToAdmin(this);
+    seedDefaultSettings(this);
+    recordBootstrapVersions(this);
     this._save();
   }
 

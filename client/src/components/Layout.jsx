@@ -5,6 +5,7 @@ import { clearToken, api } from '../api';
 import s from './Layout.module.css';
 import { prefetchRoute } from '../lib/routePrefetch.js';
 import { hasPermission } from '../lib/permissions.js';
+import { NotificationBell } from './LiveNotifications.jsx';
 
 const BOT_NAV = [
   {
@@ -35,13 +36,36 @@ export default function Layout({ authUser = null }) {
   const [navVisible, setNavVisible] = useState(true);
   const mainRef = useRef(null);
   const lastScrollRef = useRef(0);
+  const lastPresencePingRef = useRef(0);
+  const PRESENCE_PING_MS = 45000;
 
   useEffect(() => {
-    api.presence.update(location.pathname).catch(() => {});
-    const id = setInterval(() => {
+    function pingPresence(force = false) {
+      const now = Date.now();
+      if (!force && now - lastPresencePingRef.current < PRESENCE_PING_MS) return;
+      lastPresencePingRef.current = now;
       api.presence.update(location.pathname).catch(() => {});
-    }, 60_000);
-    return () => clearInterval(id);
+    }
+
+    pingPresence(true);
+
+    const handleActivity = () => pingPresence(false);
+    const handleFocus = () => pingPresence(true);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') pingPresence(true);
+    };
+
+    window.addEventListener('pointerdown', handleActivity, { passive: true });
+    window.addEventListener('keydown', handleActivity, { passive: true });
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('pointerdown', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [location.pathname]);
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
@@ -80,7 +104,7 @@ export default function Layout({ authUser = null }) {
 
         {/* Top bar — tablet only (640–768px). Desktop uses sidebar; mobile uses bottom nav. */}
         <header
-          className="md:hidden shrink-0 flex items-center gap-2 bg-bg border-b border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)] min-h-[44px] px-3"
+          className="md:hidden shrink-0 flex items-center gap-2 bg-sidebar text-white border-b border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.16)] min-h-[44px] px-3"
           style={{
             paddingLeft: 'max(12px, env(safe-area-inset-left))',
             paddingRight: 'max(12px, env(safe-area-inset-right))',
@@ -89,7 +113,7 @@ export default function Layout({ authUser = null }) {
           {/* Hamburger — tablet only, hidden on mobile (640px-) which uses bottom nav */}
           <button
             type="button"
-            className="hidden sm:flex md:hidden items-center justify-center w-11 h-11 rounded bg-transparent border-none text-text-base hover:bg-border cursor-pointer text-xl transition-colors"
+            className="hidden sm:flex md:hidden items-center justify-center w-11 h-11 rounded bg-transparent border-none text-white hover:bg-white/10 cursor-pointer text-xl transition-colors"
             onClick={() => setSidebarOpen(true)}
             aria-label="Open menu"
           >
@@ -99,23 +123,24 @@ export default function Layout({ authUser = null }) {
           <div className="flex-1" />
 
           <nav className="flex items-center gap-1">
+            <NotificationBell compact />
             <Link
               to="/extension"
-              className="text-sm text-text-muted hover:text-primary hover:bg-border inline-flex items-center px-3 min-h-[44px] rounded transition-colors no-underline"
+              className="text-sm text-white/72 hover:text-white hover:bg-white/10 inline-flex items-center px-3 min-h-[44px] rounded transition-colors no-underline"
               onMouseEnter={() => prefetchRoute('/extension')}
               onFocus={() => prefetchRoute('/extension')}
             >Help</Link>
             {hasPermission(permissions, 'settings', 'read') && (
               <Link
                 to="/settings"
-                className="text-sm text-text-muted hover:text-primary hover:bg-border inline-flex items-center px-3 min-h-[44px] rounded transition-colors no-underline"
+                className="text-sm text-white/72 hover:text-white hover:bg-white/10 inline-flex items-center px-3 min-h-[44px] rounded transition-colors no-underline"
                 onMouseEnter={() => prefetchRoute('/settings')}
                 onFocus={() => prefetchRoute('/settings')}
               >Settings</Link>
             )}
             <button
               type="button"
-              className="text-sm text-text-muted hover:text-primary hover:bg-border inline-flex items-center px-3 min-h-[44px] rounded bg-transparent border-none cursor-pointer transition-colors"
+              className="text-sm text-white/72 hover:text-white hover:bg-white/10 inline-flex items-center px-3 min-h-[44px] rounded bg-transparent border-none cursor-pointer transition-colors"
               onClick={handleLogout}
             >Logout</button>
           </nav>
@@ -127,6 +152,9 @@ export default function Layout({ authUser = null }) {
             <Outlet context={{ authUser, role, permissions }} />
           </div>
         </main>
+        <div className="hidden md:block fixed top-4 right-4 z-[10010]">
+          <NotificationBell />
+        </div>
       </div>
 
       {/* Mobile sidebar overlay */}
@@ -143,7 +171,7 @@ export default function Layout({ authUser = null }) {
 
       {/* Bottom tab bar — mobile only (<= 640px) */}
       <nav
-        className={`flex sm:hidden fixed bottom-0 left-0 right-0 z-[900] bg-bg border-t border-border shadow-[0_-2px_8px_rgba(0,0,0,0.08)] transition-transform duration-300 ${navVisible ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`flex sm:hidden fixed bottom-0 left-0 right-0 z-[900] bg-sidebar text-white border-t border-white/10 shadow-[0_-2px_8px_rgba(0,0,0,0.2)] transition-transform duration-300 ${navVisible ? 'translate-y-0' : 'translate-y-full'}`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         aria-label="Main navigation"
       >
@@ -153,7 +181,7 @@ export default function Layout({ authUser = null }) {
             to={to}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center gap-[3px] py-2 min-h-[56px] bg-transparent border-none cursor-pointer no-underline text-[10px] font-medium tracking-[0.02em] transition-colors [-webkit-tap-highlight-color:transparent] ${
-                isActive ? 'text-primary' : 'text-text-muted hover:text-primary'
+                isActive ? 'text-white' : 'text-white/60 hover:text-white'
               }`
             }
             onMouseEnter={() => prefetchRoute(to)}
@@ -165,7 +193,7 @@ export default function Layout({ authUser = null }) {
         ))}
         <button
           type="button"
-          className="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 min-h-[56px] bg-transparent border-none cursor-pointer text-[10px] font-medium tracking-[0.02em] text-text-muted hover:text-primary transition-colors"
+          className="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 min-h-[56px] bg-transparent border-none cursor-pointer text-[10px] font-medium tracking-[0.02em] text-white/60 hover:text-white transition-colors"
           onClick={() => setSidebarOpen(true)}
           aria-label="Open full menu"
         >

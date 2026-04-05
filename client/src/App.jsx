@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import { ToastProvider } from './components/Toast.jsx';
+import { LiveNotificationsProvider } from './components/LiveNotifications.jsx';
 import { api, getToken, setToken, clearToken } from './api';
 import { warmCoreRoutes } from './lib/routePrefetch.js';
 import { hasPermission } from './lib/permissions.js';
@@ -20,21 +21,31 @@ const ItemDetailPage = lazy(() => import('./pages/ItemDetailPage.jsx'));
 const ImportPage = lazy(() => import('./pages/ImportPage.jsx'));
 const QuotePage = lazy(() => import('./pages/QuotePage.jsx'));
 const QuoteDetailPage = lazy(() => import('./pages/QuoteDetailPage.jsx'));
+const QuotePullSheetExportPage = lazy(() => import('./pages/QuotePullSheetExportPage.jsx'));
 const BillingPage = lazy(() => import('./pages/BillingPage.jsx'));
 const StatsPage = lazy(() => import('./pages/StatsPage.jsx'));
 const ExtensionPage = lazy(() => import('./pages/ExtensionPage.jsx'));
 const LeadsPage = lazy(() => import('./pages/LeadsPage.jsx'));
+const ClientsPage = lazy(() => import('./pages/ClientsPage.jsx'));
+const VenuesPage = lazy(() => import('./pages/VenuesPage.jsx'));
 const FilesPage = lazy(() => import('./pages/FilesPage.jsx'));
 const MessagesPage = lazy(() => import('./pages/MessagesPage.jsx'));
+const TeamChatPage = lazy(() => import('./pages/TeamChatPage.jsx'));
 const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
 const TemplatesPage = lazy(() => import('./pages/TemplatesPage.jsx'));
 const VendorsPage = lazy(() => import('./pages/VendorsPage.jsx'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
 const DirectoryPage = lazy(() => import('./pages/DirectoryPage.jsx'));
 const TeamPage = lazy(() => import('./pages/TeamPage.jsx'));
+const TeamGroupsPage = lazy(() => import('./pages/TeamGroupsPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
 const InventorySettingsPage = lazy(() => import('./pages/InventorySettingsPage.jsx'));
+const SetAsidePage = lazy(() => import('./pages/SetAsidePage.jsx'));
 const MessageSettingsPage = lazy(() => import('./pages/MessageSettingsPage.jsx'));
+const NotificationSettingsPage = lazy(() => import('./pages/NotificationSettingsPage.jsx'));
+const AppearanceSettingsPage = lazy(() => import('./pages/AppearanceSettingsPage.jsx'));
+const HelpPage = lazy(() => import('./pages/HelpPage.jsx'));
+const ScanRedirectPage = lazy(() => import('./pages/ScanRedirectPage.jsx'));
 // Public pages — lazy (most users never visit these from inside the app)
 const PublicQuotePage = lazy(() => import('./pages/PublicQuotePage.jsx'));
 const PublicCatalogPage = lazy(() => import('./pages/PublicCatalogPage.jsx'));
@@ -49,7 +60,10 @@ function PageSpinner() {
 }
 
 function ProtectedRoute({ children }) {
-  if (!getToken()) return <Navigate to="/login" replace />;
+  if (!getToken()) {
+    const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
+  }
   return children;
 }
 
@@ -131,7 +145,8 @@ function AuthGate({ children, setAuthUser }) {
         setState('unauthed');
         if (location.pathname !== '/login' && !hasRedirectedToLogin.current) {
           hasRedirectedToLogin.current = true;
-          navigate('/login', { replace: true });
+          const next = `${location.pathname}${location.search}${location.hash}`;
+          navigate(`/login?next=${encodeURIComponent(next)}`, { replace: true });
         }
       }
     };
@@ -168,8 +183,9 @@ export default function App() {
   return (
     <ToastProvider>
       <BrowserRouter>
-        <Suspense fallback={<PageSpinner />}>
-          <Routes>
+        <LiveNotificationsProvider>
+          <Suspense fallback={<PageSpinner />}>
+            <Routes>
             {/* Public routes */}
             <Route path="/quote/public/:token" element={<PublicQuotePage />} />
             <Route path="/catalog" element={<PublicCatalogPage />} />
@@ -198,32 +214,43 @@ export default function App() {
                       <Route path="dashboard" element={<PermissionRoute moduleKey="dashboard"><DashboardPage /></PermissionRoute>} />
                       <Route path="maps" element={<PermissionRoute moduleKey="maps"><MapsPage /></PermissionRoute>} />
                       <Route path="inventory" element={<PermissionRoute moduleKey="inventory"><InventoryPage /></PermissionRoute>} />
+                      <Route path="inventory/set-aside" element={<PermissionRoute moduleKey="inventory"><SetAsidePage /></PermissionRoute>} />
                       <Route path="inventory/:id" element={<PermissionRoute moduleKey="inventory"><ItemDetailPage /></PermissionRoute>} />
                       <Route path="import" element={<PermissionRoute moduleKey="settings" minimum="modify"><ImportPage /></PermissionRoute>} />
                       <Route path="quotes" element={<PermissionRoute moduleKey="projects"><QuotePage /></PermissionRoute>} />
+                      <Route path="quotes/pull-sheets/export" element={<PermissionRoute moduleKey="projects"><QuotePullSheetExportPage /></PermissionRoute>} />
                       <Route path="quotes/:id" element={<PermissionRoute moduleKey="projects"><QuoteDetailPage /></PermissionRoute>} />
                       <Route path="billing" element={<PermissionRoute moduleKey="billing"><BillingPage /></PermissionRoute>} />
                       <Route path="stats" element={<PermissionRoute moduleKey="dashboard"><StatsPage /></PermissionRoute>} />
                       <Route path="extension" element={<PermissionRoute moduleKey="settings"><ExtensionPage /></PermissionRoute>} />
                       <Route path="leads" element={<PermissionRoute moduleKey="directory"><LeadsPage /></PermissionRoute>} />
+                      <Route path="clients" element={<PermissionRoute moduleKey="directory"><ClientsPage /></PermissionRoute>} />
+                      <Route path="venues" element={<PermissionRoute moduleKey="directory"><VenuesPage /></PermissionRoute>} />
                       <Route path="files" element={<PermissionRoute moduleKey="files"><FilesPage /></PermissionRoute>} />
                       <Route path="messages" element={<PermissionRoute moduleKey="messages"><MessagesPage /></PermissionRoute>} />
+                      <Route path="team-chat" element={<PermissionRoute moduleKey="messages"><TeamChatPage /></PermissionRoute>} />
                       <Route path="admin" element={<PermissionRoute moduleKey="admin"><AdminPage /></PermissionRoute>} />
                       <Route path="templates" element={<PermissionRoute moduleKey="messages" minimum="modify"><TemplatesPage /></PermissionRoute>} />
                       <Route path="vendors" element={<PermissionRoute moduleKey="directory"><VendorsPage /></PermissionRoute>} />
                       <Route path="settings" element={<PermissionRoute moduleKey="settings"><SettingsPage /></PermissionRoute>} />
                       <Route path="directory" element={<PermissionRoute moduleKey="directory"><DirectoryPage /></PermissionRoute>} />
                       <Route path="team" element={<PermissionRoute moduleKey="directory"><TeamPage /></PermissionRoute>} />
+                      <Route path="team/groups" element={<PermissionRoute moduleKey="directory"><TeamGroupsPage /></PermissionRoute>} />
                       <Route path="profile" element={<ProfilePage />} />
                       <Route path="inventory-settings" element={<PermissionRoute moduleKey="inventory" minimum="modify"><InventorySettingsPage /></PermissionRoute>} />
                       <Route path="message-settings" element={<PermissionRoute moduleKey="settings" minimum="modify"><MessageSettingsPage /></PermissionRoute>} />
+                      <Route path="settings/appearance" element={<PermissionRoute moduleKey="settings"><AppearanceSettingsPage /></PermissionRoute>} />
+                      <Route path="settings/notifications" element={<PermissionRoute moduleKey="settings" minimum="modify"><NotificationSettingsPage /></PermissionRoute>} />
+                      <Route path="help" element={<PermissionRoute moduleKey="settings"><HelpPage /></PermissionRoute>} />
+                      <Route path="scan/:code" element={<ScanRedirectPage />} />
                     </Route>
                   </Routes>
                 </AuthGate>
               }
             />
-          </Routes>
-        </Suspense>
+            </Routes>
+          </Suspense>
+        </LiveNotificationsProvider>
       </BrowserRouter>
     </ToastProvider>
   );

@@ -17,6 +17,7 @@ export default function ItemDetailPage() {
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [imgError, setImgError] = useState(false);
+  const [barcodeUrl, setBarcodeUrl] = useState('');
   const [, setImgServeEpoch] = useState(0);
 
   const load = useCallback(() => {
@@ -51,6 +52,33 @@ export default function ItemDetailPage() {
     if (!p || !/^\d+$/.test(String(p).trim())) return;
     api.prefetchFileServeUrls([String(p).trim()]).then(() => setImgServeEpoch((e) => e + 1)).catch(() => {});
   }, [item?.photo_url]);
+
+  useEffect(() => {
+    if (!item?.scan_code) {
+      setBarcodeUrl('');
+      return undefined;
+    }
+    let cancelled = false;
+    const itemScanHref = `${window.location.origin}/scan/${encodeURIComponent(item.scan_code)}`;
+    api.getBarcodeSvgData({
+      format: 'qrcode',
+      value: itemScanHref,
+      label: item.scan_code,
+    }).then((data) => {
+      if (cancelled) return;
+      const svg = String(data?.svg || '');
+      if (!svg) {
+        setBarcodeUrl('');
+        return;
+      }
+      setBarcodeUrl(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+    }).catch(() => {
+      if (!cancelled) setBarcodeUrl('');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [item?.scan_code]);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -111,15 +139,21 @@ export default function ItemDetailPage() {
   );
   if (!item) return null;
 
+  const itemScanHref = item.scan_code ? `${window.location.origin}/scan/${encodeURIComponent(item.scan_code)}` : '';
+  const itemBarcodeUrl = barcodeUrl;
+
   return (
     <div className={styles.page}>
       <div className={styles.topBar}>
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/inventory')}>
           <span aria-hidden="true">←</span> Inventory
         </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(v => !v)}>
-          {editing ? 'Cancel' : '✏️ Edit'}
-        </button>
+        <div className="flex gap-2">
+          <Link to={`/inventory/set-aside?item_id=${item.id}`} className="btn btn-ghost btn-sm">Set Aside</Link>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(v => !v)}>
+            {editing ? 'Cancel' : '✏️ Edit'}
+          </button>
+        </div>
       </div>
 
       <div className={styles.layout}>
@@ -224,6 +258,12 @@ export default function ItemDetailPage() {
                     <span className={styles.metaValue}>{item.quantity_going_out}</span>
                   </div>
                 )}
+                {item.quantity_set_aside > 0 && (
+                  <div className={styles.metaItem}>
+                    <span className={styles.metaLabel}>Set Aside</span>
+                    <span className={styles.metaValue}>{item.quantity_set_aside}</span>
+                  </div>
+                )}
                 <div className={styles.metaItem}>
                   <span className={styles.metaLabel}>Source</span>
                   <span className={`badge badge-${item.source}`}>{item.source}</span>
@@ -249,6 +289,36 @@ export default function ItemDetailPage() {
                 <div className={styles.desc}>
                   <h3 className={styles.sectionTitle}>Description</h3>
                   <p>{item.description}</p>
+                </div>
+              )}
+              {item.scan_code && (
+                <div className={styles.barcodeCard}>
+                  <div>
+                    <h3 className={styles.sectionTitle}>Barcode</h3>
+                    <div className={styles.barcodeCode}>{item.scan_code}</div>
+                    <div className={styles.barcodeActions}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(itemScanHref);
+                            toast.success('Product scan link copied');
+                          } catch {
+                            toast.error('Unable to copy scan link');
+                          }
+                        }}
+                      >
+                        Copy link
+                      </button>
+                      <a className="btn btn-ghost btn-sm" href={itemBarcodeUrl || '#'} target="_blank" rel="noreferrer">
+                        Open QR
+                      </a>
+                    </div>
+                  </div>
+                  <div className={styles.barcodePreview}>
+                    {itemBarcodeUrl ? <img src={itemBarcodeUrl} alt={`QR code for ${item.title}`} /> : <div className={styles.barcodeFallback}>QR unavailable</div>}
+                  </div>
                 </div>
               )}
             </>

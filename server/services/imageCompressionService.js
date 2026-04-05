@@ -18,6 +18,16 @@ const IMAGE_VARIANTS = [
 ];
 
 const IMAGE_MAX_INPUT_PIXELS = 80_000_000;
+const MIN_COMPRESSION_BYTES = 200 * 1024;
+const WEBP_EFFORT = 4;
+const AVIF_EFFORT = 4;
+
+const OUTPUT_FORMATS = {
+  webp: { extension: 'webp', mimeType: 'image/webp' },
+  avif: { extension: 'avif', mimeType: 'image/avif' },
+  jpeg: { extension: 'jpg', mimeType: 'image/jpeg' },
+  png: { extension: 'png', mimeType: 'image/png' },
+};
 
 function isImageMime(mime) {
   return String(mime || '').startsWith('image/');
@@ -53,33 +63,45 @@ async function getImageMetadata(filePath) {
   };
 }
 
-async function buildWebpVariant(filePath, width, quality) {
-  const pipeline = sharp(filePath, { limitInputPixels: IMAGE_MAX_INPUT_PIXELS, animated: false })
-    .rotate()
-    .resize({ width, withoutEnlargement: true, fit: 'inside' })
-    .webp({ quality, effort: 6 })
-    .withMetadata({ icc: 'srgb' });
-  const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
-  return {
-    buffer: data,
-    format: 'webp',
-    mimeType: 'image/webp',
-    width: info.width || null,
-    height: info.height || null,
-  };
+function normalizeOutputFormat(format) {
+  const normalized = String(format || '').trim().toLowerCase();
+  if (normalized === 'jpg') return 'jpeg';
+  if (OUTPUT_FORMATS[normalized]) return normalized;
+  return 'png';
 }
 
-async function buildAvifVariant(filePath, width, quality) {
+function resolvePrimaryFormat(sourceFormat, autoWebpEnabled) {
+  if (autoWebpEnabled) return 'webp';
+  const normalized = normalizeOutputFormat(sourceFormat);
+  if (normalized === 'avif' || normalized === 'webp' || normalized === 'jpeg' || normalized === 'png') {
+    return normalized;
+  }
+  return 'png';
+}
+
+async function buildVariant(filePath, width, format, quality) {
+  const normalizedFormat = normalizeOutputFormat(format);
   const pipeline = sharp(filePath, { limitInputPixels: IMAGE_MAX_INPUT_PIXELS, animated: false })
     .rotate()
-    .resize({ width, withoutEnlargement: true, fit: 'inside' })
-    .avif({ quality: Math.max(35, Math.min(80, quality - 6)), effort: 6 })
+    .resize({ width, withoutEnlargement: true, fit: 'inside', fastShrinkOnLoad: true })
     .withMetadata({ icc: 'srgb' });
+
+  if (normalizedFormat === 'avif') {
+    pipeline.avif({ quality: Math.max(35, Math.min(80, quality - 6)), effort: AVIF_EFFORT });
+  } else if (normalizedFormat === 'webp') {
+    pipeline.webp({ quality, effort: WEBP_EFFORT });
+  } else if (normalizedFormat === 'jpeg') {
+    pipeline.jpeg({ quality, mozjpeg: true, progressive: true });
+  } else {
+    pipeline.png({ compressionLevel: 7, palette: true });
+  }
+
   const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
   return {
     buffer: data,
-    format: 'avif',
-    mimeType: 'image/avif',
+    format: normalizedFormat,
+    mimeType: OUTPUT_FORMATS[normalizedFormat].mimeType,
+    extension: OUTPUT_FORMATS[normalizedFormat].extension,
     width: info.width || null,
     height: info.height || null,
   };
@@ -94,41 +116,61 @@ function writeVariantBuffer(uploadsDir, buffer, extension) {
 
 async function processImageUpload(filePath, uploadsDir, options = {}) {
   const quality = sanitizeQuality(options.webpQuality, 68);
+  const compressionEnabled = flagEnabled(options.compressionEnabled, true);
+  const autoWebpEnabled = flagEnabled(options.autoWebpEnabled, true);
   const avifEnabled = flagEnabled(options.avifEnabled, false);
+  if (!compressionEnabled) {
+    throw new Error('Image compression is disabled');
+  }
   const metadata = await getImageMetadata(filePath);
+  const primaryFormat = resolvePrimaryFormat(metadata.format, autoWebpEnabled);
   const baseName = buildVariantFilename();
   const variants = [];
   const createdNames = [];
 
   try {
-    for (const variant of IMAGE_VARIANTS) {
-      const webp = await buildWebpVariant(filePath, variant.width, quality);
-      const webpStored = `${baseName}-${variant.key}.webp`;
-      fs.writeFileSync(path.join(uploadsDir, webpStored), webp.buffer);
-      createdNames.push(webpStored);
+    const primaryVariants = await Promise.all(
+      IMAGE_VARIANTS.map(async (variant) => {
+        const output = await buildVariant(filePath, variant.width, primaryFormat, quality);
+        return { variant, output };
+      })
+    );
+
+    for (const { variant, output } of primaryVariants) {
+      const storedName = `${baseName}-${variant.key}.${output.extension}`;
+      fs.writeFileSync(path.join(uploadsDir, storedName), output.buffer);
+      createdNames.push(storedName);
       variants.push({
         variantKey: variant.key,
-        format: 'webp',
-        mimeType: webp.mimeType,
-        storedName: webpStored,
-        size: webp.buffer.length,
-        width: webp.width,
-        height: webp.height,
+        format: output.format,
+        mimeType: output.mimeType,
+        storedName,
+        size: output.buffer.length,
+        width: output.width,
+        height: output.height,
       });
+    }
 
-      if (avifEnabled) {
-        const avif = await buildAvifVariant(filePath, variant.width, quality);
-        const avifStored = `${baseName}-${variant.key}.avif`;
-        fs.writeFileSync(path.join(uploadsDir, avifStored), avif.buffer);
-        createdNames.push(avifStored);
+    if (avifEnabled) {
+      const avifVariants = await Promise.all(
+        IMAGE_VARIANTS.map(async (variant) => {
+          const output = await buildVariant(filePath, variant.width, 'avif', quality);
+          return { variant, output };
+        })
+      );
+
+      for (const { variant, output } of avifVariants) {
+        const storedName = `${baseName}-${variant.key}.${output.extension}`;
+        fs.writeFileSync(path.join(uploadsDir, storedName), output.buffer);
+        createdNames.push(storedName);
         variants.push({
           variantKey: variant.key,
-          format: 'avif',
-          mimeType: avif.mimeType,
-          storedName: avifStored,
-          size: avif.buffer.length,
-          width: avif.width,
-          height: avif.height,
+          format: output.format,
+          mimeType: output.mimeType,
+          storedName,
+          size: output.buffer.length,
+          width: output.width,
+          height: output.height,
         });
       }
     }
@@ -137,7 +179,9 @@ async function processImageUpload(filePath, uploadsDir, options = {}) {
     throw error;
   }
 
-  const uiVariant = variants.find((variant) => variant.variantKey === 'ui' && variant.format === 'webp');
+  const uiVariant =
+    variants.find((variant) => variant.variantKey === 'ui' && variant.format === primaryFormat) ||
+    variants.find((variant) => variant.variantKey === 'ui' && variant.format === 'webp');
   return {
     metadata,
     variants,
@@ -225,18 +269,24 @@ async function buildPreviewBuffer({ quality = 68, format = 'webp', original = fa
       mimeType: 'image/png',
     };
   }
-  const pipeline = sharp(source, { limitInputPixels: IMAGE_MAX_INPUT_PIXELS }).resize({ width: 960, withoutEnlargement: true, fit: 'inside' });
-  if (format === 'avif') {
-    const buffer = await pipeline.avif({ quality: Math.max(35, Math.min(80, sanitizeQuality(quality) - 6)), effort: 6 }).toBuffer();
+  const normalizedFormat = normalizeOutputFormat(format);
+  const pipeline = sharp(source, { limitInputPixels: IMAGE_MAX_INPUT_PIXELS }).resize({ width: 960, withoutEnlargement: true, fit: 'inside', fastShrinkOnLoad: true });
+  if (normalizedFormat === 'avif') {
+    const buffer = await pipeline.avif({ quality: Math.max(35, Math.min(80, sanitizeQuality(quality) - 6)), effort: AVIF_EFFORT }).toBuffer();
     return { buffer, mimeType: 'image/avif' };
   }
-  const buffer = await pipeline.webp({ quality: sanitizeQuality(quality), effort: 6 }).toBuffer();
-  return { buffer, mimeType: 'image/webp' };
+  if (normalizedFormat === 'webp') {
+    const buffer = await pipeline.webp({ quality: sanitizeQuality(quality), effort: WEBP_EFFORT }).toBuffer();
+    return { buffer, mimeType: 'image/webp' };
+  }
+  const buffer = await pipeline.png({ compressionLevel: 7, palette: true }).toBuffer();
+  return { buffer, mimeType: 'image/png' };
 }
 
 module.exports = {
   IMAGE_SIGNATURES,
   IMAGE_VARIANTS,
+  MIN_COMPRESSION_BYTES,
   isImageMime,
   sanitizeQuality,
   flagEnabled,

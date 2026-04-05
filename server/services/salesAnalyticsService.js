@@ -78,7 +78,7 @@ function listAvailableStaff(db) {
   }));
 }
 
-function buildAnalytics(db, query = {}) {
+async function buildAnalytics(db, query = {}, options = {}) {
   const today = new Date();
   const startDate = parseDateOnly(query.start_date) || startOfYear(today);
   const endDate = parseDateOnly(query.end_date) || endOfYear(today);
@@ -111,7 +111,11 @@ function buildAnalytics(db, query = {}) {
     const row = db.prepare("SELECT value FROM settings WHERE key = 'tax_rate'").get();
     return row ? Number.parseFloat(row.value || '0') || 0 : 0;
   })();
-  const summarizedQuotes = quoteService.summarizeQuotesForList(db, quotes, defaultTaxRate);
+  const summarizedQuotes = await quoteService.summarizeQuotesForList(db, quotes, defaultTaxRate, {
+    diagnostics: options.diagnostics,
+    requestId: options.requestId,
+    route: 'sales-analytics',
+  });
   const staffById = new Map(availableStaff.map((staff) => [staff.id, staff]));
 
   const entries = summarizedQuotes

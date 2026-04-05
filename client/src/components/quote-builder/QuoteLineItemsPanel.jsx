@@ -86,6 +86,13 @@ function AvailableCheckIcon({ className, title }) {
   );
 }
 
+function ConflictSummaryIcon({ hasConflicts, className }) {
+  if (hasConflicts) {
+    return <ConflictStopSignIcon className={className} title="Inventory conflicts detected" />;
+  }
+  return <AvailableCheckIcon className={className} title="No inventory conflicts detected" />;
+}
+
 function PencilIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -644,9 +651,26 @@ export default function QuoteLineItemsPanel({ quoteId, items = [], availability 
     }
   };
 
+  const conflictCount = (orderedItems || []).reduce((count, item) => {
+    const itemId = item.id ?? item.item_id;
+    const avail = itemId != null ? availability[itemId] : null;
+    if (avail && (avail.status === 'reserved' || avail.status === 'potential')) return count + 1;
+    return count;
+  }, 0);
+  const hasConflicts = conflictCount > 0;
+  const conflictSummary = hasConflicts
+    ? `${conflictCount} Conflict${conflictCount !== 1 ? 's' : ''} Detected`
+    : 'No Inventory Conflicts Detected';
+
   return (
     <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>{title}{orderedItems?.length > 0 ? ` (${orderedItems.length})` : ''}</h3>
+      <div className={styles.sectionTitleRow}>
+        <h3 className={styles.sectionTitle}>{title}{orderedItems?.length > 0 ? ` (${orderedItems.length})` : ''}</h3>
+        <div className={`${styles.conflictSummary} ${hasConflicts ? styles.conflictSummaryDanger : styles.conflictSummarySafe}`}>
+          <ConflictSummaryIcon hasConflicts={hasConflicts} className={styles.conflictSummaryIcon} />
+          <span>{conflictSummary}</span>
+        </div>
+      </div>
       {(!orderedItems || orderedItems.length === 0) && <p className={styles.empty}>No items yet. Add from inventory below.</p>}
       <div className={styles.quoteList}>
         {(orderedItems || []).map((item) => {

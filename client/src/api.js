@@ -34,6 +34,7 @@ function getCachedServePath(id) {
 function clearToken() {
   localStorage.removeItem('bs_token');
   fileServePathCache.clear();
+  cachedSettings = null;
 }
 function isNumericId(value) { return /^\d+$/.test(String(value || '').trim()); }
 let cachedSettings = null;
@@ -241,12 +242,34 @@ async function publicRequest(path, options = {}) {
   return promise;
 }
 
+async function fetchAsset(path, options = {}) {
+  const token = getToken();
+  const resp = await fetch(`${BASE}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}`, ...(options.headers || {}) } : (options.headers || {}),
+    ...options,
+  });
+  if (resp.status === 401) {
+    clearToken();
+    throw new Error('Unauthorized');
+  }
+  if (!resp.ok) {
+    const data = await resp.json().catch(() => ({}));
+    throw new Error(data.error || `HTTP ${resp.status}`);
+  }
+  return resp;
+}
+
 /**
  * Batch-fetch signed /api/files/:id/serve?sig=&exp= URLs (requires login).
  * Call when loading grids (inventory, files, quote) so img/src and hrefs work without JWT in query strings.
  */
 async function prefetchFileServeUrls(ids) {
-  const list = [...new Set(ids.map((x) => String(x).trim()).filter(isNumericId))].slice(0, 200);
+  const list = [...new Set(
+    ids
+      .map((x) => String(x).trim())
+      .filter(isNumericId)
+      .filter((id) => !getCachedServePath(id))
+  )].slice(0, 200);
   if (!list.length || !getToken()) return;
   try {
     const data = await request('/files/serve-links', { method: 'POST', body: { ids: list } });
@@ -266,7 +289,7 @@ export const api = {
   auth: {
     status: () => request('/auth/status'),
     captchaConfig: () => publicRequest('/auth/captcha-config'),
-    me: () => request('/auth/me'),
+    me: () => request('/auth/me', { dedupeKey: 'auth:me' }),
     updateMe: async (body) => {
       const data = await request('/auth/me', { method: 'PUT', body });
       if (data && data.token) setToken(data.token);
@@ -284,11 +307,35 @@ export const api = {
   // Presence (who's online, current page)
   presence: {
     update: (path) => request('/presence', { method: 'PUT', body: { path } }),
-    list: () => request('/presence'),
+    list: () => request('/presence', { dedupeKey: 'presence:list' }),
   },
 
   team: {
     overview: () => request('/team'),
+    groups: () => request('/team/groups'),
+    createGroup: (body) => request('/team/groups', { method: 'POST', body }),
+    updateGroupMembers: (id, body) => request(`/team/groups/${id}/members`, { method: 'PUT', body }),
+    deleteGroupMember: (groupId, userId) => request(`/team/groups/${groupId}/members/${userId}`, { method: 'DELETE' }),
+    deleteGroup: (id) => request(`/team/groups/${id}`, { method: 'DELETE' }),
+  },
+
+  notificationSettings: {
+    list: () => request('/notification-settings'),
+    update: (body) => request('/notification-settings', { method: 'PUT', body }),
+  },
+
+  notifications: {
+    list: (params = {}) => {
+      const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''));
+      return request(`/notifications?${qs}`);
+    },
+    unreadCount: () => request('/notifications/unread-count', { dedupeKey: 'notifications:unread' }),
+    feed: (afterId, limit = 20) => request(`/notifications/feed?after_id=${encodeURIComponent(afterId || 0)}&limit=${encodeURIComponent(limit)}`),
+    markPresented: (ids) => request('/notifications/presented', { method: 'POST', body: { ids } }),
+    markRead: (id) => request(`/notifications/${id}/read`, { method: 'PUT' }),
+    dismiss: (id) => request(`/notifications/${id}/dismiss`, { method: 'PUT' }),
+    dismissByType: (type) => request(`/notifications/dismiss-by-type/${encodeURIComponent(type)}`, { method: 'PUT' }),
+    markAllRead: () => request('/notifications/read-all', { method: 'PUT' }),
   },
 
   // Admin
@@ -305,6 +352,52 @@ export const api = {
     updateRolePermissions: (key, body) => request(`/admin/roles/${key}/permissions`, { method: 'PUT', body }),
     getSystemSettings:  ()           => request('/admin/system'),
     updateSystemSettings: (body)     => request('/admin/system', { method: 'PUT', body }),
+    getEncryptedSettingsDiagnostics: () => request('/admin/diagnostics/encrypted-settings'),
+    listQuotePatternMemories: (params = {}) => {
+      const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''));
+      return request(`/admin/memory/quote-patterns${qs.toString() ? `?${qs.toString()}` : ''}`);
+    },
+    getSimilarQuotePatterns: (quoteId, params = {}) => {
+      const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''));
+      return request(`/admin/memory/quote-patterns/${quoteId}/similar${qs.toString() ? `?${qs.toString()}` : ''}`);
+    },
+    getRustEngineDiagnostics: () => request('/admin/diagnostics/rust-engine'),
+    startRustEngine: () => request('/admin/diagnostics/rust-engine/start', { method: 'POST' }),
+    stopRustEngine: () => request('/admin/diagnostics/rust-engine/stop', { method: 'POST' }),
+    restartRustEngine: () => request('/admin/diagnostics/rust-engine/restart', { method: 'POST' }),
+    getOnyxDiagnostics: () => request('/admin/diagnostics/onyx'),
+    detectOnyx: () => request('/admin/diagnostics/onyx/detect', { method: 'POST' }),
+    installOnyx: () => request('/admin/diagnostics/onyx/install', { method: 'POST' }),
+    startOnyx: () => request('/admin/diagnostics/onyx/start', { method: 'POST' }),
+    stopOnyx: () => request('/admin/diagnostics/onyx/stop', { method: 'POST' }),
+    restartOnyx: () => request('/admin/diagnostics/onyx/restart', { method: 'POST' }),
+    getLocalModelDiagnostics: () => request('/admin/diagnostics/local-models'),
+    detectLocalModels: () => request('/admin/diagnostics/local-models/detect', { method: 'POST' }),
+    installLocalModelRuntime: () => request('/admin/diagnostics/local-models/install', { method: 'POST' }),
+    reinstallLocalModelRuntime: () => request('/admin/diagnostics/local-models/reinstall', { method: 'POST' }),
+    startLocalModelRuntime: () => request('/admin/diagnostics/local-models/start', { method: 'POST' }),
+    stopLocalModelRuntime: () => request('/admin/diagnostics/local-models/stop', { method: 'POST' }),
+    restartLocalModelRuntime: () => request('/admin/diagnostics/local-models/restart', { method: 'POST' }),
+    pullLocalModel: (model) => request('/admin/diagnostics/local-models/pull', { method: 'POST', body: { model } }),
+    deleteLocalModel: (model) => request('/admin/diagnostics/local-models/delete', { method: 'POST', body: { model } }),
+    getRustReleaseChecks: () => request('/admin/diagnostics/rust-engine/release-checks'),
+    runRustParityReport: (body = {}) => request('/admin/diagnostics/rust-engine/parity-report', { method: 'POST', body }),
+    compareRustEngineQuote: (quoteId, params = {}) => {
+      const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''));
+      return request(`/admin/diagnostics/rust-engine/compare/${quoteId}${qs.toString() ? `?${qs.toString()}` : ''}`);
+    },
+    compareRustEnginePricing: (quoteId, params = {}) => {
+      const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''));
+      return request(`/admin/diagnostics/rust-engine/pricing/${quoteId}${qs.toString() ? `?${qs.toString()}` : ''}`);
+    },
+    compareRustEnginePricingBatch: (params = {}) => {
+      const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''));
+      return request(`/admin/diagnostics/rust-engine/pricing${qs.toString() ? `?${qs.toString()}` : ''}`);
+    },
+    compareRustEngineBatch: (params = {}) => {
+      const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''));
+      return request(`/admin/diagnostics/rust-engine/compare${qs.toString() ? `?${qs.toString()}` : ''}`);
+    },
     exportDb: () => {
       const token = getToken();
       return fetch(`${BASE}/admin/db/export`, { headers: { Authorization: `Bearer ${token}` } })
@@ -328,9 +421,41 @@ export const api = {
   createItem: (body) => request('/items', { method: 'POST', body }),
   upsertItem: (body) => request('/items/upsert', { method: 'POST', body }),
   bulkUpsertItems: (items) => request('/items/bulk-upsert', { method: 'POST', body: { items } }),
+  generateItemDescriptionPreview: (body) => request('/items/generate-description-preview', { method: 'POST', body }),
   updateItem: (id, body) => request(`/items/${id}`, { method: 'PUT', body }),
   deleteItem: (id) => request(`/items/${id}`, { method: 'DELETE' }),
-  getCategories: () => request('/items/categories'),
+  barcodeSvgUrl: ({ format = 'qrcode', value, label = '' } = {}) => {
+    const qs = new URLSearchParams();
+    qs.set('format', String(format || 'qrcode'));
+    qs.set('value', String(value || ''));
+    if (label) qs.set('label', String(label));
+    return `${BASE}/barcodes/render?${qs.toString()}`;
+  },
+  getBarcodeSvgBlob: async ({ format = 'qrcode', value, label = '' } = {}) => {
+    const qs = new URLSearchParams();
+    qs.set('format', String(format || 'qrcode'));
+    qs.set('value', String(value || ''));
+    if (label) qs.set('label', String(label));
+    const resp = await fetchAsset(`/barcodes/render?${qs.toString()}`);
+    return resp.blob();
+  },
+  getBarcodeSvgData: ({ format = 'qrcode', value, label = '' } = {}) => {
+    const qs = new URLSearchParams();
+    qs.set('format', String(format || 'qrcode'));
+    qs.set('value', String(value || ''));
+    if (label) qs.set('label', String(label));
+    qs.set('inline', '1');
+    return request(`/barcodes/render?${qs.toString()}`);
+  },
+  resolveScanCode: (code) => request(`/scan/${encodeURIComponent(code)}`),
+  getSetAsides: (params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''));
+    return request(`/items/set-aside?${qs}`);
+  },
+  createSetAside: (itemId, body) => request(`/items/${itemId}/set-aside`, { method: 'POST', body }),
+  updateSetAside: (id, body) => request(`/items/set-aside/${id}`, { method: 'PUT', body }),
+  resolveSetAside: (id, body) => request(`/items/set-aside/${id}/resolve`, { method: 'POST', body }),
+  getCategories: () => request('/items/categories', { dedupeKey: 'items:categories' }),
   getPopularCategories: (limit = 15) => request(`/items/categories/popular?limit=${limit}`),
   getAssociations: (id) => request(`/items/${id}/associations`),
   addAssociation: (id, child_id) => request(`/items/${id}/associations`, { method: 'POST', body: { child_id } }),
@@ -367,7 +492,7 @@ export const api = {
     return request(query ? `/quotes?${query}` : '/quotes', requestOptions);
   },
   getMapQuotePins: (requestOptions = {}) => request('/maps/quotes', requestOptions),
-  getQuotesSummary: () => request('/quotes/summary'),
+  getQuotesSummary: () => request('/quotes/summary', { dedupeKey: 'quotes:summary' }),
   getSalesAnalytics: (params = {}, requestOptions = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params || {}).forEach(([key, value]) => {
@@ -381,7 +506,7 @@ export const api = {
     const query = qs.toString();
     return request(query ? `/sales/analytics?${query}` : '/sales/analytics', requestOptions);
   },
-  getQuote: (id) => request(`/quotes/${id}`),
+  getQuote: (id, requestOptions = {}) => request(`/quotes/${id}`, requestOptions),
   createQuote: (body) => request('/quotes', { method: 'POST', body }),
   duplicateQuote: (id) => request(`/quotes/${id}/duplicate`, { method: 'POST' }),
   updateQuote: (id, body) => request(`/quotes/${id}`, { method: 'PUT', body }),
@@ -396,7 +521,7 @@ export const api = {
   getDamageCharges: (id) => request(`/quotes/${id}/damage-charges`),
   addDamageCharge: (id, body) => request(`/quotes/${id}/damage-charges`, { method: 'POST', body }),
   removeDamageCharge: (id, cid) => request(`/quotes/${id}/damage-charges/${cid}`, { method: 'DELETE' }),
-  getQuoteContract: (id) => request(`/quotes/${id}/contract`),
+  getQuoteContract: (id, requestOptions = {}) => request(`/quotes/${id}/contract`, requestOptions),
   getQuoteContractLogs: (id) => request(`/quotes/${id}/contract/logs`),
   updateQuoteContract: (id, body) => request(`/quotes/${id}/contract`, { method: 'PUT', body }),
   getPublicQuote: (token) => publicRequest(`/quotes/public/${token}`),
@@ -404,7 +529,7 @@ export const api = {
   signContractByToken: (token, body) => publicRequest('/quotes/contract/sign', { method: 'POST', body: { token, ...body } }),
   getPublicMessages: (token) => publicRequest(`/quotes/public/${token}/messages`),
   sendPublicMessage: (token, body) => publicRequest(`/quotes/public/${token}/messages`, { method: 'POST', body }),
-  getQuoteFiles: (id) => request(`/quotes/${id}/files`),
+  getQuoteFiles: (id, requestOptions = {}) => request(`/quotes/${id}/files`, requestOptions),
   addQuoteFile: (id, body) => request(`/quotes/${id}/files`, { method: 'POST', body }),
   removeQuoteFile: (quoteId, fileId) => request(`/quotes/${quoteId}/files/${fileId}`, { method: 'DELETE' }),
   getQuotePayments: (id) => request(`/quotes/${id}/payments`),
@@ -413,6 +538,12 @@ export const api = {
   recordRefund: (id, body) => request(`/quotes/${id}/refund`, { method: 'POST', body }),
   getQuoteActivity: (id) => request(`/quotes/${id}/activity`),
   getQuoteFulfillment: (id) => request(`/quotes/${id}/fulfillment`),
+  getQuotePullSheet: (id, requestOptions = {}) => request(`/quotes/${id}/pull-sheet`, requestOptions),
+  getAggregateQuotePullSheet: (ids, requestOptions = {}) => {
+    const qs = new URLSearchParams();
+    if (Array.isArray(ids) ? ids.length : ids) qs.set('ids', Array.isArray(ids) ? ids.join(',') : String(ids));
+    return request(`/quotes/pull-sheet/aggregate${qs.toString() ? `?${qs.toString()}` : ''}`, requestOptions);
+  },
   checkInFulfillmentItem: (quoteId, fulfillmentItemId, body) => request(`/quotes/${quoteId}/fulfillment/items/${fulfillmentItemId}/check-in`, { method: 'POST', body }),
   addFulfillmentNote: (quoteId, body) => request(`/quotes/${quoteId}/fulfillment/notes`, { method: 'POST', body }),
   addQuoteItem: (quoteId, body) => request(`/quotes/${quoteId}/items`, { method: 'POST', body }),
@@ -425,8 +556,9 @@ export const api = {
   removeQuoteSection: (quoteId, sectionId) => request(`/quotes/${quoteId}/sections/${sectionId}`, { method: 'DELETE' }),
 
   // Settings
-  getSettings: async () => {
-    const settings = await request('/settings');
+  getSettings: async (force = false) => {
+    if (!force && cachedSettings) return cachedSettings;
+    const settings = await request('/settings', { dedupeKey: 'settings' });
     cachedSettings = settings;
     return settings;
   },
@@ -494,11 +626,25 @@ export const api = {
   getBillingHistory: (requestOptions = {}) => request('/billing/history', requestOptions),
 
   // Stats
-  getStats: () => request('/stats'),
+  getStats: (params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''));
+    return request(`/stats${qs.toString() ? `?${qs.toString()}` : ''}`);
+  },
   getItemStats: (itemId) => request(`/stats/${itemId}`),
 
   // AI
   aiSuggest: (body) => request('/ai/suggest', { method: 'POST', body }),
+  getQuoteAssistantMessages: (quoteId) => request(`/ai/quotes/${quoteId}/assistant`),
+  sendQuoteAssistantMessage: (quoteId, body) => request(`/ai/quotes/${quoteId}/assistant`, { method: 'POST', body }),
+  clearQuoteAssistantMessages: (quoteId) => request(`/ai/quotes/${quoteId}/assistant/clear`, { method: 'POST', body: {} }),
+
+  // Team chat / Onyx chat
+  getTeamChatThreads: () => request('/team-chat/threads'),
+  createTeamChatThread: (body) => request('/team-chat/threads', { method: 'POST', body }),
+  getTeamChatMessages: (threadId) => request(`/team-chat/threads/${threadId}/messages`),
+  sendTeamChatMessage: (threadId, body) => request(`/team-chat/threads/${threadId}/messages`, { method: 'POST', body }),
+  getQuoteAiMessages: (quoteId) => request(`/messages/quotes/${quoteId}/ai`),
+  sendQuoteAiMessage: (quoteId, body) => request(`/messages/quotes/${quoteId}/ai`, { method: 'POST', body }),
 
   // Image proxy
   proxyImageUrl: (url, options) => {
@@ -542,23 +688,35 @@ export const api = {
   removeCustomItem: (qid, cid)        => request(`/quotes/${qid}/custom-items/${cid}`, { method: 'DELETE' }),
 
   // Messages
-  getMessages: (params) => {
+  getMessages: (params, requestOptions = {}) => {
     const qs = new URLSearchParams(Object.entries(params || {}).filter(function(e) { return e[1] !== undefined && e[1] !== ''; }));
-    return request('/messages?' + qs);
+    return request('/messages?' + qs, requestOptions);
   },
   sendQuoteMessage:  (quoteId, body) => request('/messages', { method: 'POST', body: { quote_id: quoteId, ...body } }),
-  getUnreadCount:    () => request('/messages/unread-count'),
+  getUnreadCount:    () => request('/messages/unread-count', { dedupeKey: 'messages:unread' }),
   markMessageRead:   (id) => request('/messages/' + id + '/read', { method: 'PUT' }),
   deleteMessage:     (id) => request('/messages/' + id, { method: 'DELETE' }),
 
-  // Vendors
-  getVendors:    ()           => request('/vendors'),
-  createVendor:  (body)       => request('/vendors', { method: 'POST', body }),
-  updateVendor:  (id, body)   => request(`/vendors/${id}`, { method: 'PUT', body }),
-  deleteVendor:  (id)         => request(`/vendors/${id}`, { method: 'DELETE' }),
+  // Directory
+  getClients:     (params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''));
+    return request(`/clients${qs.toString() ? `?${qs.toString()}` : ''}`);
+  },
+  createClient:   (body)       => request('/clients', { method: 'POST', body }),
+  updateClient:   (id, body)   => request(`/clients/${id}`, { method: 'PUT', body }),
+  getVenues:      (params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''));
+    return request(`/venues${qs.toString() ? `?${qs.toString()}` : ''}`);
+  },
+  createVenue:    (body)       => request('/venues', { method: 'POST', body }),
+  updateVenue:    (id, body)   => request(`/venues/${id}`, { method: 'PUT', body }),
+  getVendors:     ()           => request('/vendors'),
+  createVendor:   (body)       => request('/vendors', { method: 'POST', body }),
+  updateVendor:   (id, body)   => request(`/vendors/${id}`, { method: 'PUT', body }),
+  deleteVendor:   (id)         => request(`/vendors/${id}`, { method: 'DELETE' }),
 
   // Availability
-  getQuoteAvailability:     (quoteId) => request(`/availability/quote/${quoteId}`),
+  getQuoteAvailability:     (quoteId, requestOptions = {}) => request(`/availability/quote/${quoteId}`, requestOptions),
   getQuoteAvailabilityItems: (quoteId, itemIds, sectionId = null) => {
     if (!itemIds?.length) return Promise.resolve({});
     const ids = Array.isArray(itemIds) ? itemIds.join(',') : String(itemIds);
@@ -567,7 +725,7 @@ export const api = {
     if (sectionId != null && sectionId !== '') qs.set('section_id', String(sectionId));
     return request(`/availability/quote/${quoteId}/items?${qs.toString()}`);
   },
-  getConflicts:         ()        => request('/availability/conflicts'),
+  getConflicts:         ()        => request('/availability/conflicts', { dedupeKey: 'availability:conflicts' }),
   getSubrentals:        ()        => request('/availability/subrentals'),
 
   // Updates

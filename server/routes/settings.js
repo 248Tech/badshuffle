@@ -10,21 +10,31 @@ const ALLOWED_KEYS = [
   'quote_inventory_filter_mode', 'quote_inventory_max_categories', 'quote_inventory_manual_categories',
   'recaptcha_enabled', 'recaptcha_site_key', 'recaptcha_secret_key',
   'company_address', 'mapbox_access_token', 'map_default_style', 'google_places_api_key', 'count_oos_oversold', 'inventory_show_source',
-  'ai_claude_key_enc', 'ai_openai_key_enc', 'ai_gemini_key_enc',
+  'ai_claude_key_enc', 'ai_openai_key_enc', 'ai_gemini_key_enc', 'onyx_api_key_enc',
+  'ai_local_enabled', 'ai_local_mode', 'ai_local_autostart_enabled', 'ai_local_install_path', 'ai_local_base_url', 'ai_local_default_model',
   'ai_suggest_enabled', 'ai_suggest_model',
   'ai_pdf_import_enabled', 'ai_pdf_import_model',
   'ai_email_draft_enabled', 'ai_email_draft_model',
   'ai_description_enabled', 'ai_description_model',
+  'ai_agent_enabled', 'ai_agent_provider', 'ai_agent_model',
+  'team_chat_ai_fallback_enabled',
+  'onyx_enabled', 'onyx_mode', 'onyx_local_enabled', 'onyx_local_autostart_enabled', 'onyx_local_install_path', 'onyx_local_port', 'onyx_external_enabled', 'onyx_base_url', 'onyx_default_persona_id', 'onyx_team_persona_id', 'onyx_quote_persona_id',
   'ui_theme',
   'message_email_signature', 'message_theme', 'message_auto_attach_pdf',
-  'inventory_default_view', 'inventory_items_per_page',
+  'inventory_default_view', 'inventory_items_per_page', 'inventory_multi_select_enabled',
   'verbose_errors',
   'quote_event_types',
   'quote_auto_append_city_title',
+  'presence_offline_after_minutes',
+  'app_timezone',
+  'notification_tray_position',
+  'notification_icon_bg_opacity',
   'quote_view_default',
   'quote_view_standard_enabled',
   'quote_view_contract_enabled',
   'allowed_file_types',
+  'image_compression_enabled',
+  'image_auto_webp_enabled',
   'image_webp_quality',
   'image_avif_enabled',
   // Diagnostics / health logging
@@ -36,19 +46,29 @@ const ALLOWED_KEYS = [
 module.exports = function makeRouter(db) {
   const router = express.Router();
 
+  function safeDecrypt(value) {
+    try {
+      return decrypt(value);
+    } catch {
+      return '';
+    }
+  }
+
   function buildSettingsPayload(rows) {
     const settings = {};
     for (const row of rows) {
       if (row.key === 'smtp_pass_enc') {
-        settings.smtp_pass = decrypt(row.value);
+        settings.smtp_pass = safeDecrypt(row.value);
       } else if (row.key === 'imap_pass_enc') {
-        settings.imap_pass = decrypt(row.value);
+        settings.imap_pass = safeDecrypt(row.value);
       } else if (row.key === 'ai_claude_key_enc') {
-        settings.ai_claude_key = decrypt(row.value);
+        settings.ai_claude_key = safeDecrypt(row.value);
       } else if (row.key === 'ai_openai_key_enc') {
-        settings.ai_openai_key = decrypt(row.value);
+        settings.ai_openai_key = safeDecrypt(row.value);
       } else if (row.key === 'ai_gemini_key_enc') {
-        settings.ai_gemini_key = decrypt(row.value);
+        settings.ai_gemini_key = safeDecrypt(row.value);
+      } else if (row.key === 'onyx_api_key_enc') {
+        settings.onyx_api_key = safeDecrypt(row.value);
       } else {
         settings[row.key] = row.value;
       }
@@ -71,6 +91,7 @@ module.exports = function makeRouter(db) {
     if (body.ai_claude_key !== undefined) body.ai_claude_key_enc = body.ai_claude_key;
     if (body.ai_openai_key !== undefined) body.ai_openai_key_enc = body.ai_openai_key;
     if (body.ai_gemini_key !== undefined) body.ai_gemini_key_enc = body.ai_gemini_key;
+    if (body.onyx_api_key !== undefined) body.onyx_api_key_enc = body.onyx_api_key;
 
     const keys = Object.keys(body).filter(k => ALLOWED_KEYS.includes(k));
     if (keys.length === 0) return res.status(400).json({ error: 'No valid keys provided' });
@@ -78,7 +99,7 @@ module.exports = function makeRouter(db) {
     const entries = [];
     for (const k of keys) {
       let val = String(body[k] !== null && body[k] !== undefined ? body[k] : '');
-      if (k === 'smtp_pass_enc' || k === 'imap_pass_enc' || k === 'ai_claude_key_enc' || k === 'ai_openai_key_enc' || k === 'ai_gemini_key_enc') val = encrypt(val);
+      if (k === 'smtp_pass_enc' || k === 'imap_pass_enc' || k === 'ai_claude_key_enc' || k === 'ai_openai_key_enc' || k === 'ai_gemini_key_enc' || k === 'onyx_api_key_enc') val = encrypt(val);
       entries.push([k, val]);
     }
     upsertSettings(db, entries);
