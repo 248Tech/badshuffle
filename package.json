@@ -1,7 +1,7 @@
 {
   "name": "badshuffle",
   "version": "0.0.12",
-  "description": "Self-hosted event rental software for quotes, inventory, client approvals, billing, messaging, files, and public catalog publishing.",
+  "description": "Self-hosted event rental software for inventory management, project quotes, pull sheets, approvals, messaging, team operations, and public catalog publishing.",
   "private": true,
   "license": "MIT",
   "homepage": "https://github.com/248Tech/badshuffle",
@@ -15,12 +15,15 @@
   "keywords": [
     "event rental software",
     "rental inventory management",
+    "event rental crm",
     "quote management",
+    "pull sheets",
     "event operations",
     "self-hosted saas",
     "react",
     "express",
     "sqlite",
+    "rust",
     "client portal",
     "public catalog"
   ],

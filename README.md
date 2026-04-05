@@ -9,7 +9,9 @@
 
 BadShuffle is a self-hosted event rental software platform for inventory management, project quoting, contract approvals, billing, messaging, files, and SEO-friendly public catalog publishing. It targets event rental operators who want ownership of their stack, local-first deployment options, and a client-facing workflow without SaaS lock-in.
 
-**SEO keywords:** self-hosted event rental software, rental inventory management software, quote management system, client portal for rentals, public product catalog, event operations platform, React Express SQLite app.
+BadShuffle is designed for event rental companies that need project quoting, rental inventory management, pull sheets, customer approvals, internal team coordination, and self-hosted operational control in one system.
+
+**SEO keywords:** self-hosted event rental software, rental inventory management software, event rental CRM, quote management system, client portal for rentals, pull sheet software, event operations platform, React Express SQLite Rust app.
 
 *Pre-release (0.x). See [CHANGELOG.md](CHANGELOG.md) for version history and [RELEASE_NOTES_0.0.12.md](RELEASE_NOTES_0.0.12.md) for the current release summary.*
 
@@ -32,6 +34,13 @@ BadShuffle is a self-hosted event rental software platform for inventory managem
 - **Inventory operations upgrade** — Added set-aside workflows, stronger mobile/desktop inventory controls, AI batch editing, exact/loose search, serial numbers, QR-backed scan identity, and product sales totals.
 - **Pull sheets and internal picking** — Added quote pull sheets, aggregate pull exports for overlapping jobs, and scan-addressable internal pick views.
 - **Admin, help, and appearance** — Added deeper runtime controls in Admin, a guided Help page, and a dedicated Appearance settings page.
+
+## Search-Friendly Highlights
+
+- **Self-hosted event rental software** — Built for rental companies that want inventory, quotes, files, public catalog, and team operations without SaaS lock-in.
+- **Inventory and pull-sheet workflow** — Supports inventory search, set-asides, batch editing, internal pull sheets, aggregate pulls, and QR/serial tracking for operational fulfillment.
+- **Quote and approval workflow** — Covers project quoting, contract approvals, signatures, public quote sharing, billing context, and quote-linked messaging.
+- **Internal operations and AI** — Adds Team Chat, live notifications, AI-assisted quote workflows, managed local AI options, and operator-oriented admin diagnostics.
 
 ## Core Features
 
@@ -63,6 +72,23 @@ BadShuffle is a self-hosted event rental software platform for inventory managem
 - **Engine rollout hardening** — Keep Rust parity, pricing, and local AI runtime controls stable before widening those domains further.
 
 More context lives in [AI/TODO.md](AI/TODO.md), [AI/HANDOFF.md](AI/HANDOFF.md), and the coordination docs under [AI/].
+
+## Built With
+
+BadShuffle integrates and builds on a number of strong open-source and external platforms. Credit is due to the projects that make the current product possible:
+
+- **React** and **Vite** for the client application and build workflow
+- **Express** and **sql.js / SQLite** for the current application and data layer
+- **Rust** for the guarded engine rollout in `rust-core/`
+- **Mapbox** for the maps workspace and geocoding-linked operator views
+- **Onyx** for internal team knowledge/chat workflows
+- **Ollama** for managed local language model support
+- **OpenAI**, **Anthropic**, and **Gemini** provider integrations for optional hosted AI features
+- **bwip-js** for built-in QR/barcode generation
+- **Sharp** for image processing and optimization
+- **IMAPFlow** and **Nodemailer** for email polling and outbound mail
+
+These integrations are part of the product story, not an afterthought, and they deserve explicit credit.
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "name": "badshuffle-server",
-  "version": "0.0.11",
-  "description": "BadShuffle Express API for self-hosted event rental software, quote workflows, inventory, messaging, files, and public catalog publishing.",
+  "version": "0.0.12",
+  "description": "BadShuffle Express API for self-hosted event rental software, quote workflows, inventory operations, pull sheets, messaging, AI services, and public catalog publishing.",
   "private": true,
   "homepage": "https://github.com/248Tech/badshuffle",
   "repository": {
@@ -13,7 +13,10 @@
     "sqlite",
     "event rental",
     "quote management",
-    "inventory api"
+    "inventory api",
+    "pull sheets",
+    "ai operations",
+    "rust integration"
   ],
   "type": "commonjs",
   "scripts": {
